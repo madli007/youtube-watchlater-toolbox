@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.3.0
+// @version      0.3.1
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -26,7 +26,8 @@
     title: "#video-title",
     channel: "ytd-channel-name a, #channel-name a",
     duration: "ytd-thumbnail-overlay-time-status-renderer span",
-    metadata: "#metadata-line",
+    metadata: "#metadata-line, ytd-video-meta-block #metadata-line",
+    metadataBlock: "ytd-video-meta-block, #meta, #metadata",
     thumbnail: "ytd-thumbnail img",
     badge: "ytd-badge-supported-renderer",
     loading: "ytd-continuation-item-renderer, tp-yt-paper-spinner, ytd-playlist-video-list-renderer #spinner",
@@ -60,6 +61,59 @@
 
   function cleanText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function getTextLines(element) {
+    return String(element?.innerText || element?.textContent || "")
+      .split(/\r?\n/)
+      .map(line => cleanText(line))
+      .filter(Boolean);
+  }
+
+  function splitMetadataText(value) {
+    return cleanText(value)
+      .split(/\s*[•·]\s*/)
+      .map(part => cleanText(part))
+      .filter(Boolean);
+  }
+
+  function looksLikeViews(value) {
+    return /\b(view|views|ogled|ogledov|ogledi)\b/i.test(value);
+  }
+
+  function looksLikeUploaded(value) {
+    return /\b(ago|pred|hour|hours|day|days|week|weeks|month|months|year|years|uro|urami|dnev|tedn|mesec|let)\b/i.test(value);
+  }
+
+  function getMetadataParts(video, metaEl, channel) {
+    const spanParts = metaEl
+      ? Array.from(metaEl.querySelectorAll("span")).map(span => cleanText(span.textContent)).filter(Boolean)
+      : [];
+
+    if (spanParts.length >= 2) return spanParts;
+
+    const candidates = [];
+    if (metaEl) candidates.push(...getTextLines(metaEl));
+
+    const metadataBlock = video.querySelector(SELECTORS.metadataBlock);
+    if (metadataBlock) candidates.push(...getTextLines(metadataBlock));
+
+    candidates.push(...getTextLines(video));
+
+    for (const candidate of candidates) {
+      if (!candidate.includes("•") && !candidate.includes("·")) continue;
+
+      const parts = splitMetadataText(candidate);
+      const withoutChannel = parts[0] === channel ? parts.slice(1) : parts;
+      const viewIndex = withoutChannel.findIndex(looksLikeViews);
+      const uploadedIndex = withoutChannel.findIndex(looksLikeUploaded);
+
+      if (viewIndex !== -1 || uploadedIndex !== -1) {
+        return withoutChannel;
+      }
+    }
+
+    return spanParts;
   }
 
   function parseDurationSeconds(duration) {
@@ -138,8 +192,10 @@
         const thumbnailEl = video.querySelector(SELECTORS.thumbnail);
         const href = titleEl?.getAttribute("href") || "";
         const channelHref = channelEl?.getAttribute("href") || "";
-        const metadataSpans = metaEl ? Array.from(metaEl.querySelectorAll("span")) : [];
-        const metadataParts = metadataSpans.map(span => cleanText(span.textContent)).filter(Boolean);
+        const channel = cleanText(channelEl?.textContent);
+        const metadataParts = getMetadataParts(video, metaEl, channel);
+        const views = metadataParts.find(looksLikeViews) || metadataParts[0] || "";
+        const uploaded = metadataParts.find(looksLikeUploaded) || metadataParts[1] || "";
         const badges = Array.from(video.querySelectorAll(SELECTORS.badge))
           .map(badge => cleanText(badge.textContent))
           .filter(Boolean);
@@ -154,7 +210,7 @@
           playlistIndex: watchUrl.playlistIndex || index + 1,
           videoId: watchUrl.videoId,
           title: cleanText(titleEl?.textContent),
-          channel: cleanText(channelEl?.textContent),
+          channel,
           channelUrl: normalizeYouTubeUrl(channelHref),
           url,
           cleanUrl: watchUrl.cleanUrl,
@@ -163,8 +219,9 @@
           duration,
           durationSeconds: parseDurationSeconds(duration),
           thumbnailUrl: getImageUrl(thumbnailEl),
-          views: metadataParts[0] || "",
-          uploaded: metadataParts[1] || "",
+          views,
+          uploaded,
+          metadataText: metadataParts.join(" • "),
           metadata: metadataParts,
           badges,
           isUnavailable: !cleanText(titleEl?.textContent) || /private|deleted|unavailable/i.test(cleanText(video.textContent)),
