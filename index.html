@@ -284,6 +284,12 @@
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
     }
 
+    .video-row.is-current {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      background: #1b2029;
+    }
+
     .video-row[data-status="keep"] {
       border-left-color: var(--keep);
     }
@@ -305,6 +311,15 @@
       height: 18px;
       margin: 50px 0 0;
       accent-color: var(--accent);
+    }
+
+    .current-marker {
+      display: block;
+      margin-top: 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
     }
 
     .thumb {
@@ -567,7 +582,7 @@
         <section class="bulkbar" aria-label="Bulk actions">
           <div>
             <strong id="scopeLabel">No videos loaded</strong>
-            <div id="scopeHint" class="scope-text">Import a JSON export to begin.</div>
+      <div id="scopeHint" class="scope-text">Import a JSON export to begin.</div>
           </div>
           <div class="bulk-actions">
             <button id="keepBulk" class="keep-button" type="button">Keep scope</button>
@@ -802,6 +817,30 @@
       saveDecisions();
     }
 
+    function setStatusAndAdvance(videoId, status) {
+      setStatus(videoId, status);
+      moveCurrent(1);
+      render();
+    }
+
+    function moveCurrent(direction) {
+      const videos = getFilteredVideos();
+      if (!videos.length) {
+        state.currentId = "";
+        return;
+      }
+
+      const currentIndex = videos.findIndex(video => video.videoId === state.currentId);
+      const nextIndex = currentIndex === -1
+        ? 0
+        : Math.min(Math.max(currentIndex + direction, 0), videos.length - 1);
+      state.currentId = videos[nextIndex].videoId;
+
+      if (nextIndex >= state.renderedCount - 4) {
+        state.renderedCount = Math.min(videos.length, state.renderedCount + PAGE_SIZE);
+      }
+    }
+
     function applyBulkStatus(status) {
       const ids = getScopeIds();
       if (!ids.length) return;
@@ -905,10 +944,23 @@
     }
 
     function render() {
+      ensureCurrentVisible();
       renderStats();
       renderVideoList();
       renderSidebar();
       updateBulkLabels();
+    }
+
+    function ensureCurrentVisible() {
+      const videos = getFilteredVideos();
+      if (!videos.length) {
+        state.currentId = "";
+        return;
+      }
+
+      if (!videos.some(video => video.videoId === state.currentId)) {
+        state.currentId = videos[0].videoId;
+      }
     }
 
     function renderStats() {
@@ -943,7 +995,7 @@
       els.scopeLabel.textContent = state.videos.length ? `${scope} ${scopeName} videos` : "No videos loaded";
       els.scopeHint.textContent = selected
         ? "Bulk actions apply to selected videos."
-        : "Bulk actions apply to all visible filtered results.";
+        : "Bulk actions apply to all visible filtered results. Shortcuts k/m/d apply to the highlighted row.";
 
       els.keepBulk.textContent = `Keep ${scopeName}`;
       els.maybeBulk.textContent = `Maybe ${scopeName}`;
@@ -987,6 +1039,7 @@
       const status = getStatus(video.videoId);
       const row = document.createElement("article");
       row.className = "video-row";
+      if (state.currentId === video.videoId) row.classList.add("is-current");
       row.dataset.status = status;
       row.dataset.videoId = video.videoId;
 
@@ -1054,7 +1107,16 @@
         render();
       });
 
-      row.append(checkbox, thumb, content, actions);
+      const checkWrap = document.createElement("div");
+      checkWrap.appendChild(checkbox);
+      if (state.currentId === video.videoId) {
+        const marker = document.createElement("span");
+        marker.className = "current-marker";
+        marker.textContent = "Now";
+        checkWrap.appendChild(marker);
+      }
+
+      row.append(checkWrap, thumb, content, actions);
       return row;
     }
 
@@ -1065,8 +1127,7 @@
       button.textContent = label || status[0].toUpperCase() + status.slice(1);
       if (status === currentStatus) button.classList.add("is-active");
       button.addEventListener("click", () => {
-        setStatus(videoId, status);
-        render();
+        setStatusAndAdvance(videoId, status);
       });
       return button;
     }
@@ -1279,13 +1340,18 @@
       if (isTyping || !state.currentId) return;
 
       if (event.key === "k") {
-        setStatus(state.currentId, "keep");
-        render();
+        setStatusAndAdvance(state.currentId, "keep");
       } else if (event.key === "m") {
-        setStatus(state.currentId, "maybe");
-        render();
+        setStatusAndAdvance(state.currentId, "maybe");
       } else if (event.key === "d") {
-        setStatus(state.currentId, "delete");
+        setStatusAndAdvance(state.currentId, "delete");
+      } else if (event.key === "j" || event.key === "ArrowDown") {
+        event.preventDefault();
+        moveCurrent(1);
+        render();
+      } else if (event.key === "J" || event.key === "ArrowUp") {
+        event.preventDefault();
+        moveCurrent(-1);
         render();
       }
     }
