@@ -26,3 +26,11 @@ coverage/
 *.bak
 *.tmp
 *.user.js.bak
+
+# Personal Watch Later exports and local triage output
+watchlater_export*.json
+watchlater_export*.csv
+watchlater_keep_maybe*.json
+watchlater_delete_candidates*.json
+watchlater_tagged_all*.json
+delete-urls*.txt
