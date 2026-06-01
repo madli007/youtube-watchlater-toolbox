@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.1.0
+// @version      0.2.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -15,6 +15,8 @@
   const CONFIG = {
     scrollDelayMs: 1200,
     maxStableRounds: 3,
+    maxLoadMs: 10 * 60 * 1000,
+    settleDelayMs: 900,
     toolboxId: "yt-watchlater-toolbox",
     stylesId: "yt-watchlater-toolbox-styles",
   };
@@ -25,6 +27,7 @@
     channel: "ytd-channel-name a",
     duration: "ytd-thumbnail-overlay-time-status-renderer span",
     metadata: "#metadata-line",
+    loading: "ytd-continuation-item-renderer, tp-yt-paper-spinner, ytd-playlist-video-list-renderer #spinner",
   };
 
   const ICONS = {
@@ -32,6 +35,7 @@
     load: "\u25B6",
     csv: "\u21E9",
     json: "{}",
+    all: "\u21F2",
     done: "\u2713",
     loading: "\u2026",
     warning: "!",
@@ -149,28 +153,103 @@
     setStatus(`${ICONS.done} Exported ${videos.length} videos to JSON.`);
   }
 
-  function autoScroll(onProgress, onDone) {
-    let lastHeight = 0;
-    let stableRounds = 0;
-    const interval = window.setInterval(() => {
+  function isYouTubeLoadingMore() {
+    return Array.from(document.querySelectorAll(SELECTORS.loading))
+      .some(element => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      });
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function loadAllVideos(onProgress = () => {}) {
+    return new Promise((resolve, reject) => {
+      const startedAt = Date.now();
+      let lastHeight = 0;
+      let lastCount = 0;
+      let stableRounds = 0;
+
+      const interval = window.setInterval(() => {
+        if (Date.now() - startedAt > CONFIG.maxLoadMs) {
+          window.clearInterval(interval);
+          reject(new Error("Timed out while loading videos."));
+          return;
+        }
+
+        const videos = getLoadedVideos();
+        const loadedCount = videos.length;
+        const newHeight = document.documentElement.scrollHeight;
+        const isLoading = isYouTubeLoadingMore();
+
+        onProgress({
+          loadedCount,
+          stableRounds,
+          isLoading,
+        });
+
+        if (newHeight !== lastHeight || loadedCount !== lastCount || isLoading) {
+          lastHeight = newHeight;
+          lastCount = loadedCount;
+          stableRounds = 0;
+          window.scrollTo(0, document.documentElement.scrollHeight);
+          return;
+        }
+
+        stableRounds++;
+        window.scrollTo(0, document.documentElement.scrollHeight);
+
+        if (stableRounds >= CONFIG.maxStableRounds) {
+          window.clearInterval(interval);
+          wait(CONFIG.settleDelayMs).then(() => resolve(getLoadedVideos()));
+        }
+      }, CONFIG.scrollDelayMs);
+
       window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+  }
 
-      const newHeight = document.documentElement.scrollHeight;
-      const loadedCount = getLoadedVideos().length;
-      onProgress(loadedCount, stableRounds);
+  async function exportAll(format) {
+    const label = format.toUpperCase();
+    setBusy(true);
+    setStatus(`${ICONS.loading} Loading all videos before ${label} export...`);
 
-      if (newHeight !== lastHeight) {
-        lastHeight = newHeight;
-        stableRounds = 0;
+    try {
+      const videos = await loadAllVideos(({ loadedCount, isLoading }) => {
+        setCount();
+        setStatus(`${ICONS.loading} Loading all videos... ${loadedCount} found${isLoading ? ", still fetching" : ""}`);
+      });
+
+      setCount();
+
+      if (!videos.length) {
+        setStatus(`${ICONS.warning} No loaded videos found.`);
         return;
       }
 
-      stableRounds++;
-      if (stableRounds >= CONFIG.maxStableRounds) {
-        window.clearInterval(interval);
-        onDone(getLoadedVideos().length);
+      if (format === "csv") {
+        downloadText(
+          `watchlater_export_all_${getDateStamp()}.csv`,
+          `\uFEFF${buildCsv(videos)}`,
+          "text/csv;charset=utf-8",
+        );
+      } else {
+        downloadText(
+          `watchlater_export_all_${getDateStamp()}.json`,
+          JSON.stringify(videos, null, 2),
+          "application/json;charset=utf-8",
+        );
       }
-    }, CONFIG.scrollDelayMs);
+
+      setStatus(`${ICONS.done} Exported all ${videos.length} videos to ${label}.`);
+    } catch (error) {
+      setStatus(`${ICONS.warning} ${error.message || "Export all failed."}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function setStatus(message) {
@@ -181,6 +260,14 @@
   function setCount() {
     const countEl = document.querySelector(`#${CONFIG.toolboxId} [data-toolbox-count]`);
     if (countEl) countEl.textContent = String(getLoadedVideos().length);
+  }
+
+  function setBusy(isBusy) {
+    document
+      .querySelectorAll(`#${CONFIG.toolboxId} .ytwlt-button`)
+      .forEach(button => {
+        button.disabled = isBusy;
+      });
   }
 
   function createButton(icon, label, onClick) {
@@ -235,27 +322,31 @@
     collapseButton.title = "Collapse toolbox";
     status.textContent = "Ready.";
 
-    const loadButton = createButton(ICONS.load, "Load all", () => {
-      loadButton.disabled = true;
+    const loadButton = createButton(ICONS.load, "Load all", async () => {
+      setBusy(true);
       setStatus(`${ICONS.loading} Loading videos...`);
 
-      autoScroll(
-        loadedCount => {
+      try {
+        const videos = await loadAllVideos(({ loadedCount, isLoading }) => {
           setCount();
-          setStatus(`${ICONS.loading} Loading videos... ${loadedCount} found`);
-        },
-        loadedCount => {
-          loadButton.disabled = false;
-          setCount();
-          setStatus(`${ICONS.done} Done. ${loadedCount} videos loaded.`);
-        },
-      );
+          setStatus(`${ICONS.loading} Loading videos... ${loadedCount} found${isLoading ? ", still fetching" : ""}`);
+        });
+
+        setCount();
+        setStatus(`${ICONS.done} Done. ${videos.length} videos loaded.`);
+      } catch (error) {
+        setStatus(`${ICONS.warning} ${error.message || "Loading failed."}`);
+      } finally {
+        setBusy(false);
+      }
     });
 
     const csvButton = createButton(ICONS.csv, "Export CSV", exportCsv);
     const jsonButton = createButton(ICONS.json, "Export JSON", exportJson);
+    const exportAllCsvButton = createButton(ICONS.all, "Load + CSV", () => exportAll("csv"));
+    const exportAllJsonButton = createButton(ICONS.all, "Load + JSON", () => exportAll("json"));
 
-    actions.append(loadButton, csvButton, jsonButton);
+    actions.append(loadButton, csvButton, jsonButton, exportAllCsvButton, exportAllJsonButton);
     titleWrap.append(title, subtitle);
     header.append(titleWrap, collapseButton);
     body.append(actions, status);
