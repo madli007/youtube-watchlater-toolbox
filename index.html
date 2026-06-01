@@ -207,7 +207,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      grid-template-columns: repeat(6, minmax(90px, 1fr));
       gap: 8px;
       margin-bottom: 12px;
     }
@@ -541,6 +541,7 @@
           <input id="fileInput" type="file" accept=".json,application/json">
         </label>
         <button id="exportKeepMaybe" type="button">Export keep/maybe</button>
+        <button id="exportDeleteCandidates" type="button">Export delete candidates</button>
         <button id="exportTagged" type="button">Export tagged all</button>
         <button id="clearDecisions" type="button">Clear decisions</button>
       </div>
@@ -576,6 +577,7 @@
           <div class="stat"><strong id="visibleCount">0</strong><span>Visible</span></div>
           <div class="stat"><strong id="keepCount">0</strong><span>Keep</span></div>
           <div class="stat"><strong id="maybeCount">0</strong><span>Maybe</span></div>
+          <div class="stat"><strong id="protectedCount">0</strong><span>Protected</span></div>
           <div class="stat"><strong id="deleteCount">0</strong><span>Delete candidates</span></div>
         </section>
 
@@ -644,6 +646,7 @@
     const els = {
       fileInput: document.getElementById("fileInput"),
       exportKeepMaybe: document.getElementById("exportKeepMaybe"),
+      exportDeleteCandidates: document.getElementById("exportDeleteCandidates"),
       exportTagged: document.getElementById("exportTagged"),
       clearDecisions: document.getElementById("clearDecisions"),
       searchInput: document.getElementById("searchInput"),
@@ -656,6 +659,7 @@
       visibleCount: document.getElementById("visibleCount"),
       keepCount: document.getElementById("keepCount"),
       maybeCount: document.getElementById("maybeCount"),
+      protectedCount: document.getElementById("protectedCount"),
       deleteCount: document.getElementById("deleteCount"),
       scopeLabel: document.getElementById("scopeLabel"),
       scopeHint: document.getElementById("scopeHint"),
@@ -705,6 +709,7 @@
       els.invertSelection.addEventListener("click", invertVisibleSelection);
       els.clearSelection.addEventListener("click", clearSelection);
       els.exportKeepMaybe.addEventListener("click", exportKeepMaybe);
+      els.exportDeleteCandidates.addEventListener("click", exportDeleteCandidates);
       els.exportTagged.addEventListener("click", exportTaggedAll);
       els.clearDecisions.addEventListener("click", clearDecisions);
       document.addEventListener("keydown", handleShortcuts);
@@ -972,6 +977,7 @@
       els.visibleCount.textContent = visible;
       els.keepCount.textContent = counts.keep;
       els.maybeCount.textContent = counts.maybe;
+      els.protectedCount.textContent = counts.keep + counts.maybe;
       els.deleteCount.textContent = counts.unreviewed + counts.delete;
 
       const decisionCount = Object.keys(state.decisions).length;
@@ -1001,7 +1007,7 @@
       els.maybeBulk.textContent = `Maybe ${scopeName}`;
       els.deleteBulk.textContent = `Delete ${scopeName}`;
 
-      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportTagged].forEach(button => {
+      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged].forEach(button => {
         button.disabled = !state.videos.length;
       });
     }
@@ -1267,6 +1273,36 @@
         source: "youtube-watchlater-triage",
         mode: "tagged-all",
         videos,
+      });
+    }
+
+    function exportDeleteCandidates() {
+      const deleteCandidates = [];
+      const protectedVideos = [];
+
+      for (const video of state.videos) {
+        const decision = getDecision(video.videoId);
+        const exported = toExportVideo(video, decision);
+
+        if (decision.status === "keep" || decision.status === "maybe") {
+          protectedVideos.push(exported);
+        } else {
+          deleteCandidates.push(exported);
+        }
+      }
+
+      downloadJson(`watchlater_delete_candidates_${getDateStamp()}.json`, {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        source: "youtube-watchlater-triage",
+        mode: "delete-candidates",
+        counts: {
+          total: state.videos.length,
+          protected: protectedVideos.length,
+          deleteCandidates: deleteCandidates.length,
+        },
+        deleteCandidates,
+        protected: protectedVideos,
       });
     }
 
