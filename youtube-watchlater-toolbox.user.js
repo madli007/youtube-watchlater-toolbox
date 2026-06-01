@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.3.1
+// @version      0.4.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -63,6 +63,10 @@
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
+  function metadataSeparatorPattern() {
+    return new RegExp(`\\s*[${String.fromCharCode(0x2022)}${String.fromCharCode(0x00B7)}]\\s*`);
+  }
+
   function getTextLines(element) {
     return String(element?.innerText || element?.textContent || "")
       .split(/\r?\n/)
@@ -72,7 +76,7 @@
 
   function splitMetadataText(value) {
     return cleanText(value)
-      .split(/\s*[•·]\s*/)
+      .split(metadataSeparatorPattern())
       .map(part => cleanText(part))
       .filter(Boolean);
   }
@@ -83,6 +87,37 @@
 
   function looksLikeUploaded(value) {
     return /\b(ago|pred|hour|hours|day|days|week|weeks|month|months|year|years|uro|urami|dnev|tedn|mesec|let)\b/i.test(value);
+  }
+
+  function parseLocalizedNumber(value) {
+    const numberText = cleanText(value).match(/[\d.,]+/)?.[0];
+    if (!numberText) return null;
+
+    const normalized = numberText.includes(",") && numberText.includes(".")
+      ? numberText.replace(/\./g, "").replace(",", ".")
+      : numberText.replace(",", ".");
+    const number = Number(normalized);
+
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function parseViewCountApprox(value) {
+    const text = cleanText(value).toLowerCase();
+    const number = parseLocalizedNumber(text);
+    if (number === null) return null;
+
+    if (/\b(tis|k)\b/.test(text)) return Math.round(number * 1000);
+    if (/\b(mio|m|million|millions)\b/.test(text)) return Math.round(number * 1000000);
+    if (/\b(billion|billions|b)\b/.test(text)) return Math.round(number * 1000000000);
+
+    return Math.round(number);
+  }
+
+  function buildSearchText(parts) {
+    return parts
+      .map(part => cleanText(part).toLowerCase())
+      .filter(Boolean)
+      .join(" ");
   }
 
   function getMetadataParts(video, metaEl, channel) {
@@ -101,7 +136,7 @@
     candidates.push(...getTextLines(video));
 
     for (const candidate of candidates) {
-      if (!candidate.includes("•") && !candidate.includes("·")) continue;
+      if (!metadataSeparatorPattern().test(candidate)) continue;
 
       const parts = splitMetadataText(candidate);
       const withoutChannel = parts[0] === channel ? parts.slice(1) : parts;
@@ -182,6 +217,10 @@
     return imageEl.currentSrc || imageEl.src || imageEl.getAttribute("data-thumb") || "";
   }
 
+  function getThumbnailUrl(imageEl, videoId) {
+    return getImageUrl(imageEl) || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "");
+  }
+
   function getLoadedVideos() {
     return Array.from(document.querySelectorAll(SELECTORS.video))
       .map((video, index) => {
@@ -202,6 +241,8 @@
         const url = normalizeYouTubeUrl(href);
         const watchUrl = parseWatchUrl(url);
         const duration = cleanText(durationEl?.textContent);
+        const title = cleanText(titleEl?.textContent);
+        const thumbnailUrl = getThumbnailUrl(thumbnailEl, watchUrl.videoId);
 
         if (!titleEl && !url) return null;
 
@@ -209,21 +250,24 @@
           index: index + 1,
           playlistIndex: watchUrl.playlistIndex || index + 1,
           videoId: watchUrl.videoId,
-          title: cleanText(titleEl?.textContent),
+          title,
           channel,
           channelUrl: normalizeYouTubeUrl(channelHref),
           url,
           cleanUrl: watchUrl.cleanUrl,
+          embedUrl: watchUrl.videoId ? `https://www.youtube.com/embed/${watchUrl.videoId}` : "",
           playlistId: watchUrl.playlistId,
           startTimeSeconds: watchUrl.startTimeSeconds,
           duration,
           durationSeconds: parseDurationSeconds(duration),
-          thumbnailUrl: getImageUrl(thumbnailEl),
+          thumbnailUrl,
           views,
+          viewCountApprox: parseViewCountApprox(views),
           uploaded,
-          metadataText: metadataParts.join(" • "),
+          metadataText: metadataParts.join(` ${String.fromCharCode(0x2022)} `),
           metadata: metadataParts,
           badges,
+          searchText: buildSearchText([title, channel, views, uploaded, duration]),
           isUnavailable: !cleanText(titleEl?.textContent) || /private|deleted|unavailable/i.test(cleanText(video.textContent)),
         };
       })
@@ -232,7 +276,7 @@
 
   function buildCsv(videos) {
     const rows = [
-      ["Index", "Video ID", "Title", "Channel", "URL", "Duration", "Duration Seconds", "Views", "Uploaded"],
+      ["Index", "Video ID", "Title", "Channel", "URL", "Duration", "Duration Seconds", "Views", "View Count Approx", "Uploaded"],
       ...videos.map(video => [
         video.index,
         video.videoId,
@@ -242,6 +286,7 @@
         video.duration,
         video.durationSeconds ?? "",
         video.views,
+        video.viewCountApprox ?? "",
         video.uploaded,
       ]),
     ];
