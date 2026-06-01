@@ -565,6 +565,7 @@
       </select>
       <select id="sortSelect">
         <option value="index">Playlist order</option>
+        <option value="index-desc">Playlist order reverse</option>
         <option value="channel">Channel</option>
         <option value="duration-desc">Duration high to low</option>
         <option value="views-desc">Views high to low</option>
@@ -937,6 +938,8 @@
         copy.sort((a, b) => (b.viewCountApprox || 0) - (a.viewCountApprox || 0));
       } else if (sort === "title") {
         copy.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+      } else if (sort === "index-desc") {
+        copy.sort((a, b) => (b.index || 0) - (a.index || 0));
       } else {
         copy.sort((a, b) => (a.index || 0) - (b.index || 0));
       }
