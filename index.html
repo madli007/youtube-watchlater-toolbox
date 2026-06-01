@@ -142,7 +142,7 @@
       top: 65px;
       z-index: 15;
       display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.6fr) minmax(130px, 0.6fr) minmax(140px, 0.7fr) auto;
+      grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.55fr) minmax(180px, 0.8fr) minmax(140px, 0.6fr) auto;
       gap: 10px;
       padding: 12px 18px;
       background: rgba(24, 27, 33, 0.96);
@@ -157,6 +157,49 @@
       padding: 0 18px 12px;
       background: rgba(24, 27, 33, 0.96);
       border-bottom: 1px solid var(--border);
+    }
+
+    .channel-combo {
+      position: relative;
+      min-width: 0;
+    }
+
+    .channel-menu {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      right: 0;
+      z-index: 40;
+      display: none;
+      max-height: 330px;
+      overflow: auto;
+      padding: 6px;
+      background: #111318;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .channel-combo.is-open .channel-menu {
+      display: grid;
+      gap: 4px;
+    }
+
+    .channel-option {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      min-height: 30px;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .channel-option span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .tag-chip,
@@ -560,9 +603,10 @@
         <option value="maybe">Maybe</option>
         <option value="delete">Delete</option>
       </select>
-      <select id="channelFilter">
-        <option value="all">All channels</option>
-      </select>
+      <div id="channelCombo" class="channel-combo">
+        <input id="channelSearch" type="search" placeholder="All channels">
+        <div id="channelMenu" class="channel-menu"></div>
+      </div>
       <select id="sortSelect">
         <option value="index">Playlist order</option>
         <option value="index-desc">Playlist order reverse</option>
@@ -655,6 +699,7 @@
       decisions: loadDecisions(),
       selectedIds: new Set(),
       activeTag: "all",
+      activeChannel: "all",
       renderedCount: PAGE_SIZE,
       currentId: "",
     };
@@ -667,7 +712,9 @@
       clearDecisions: document.getElementById("clearDecisions"),
       searchInput: document.getElementById("searchInput"),
       statusFilter: document.getElementById("statusFilter"),
-      channelFilter: document.getElementById("channelFilter"),
+      channelCombo: document.getElementById("channelCombo"),
+      channelSearch: document.getElementById("channelSearch"),
+      channelMenu: document.getElementById("channelMenu"),
       sortSelect: document.getElementById("sortSelect"),
       clearFilters: document.getElementById("clearFilters"),
       tagFilter: document.getElementById("tagFilter"),
@@ -712,9 +759,30 @@
         state.renderedCount = PAGE_SIZE;
         render();
       });
-      els.channelFilter.addEventListener("change", () => {
+      els.channelSearch.addEventListener("focus", () => {
+        openChannelMenu();
+      });
+      els.channelSearch.addEventListener("input", () => {
+        state.activeChannel = "all";
+        openChannelMenu();
         state.renderedCount = PAGE_SIZE;
         render();
+      });
+      els.channelSearch.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          closeChannelMenu();
+          els.channelSearch.blur();
+          return;
+        }
+
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const first = getChannelOptions()[0];
+          if (first) selectChannel(first.name);
+        }
+      });
+      document.addEventListener("click", event => {
+        if (!event.target.closest("#channelCombo")) closeChannelMenu();
       });
       els.sortSelect.addEventListener("change", render);
       els.clearFilters.addEventListener("click", clearFilters);
@@ -750,11 +818,12 @@
         state.videos = deduped;
         state.selectedIds.clear();
         state.activeTag = "all";
+        state.activeChannel = "all";
         state.renderedCount = PAGE_SIZE;
         state.currentId = deduped[0]?.videoId || "";
-        els.channelFilter.value = "all";
         els.statusFilter.value = "all";
         els.searchInput.value = "";
+        els.channelSearch.value = "";
         populateChannels();
         renderTagFilters();
         render();
@@ -911,7 +980,8 @@
     function clearFilters() {
       els.searchInput.value = "";
       els.statusFilter.value = "all";
-      els.channelFilter.value = "all";
+      state.activeChannel = "all";
+      els.channelSearch.value = "";
       els.sortSelect.value = "index";
       state.activeTag = "all";
       state.renderedCount = PAGE_SIZE;
@@ -923,13 +993,15 @@
     function getFilteredVideos() {
       const query = els.searchInput.value.trim().toLowerCase();
       const status = els.statusFilter.value;
-      const channel = els.channelFilter.value;
+      const channel = state.activeChannel;
+      const channelQuery = els.channelSearch.value.trim().toLowerCase();
       const tag = state.activeTag;
 
       return getSortedVideos(state.videos.filter(video => {
         if (query && !video.searchText.includes(query)) return false;
         if (status !== "all" && getStatus(video.videoId) !== status) return false;
         if (channel !== "all" && video.channel !== channel) return false;
+        if (channelQuery && !String(video.channel || "").toLowerCase().includes(channelQuery)) return false;
         if (tag !== "all" && !video.suggestedTags.includes(tag)) return false;
         return true;
       }));
@@ -1043,7 +1115,8 @@
       const query = els.searchInput.value.trim();
       if (query) filters.push(`search="${query}"`);
       if (els.statusFilter.value !== "all") filters.push(`status=${els.statusFilter.value}`);
-      if (els.channelFilter.value !== "all") filters.push(`channel=${els.channelFilter.value}`);
+      if (state.activeChannel !== "all") filters.push(`channel=${state.activeChannel}`);
+      else if (els.channelSearch.value.trim()) filters.push(`channel search="${els.channelSearch.value.trim()}"`);
       if (state.activeTag !== "all") filters.push(`tag=${state.activeTag}`);
       if (els.sortSelect.value !== "index") {
         const label = els.sortSelect.options[els.sortSelect.selectedIndex]?.textContent || els.sortSelect.value;
@@ -1204,9 +1277,7 @@
         button.innerHTML = `<span></span><strong>${item.count}</strong>`;
         button.querySelector("span").textContent = item.name;
         button.addEventListener("click", () => {
-          els.channelFilter.value = item.name;
-          state.renderedCount = PAGE_SIZE;
-          render();
+          selectChannel(item.name);
         });
         return button;
       }));
@@ -1245,18 +1316,78 @@
     }
 
     function populateChannels() {
-      const current = els.channelFilter.value;
-      const channels = groupCounts(state.videos, video => video.channel || "(unknown)")
-        .map(item => item.name);
-      els.channelFilter.replaceChildren(createOption("all", "All channels"), ...channels.map(channel => createOption(channel, channel)));
-      els.channelFilter.value = channels.includes(current) ? current : "all";
+      const channels = getAllChannelNames();
+      if (state.activeChannel !== "all" && !channels.includes(state.activeChannel)) {
+        state.activeChannel = "all";
+        els.channelSearch.value = "";
+      }
+      renderChannelMenu();
     }
 
-    function createOption(value, label) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      return option;
+    function getAllChannelNames() {
+      return groupCounts(state.videos, video => video.channel || "(unknown)")
+        .map(item => item.name);
+    }
+
+    function getChannelOptions() {
+      const query = els.channelSearch.value.trim().toLowerCase();
+      const channels = groupCounts(state.videos, video => video.channel || "(unknown)");
+      if (!query || state.activeChannel !== "all") return channels;
+      return channels.filter(item => item.name.toLowerCase().includes(query));
+    }
+
+    function openChannelMenu() {
+      renderChannelMenu();
+      els.channelCombo.classList.add("is-open");
+    }
+
+    function closeChannelMenu() {
+      els.channelCombo.classList.remove("is-open");
+    }
+
+    function selectChannel(channel) {
+      state.activeChannel = channel;
+      els.channelSearch.value = channel;
+      closeChannelMenu();
+      state.renderedCount = PAGE_SIZE;
+      render();
+    }
+
+    function clearChannelFilter() {
+      state.activeChannel = "all";
+      els.channelSearch.value = "";
+      state.renderedCount = PAGE_SIZE;
+      render();
+    }
+
+    function renderChannelMenu() {
+      const options = getChannelOptions().slice(0, 80);
+      const clearButton = document.createElement("button");
+      clearButton.type = "button";
+      clearButton.className = "channel-option";
+      clearButton.innerHTML = "<span>All channels</span><strong></strong>";
+      clearButton.addEventListener("click", clearChannelFilter);
+
+      const optionButtons = options.map(item => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "channel-option";
+        button.title = item.name;
+        button.innerHTML = `<span></span><strong>${item.count}</strong>`;
+        button.querySelector("span").textContent = item.name;
+        button.addEventListener("click", () => selectChannel(item.name));
+        return button;
+      });
+
+      if (!optionButtons.length) {
+        const empty = document.createElement("div");
+        empty.className = "scope-text";
+        empty.textContent = "No matching channels.";
+        els.channelMenu.replaceChildren(clearButton, empty);
+        return;
+      }
+
+      els.channelMenu.replaceChildren(clearButton, ...optionButtons);
     }
 
     function renderTagFilters() {
