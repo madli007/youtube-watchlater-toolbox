@@ -4,7 +4,7 @@
 // @version      0.1.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
-// @match        https://www.youtube.com/*
+// @include      https://www.youtube.com/playlist?list=WL*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -208,6 +208,7 @@
     const titleWrap = document.createElement("div");
     const title = document.createElement("div");
     const subtitle = document.createElement("div");
+    const count = document.createElement("span");
     const collapseButton = document.createElement("button");
     const body = document.createElement("div");
     const actions = document.createElement("div");
@@ -227,7 +228,9 @@
     status.setAttribute("data-toolbox-status", "");
 
     title.textContent = `${ICONS.toolbox} Watch Later Toolbox`;
-    subtitle.innerHTML = `<span data-toolbox-count>0</span> loaded videos`;
+    count.setAttribute("data-toolbox-count", "");
+    count.textContent = "0";
+    subtitle.append(count, " loaded videos");
     collapseButton.textContent = ICONS.collapse;
     collapseButton.title = "Collapse toolbox";
     status.textContent = "Ready.";
