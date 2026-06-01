@@ -497,6 +497,7 @@
     const status = document.createElement("div");
 
     toolbox.id = CONFIG.toolboxId;
+    toolbox.classList.add("is-collapsed");
     toolbox.setAttribute("aria-label", "YouTube Watch Later Toolbox");
     header.className = "ytwlt-header";
     titleWrap.className = "ytwlt-title-wrap";
@@ -513,8 +514,8 @@
     count.setAttribute("data-toolbox-count", "");
     count.textContent = "0";
     subtitle.append(count, " loaded videos");
-    collapseButton.textContent = ICONS.collapse;
-    collapseButton.title = "Collapse toolbox";
+    collapseButton.textContent = ICONS.expand;
+    collapseButton.title = "Expand toolbox";
     status.textContent = "Ready.";
 
     const loadButton = createButton(ICONS.load, "Load all", async () => {
