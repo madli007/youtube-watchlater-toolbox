@@ -589,7 +589,8 @@
         <section class="bulkbar" aria-label="Bulk actions">
           <div>
             <strong id="scopeLabel">No videos loaded</strong>
-      <div id="scopeHint" class="scope-text">Import a JSON export to begin.</div>
+            <div id="scopeHint" class="scope-text">Import a JSON export to begin.</div>
+            <div id="activeFilters" class="scope-text">Filters: none</div>
           </div>
           <div class="bulk-actions">
             <button id="keepBulk" class="keep-button" type="button">Keep scope</button>
@@ -630,6 +631,7 @@
   <script>
     const STORAGE_KEY = "watchlater-triage-decisions-v1";
     const PAGE_SIZE = 220;
+    const BULK_CONFIRM_THRESHOLD = 100;
     const RULES = {
       reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction", "episode reaction", "watching for the first time", "after show reacts", "#strugglenation", "blind wave", "reel rejects", "the normies", "holden & jen", "kat & sonny", "the 354 squad", "sean tanktop", "mary cherry", "just stef", "alyska"],
       marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "spider-man", "spiderman", "captain america", "black panther", "ant-man", "wakanda", "avengers", "loki", "thor", "wanda", "deadpool", "x-men", "fantastic four", "moon knight", "hawkeye", "she-hulk", "doctor strange", "iron man", "secret invasion"],
@@ -677,6 +679,7 @@
       deleteCount: document.getElementById("deleteCount"),
       scopeLabel: document.getElementById("scopeLabel"),
       scopeHint: document.getElementById("scopeHint"),
+      activeFilters: document.getElementById("activeFilters"),
       keepBulk: document.getElementById("keepBulk"),
       maybeBulk: document.getElementById("maybeBulk"),
       deleteBulk: document.getElementById("deleteBulk"),
@@ -863,6 +866,12 @@
     function applyBulkStatus(status) {
       const ids = getScopeIds();
       if (!ids.length) return;
+      const scopeName = state.selectedIds.size ? "selected" : "visible";
+      if (ids.length > BULK_CONFIRM_THRESHOLD) {
+        const label = status === "unreviewed" ? "reset" : status;
+        const ok = confirm(`Apply "${label}" to ${ids.length} ${scopeName} videos?`);
+        if (!ok) return;
+      }
       ids.forEach(videoId => setStatus(videoId, status));
       state.selectedIds.clear();
       render();
@@ -1018,6 +1027,7 @@
       els.scopeHint.textContent = selected
         ? "Bulk actions apply to selected videos."
         : "Bulk actions apply to all visible filtered results. Shortcuts k/m/d apply to the highlighted row.";
+      els.activeFilters.textContent = `Filters: ${getActiveFilterSummary().join(", ") || "none"}`;
 
       els.keepBulk.textContent = `Keep ${scopeName}`;
       els.maybeBulk.textContent = `Maybe ${scopeName}`;
@@ -1026,6 +1036,20 @@
       [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged].forEach(button => {
         button.disabled = !state.videos.length;
       });
+    }
+
+    function getActiveFilterSummary() {
+      const filters = [];
+      const query = els.searchInput.value.trim();
+      if (query) filters.push(`search="${query}"`);
+      if (els.statusFilter.value !== "all") filters.push(`status=${els.statusFilter.value}`);
+      if (els.channelFilter.value !== "all") filters.push(`channel=${els.channelFilter.value}`);
+      if (state.activeTag !== "all") filters.push(`tag=${state.activeTag}`);
+      if (els.sortSelect.value !== "index") {
+        const label = els.sortSelect.options[els.sortSelect.selectedIndex]?.textContent || els.sortSelect.value;
+        filters.push(`sort=${label}`);
+      }
+      return filters;
     }
 
     function renderVideoList() {
