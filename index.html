@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch Later Triage</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101114;
+      --panel: #181b21;
+      --panel-2: #20242c;
+      --panel-3: #2a2f39;
+      --text: #f3f5f7;
+      --muted: #a8b0bd;
+      --border: #343a45;
+      --accent: #6ec6ff;
+      --keep: #33c47a;
+      --maybe: #f0b84f;
+      --delete: #ef6b73;
+      --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      min-height: 34px;
+      color: var(--text);
+      background: var(--panel-3);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #343b48;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    input,
+    select {
+      min-height: 34px;
+      width: 100%;
+      color: var(--text);
+      background: #111318;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 16px 18px;
+      background: rgba(16, 17, 20, 0.94);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 24px;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .file-button {
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      color: var(--text);
+      background: var(--accent);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-weight: 700;
+    }
+
+    .file-button input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .filters {
+      position: sticky;
+      top: 65px;
+      z-index: 15;
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.6fr) minmax(130px, 0.6fr) minmax(140px, 0.7fr);
+      gap: 10px;
+      padding: 12px 18px;
+      background: rgba(24, 27, 33, 0.96);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+
+    .tag-filter {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 0 18px 12px;
+      background: rgba(24, 27, 33, 0.96);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tag-chip,
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--text);
+      background: var(--panel-3);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .tag-chip.is-active {
+      border-color: var(--accent);
+      color: #081015;
+      background: var(--accent);
+      font-weight: 700;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 0;
+      min-height: 0;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 16px 18px 48px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 136px;
+      align-self: start;
+      height: calc(100vh - 136px);
+      overflow: auto;
+      padding: 16px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat {
+      min-height: 60px;
+      padding: 9px 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 18px;
+      line-height: 24px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bulkbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .bulk-actions,
+    .selection-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .scope-text {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .video-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .empty {
+      padding: 40px 20px;
+      color: var(--muted);
+      text-align: center;
+      background: var(--panel);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .video-row {
+      display: grid;
+      grid-template-columns: 28px 138px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+    }
+
+    .video-row[data-status="keep"] {
+      border-left-color: var(--keep);
+    }
+
+    .video-row[data-status="maybe"] {
+      border-left-color: var(--maybe);
+    }
+
+    .video-row[data-status="delete"] {
+      border-left-color: var(--delete);
+    }
+
+    .video-row[data-status="unreviewed"] {
+      border-left-color: #596171;
+    }
+
+    .row-check {
+      width: 18px;
+      height: 18px;
+      margin: 50px 0 0;
+      accent-color: var(--accent);
+    }
+
+    .thumb {
+      width: 138px;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #0b0c0f;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .video-title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 19px;
+      letter-spacing: 0;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 8px;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 7px;
+    }
+
+    .tag {
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 3px 7px;
+      background: #142431;
+      color: #bfe9ff;
+      font-size: 11px;
+      border: 1px solid #24465f;
+    }
+
+    .status-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      min-width: 92px;
+    }
+
+    .status-actions button {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .status-actions .is-active[data-action-status="keep"] {
+      color: #03120a;
+      background: var(--keep);
+      border-color: var(--keep);
+      font-weight: 800;
+    }
+
+    .status-actions .is-active[data-action-status="maybe"] {
+      color: #1b1202;
+      background: var(--maybe);
+      border-color: var(--maybe);
+      font-weight: 800;
+    }
+
+    .status-actions .is-active[data-action-status="delete"] {
+      color: #1b0506;
+      background: var(--delete);
+      border-color: var(--delete);
+      font-weight: 800;
+    }
+
+    .panel {
+      margin-bottom: 14px;
+      padding: 12px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .panel h2 {
+      margin: 0 0 9px;
+      font-size: 13px;
+      line-height: 18px;
+      letter-spacing: 0;
+    }
+
+    .channel-list {
+      display: grid;
+      gap: 5px;
+    }
+
+    .channel-button {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 30px;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .channel-button span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .danger {
+      color: #1b0506;
+      background: var(--delete);
+      border-color: var(--delete);
+      font-weight: 800;
+    }
+
+    .keep-button {
+      color: #03120a;
+      background: var(--keep);
+      border-color: var(--keep);
+      font-weight: 800;
+    }
+
+    .maybe-button {
+      color: #1b1202;
+      background: var(--maybe);
+      border-color: var(--maybe);
+      font-weight: 800;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: 420px;
+      padding: 10px 12px;
+      color: var(--text);
+      background: #08090b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+
+    .toast.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 980px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .filters {
+        top: 73px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(90px, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+      }
+
+      .filters {
+        position: static;
+        grid-template-columns: 1fr;
+      }
+
+      .video-row {
+        grid-template-columns: 24px 96px minmax(0, 1fr);
+      }
+
+      .thumb {
+        width: 96px;
+      }
+
+      .status-actions {
+        grid-column: 2 / 4;
+        grid-template-columns: repeat(4, minmax(70px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Watch Later Triage</h1>
+        <p>Import a Watch Later JSON export, mark what stays, export keep/maybe.</p>
+      </div>
+      <div class="top-actions">
+        <label class="file-button">
+          Import JSON
+          <input id="fileInput" type="file" accept=".json,application/json">
+        </label>
+        <button id="exportKeepMaybe" type="button">Export keep/maybe</button>
+        <button id="exportTagged" type="button">Export tagged all</button>
+        <button id="clearDecisions" type="button">Clear decisions</button>
+      </div>
+    </header>
+
+    <section class="filters" aria-label="Filters">
+      <input id="searchInput" type="search" placeholder="Search title, channel, views, tags...">
+      <select id="statusFilter">
+        <option value="all">All statuses</option>
+        <option value="unreviewed">Unreviewed</option>
+        <option value="keep">Keep</option>
+        <option value="maybe">Maybe</option>
+        <option value="delete">Delete</option>
+      </select>
+      <select id="channelFilter">
+        <option value="all">All channels</option>
+      </select>
+      <select id="sortSelect">
+        <option value="index">Playlist order</option>
+        <option value="channel">Channel</option>
+        <option value="duration-desc">Duration high to low</option>
+        <option value="views-desc">Views high to low</option>
+        <option value="title">Title</option>
+      </select>
+    </section>
+    <section id="tagFilter" class="tag-filter" aria-label="Suggested tag filters"></section>
+
+    <div class="workspace">
+      <main class="main">
+        <section class="stats" aria-label="Stats">
+          <div class="stat"><strong id="totalCount">0</strong><span>Total</span></div>
+          <div class="stat"><strong id="visibleCount">0</strong><span>Visible</span></div>
+          <div class="stat"><strong id="keepCount">0</strong><span>Keep</span></div>
+          <div class="stat"><strong id="maybeCount">0</strong><span>Maybe</span></div>
+          <div class="stat"><strong id="deleteCount">0</strong><span>Delete candidates</span></div>
+        </section>
+
+        <section class="bulkbar" aria-label="Bulk actions">
+          <div>
+            <strong id="scopeLabel">No videos loaded</strong>
+            <div id="scopeHint" class="scope-text">Import a JSON export to begin.</div>
+          </div>
+          <div class="bulk-actions">
+            <button id="keepBulk" class="keep-button" type="button">Keep scope</button>
+            <button id="maybeBulk" class="maybe-button" type="button">Maybe scope</button>
+            <button id="deleteBulk" class="danger" type="button">Delete scope</button>
+            <button id="resetBulk" type="button">Reset scope</button>
+          </div>
+          <div class="selection-actions">
+            <button id="selectVisible" type="button">Select visible</button>
+            <button id="invertSelection" type="button">Invert</button>
+            <button id="clearSelection" type="button">Clear selected</button>
+          </div>
+        </section>
+
+        <section id="videoList" class="video-list" aria-label="Videos">
+          <div class="empty">No JSON imported yet.</div>
+        </section>
+      </main>
+
+      <aside class="sidebar" aria-label="Summary">
+        <section class="panel">
+          <h2>Top channels</h2>
+          <div id="channelList" class="channel-list"></div>
+        </section>
+        <section class="panel">
+          <h2>Tag counts</h2>
+          <div id="tagSummary" class="channel-list"></div>
+        </section>
+        <section class="panel">
+          <h2>State</h2>
+          <div id="stateSummary" class="scope-text">Decisions are saved locally by video ID.</div>
+        </section>
+      </aside>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = "watchlater-triage-decisions-v1";
+    const PAGE_SIZE = 220;
+    const RULES = {
+      marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "captain america", "black panther", "ant-man", "wakanda"],
+      starWars: ["star wars", "clone wars", "ahsoka", "maul", "andor", "kenobi", "jedi", "sith"],
+      dragonBall: ["dragon ball", "dbz", "dbs", "goku", "vegeta", "frieza"],
+      reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction"],
+      dev: ["javascript", "typescript", "ai", "openai", "google developers", "unreal engine", "cursor", "claude"],
+      asmr: ["asmr"],
+    };
+
+    const state = {
+      videos: [],
+      decisions: loadDecisions(),
+      selectedIds: new Set(),
+      activeTag: "all",
+      renderedCount: PAGE_SIZE,
+      currentId: "",
+    };
+
+    const els = {
+      fileInput: document.getElementById("fileInput"),
+      exportKeepMaybe: document.getElementById("exportKeepMaybe"),
+      exportTagged: document.getElementById("exportTagged"),
+      clearDecisions: document.getElementById("clearDecisions"),
+      searchInput: document.getElementById("searchInput"),
+      statusFilter: document.getElementById("statusFilter"),
+      channelFilter: document.getElementById("channelFilter"),
+      sortSelect: document.getElementById("sortSelect"),
+      tagFilter: document.getElementById("tagFilter"),
+      totalCount: document.getElementById("totalCount"),
+      visibleCount: document.getElementById("visibleCount"),
+      keepCount: document.getElementById("keepCount"),
+      maybeCount: document.getElementById("maybeCount"),
+      deleteCount: document.getElementById("deleteCount"),
+      scopeLabel: document.getElementById("scopeLabel"),
+      scopeHint: document.getElementById("scopeHint"),
+      keepBulk: document.getElementById("keepBulk"),
+      maybeBulk: document.getElementById("maybeBulk"),
+      deleteBulk: document.getElementById("deleteBulk"),
+      resetBulk: document.getElementById("resetBulk"),
+      selectVisible: document.getElementById("selectVisible"),
+      invertSelection: document.getElementById("invertSelection"),
+      clearSelection: document.getElementById("clearSelection"),
+      videoList: document.getElementById("videoList"),
+      channelList: document.getElementById("channelList"),
+      tagSummary: document.getElementById("tagSummary"),
+      stateSummary: document.getElementById("stateSummary"),
+      toast: document.getElementById("toast"),
+    };
+
+    init();
+
+    function init() {
+      renderTagFilters();
+      bindEvents();
+      render();
+    }
+
+    function bindEvents() {
+      els.fileInput.addEventListener("change", importFile);
+      els.searchInput.addEventListener("input", () => {
+        state.renderedCount = PAGE_SIZE;
+        render();
+      });
+      els.statusFilter.addEventListener("change", () => {
+        state.renderedCount = PAGE_SIZE;
+        render();
+      });
+      els.channelFilter.addEventListener("change", () => {
+        state.renderedCount = PAGE_SIZE;
+        render();
+      });
+      els.sortSelect.addEventListener("change", render);
+      els.keepBulk.addEventListener("click", () => applyBulkStatus("keep"));
+      els.maybeBulk.addEventListener("click", () => applyBulkStatus("maybe"));
+      els.deleteBulk.addEventListener("click", () => applyBulkStatus("delete"));
+      els.resetBulk.addEventListener("click", () => applyBulkStatus("unreviewed"));
+      els.selectVisible.addEventListener("click", selectVisible);
+      els.invertSelection.addEventListener("click", invertVisibleSelection);
+      els.clearSelection.addEventListener("click", clearSelection);
+      els.exportKeepMaybe.addEventListener("click", exportKeepMaybe);
+      els.exportTagged.addEventListener("click", exportTaggedAll);
+      els.clearDecisions.addEventListener("click", clearDecisions);
+      document.addEventListener("keydown", handleShortcuts);
+      window.addEventListener("scroll", maybeRenderMore);
+    }
+
+    async function importFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const raw = await file.text();
+        const parsed = JSON.parse(raw);
+        const videos = Array.isArray(parsed) ? parsed : parsed.videos;
+        if (!Array.isArray(videos)) throw new Error("Expected a JSON array of videos.");
+
+        const deduped = dedupeVideos(videos)
+          .map(video => enrichVideo(video))
+          .filter(video => video.videoId);
+
+        state.videos = deduped;
+        state.selectedIds.clear();
+        state.activeTag = "all";
+        state.renderedCount = PAGE_SIZE;
+        state.currentId = deduped[0]?.videoId || "";
+        els.channelFilter.value = "all";
+        els.statusFilter.value = "all";
+        els.searchInput.value = "";
+        populateChannels();
+        renderTagFilters();
+        render();
+        showToast(`Imported ${deduped.length} videos from ${file.name}.`);
+      } catch (error) {
+        showToast(error.message || "Import failed.");
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    function dedupeVideos(videos) {
+      const byId = new Map();
+      for (const video of videos) {
+        if (!video || !video.videoId) continue;
+        byId.set(video.videoId, video);
+      }
+      return Array.from(byId.values());
+    }
+
+    function enrichVideo(video) {
+      const suggestedTags = getSuggestedTags(video);
+      return {
+        ...video,
+        suggestedTags,
+        searchText: buildSearchText(video, suggestedTags),
+      };
+    }
+
+    function buildSearchText(video, tags) {
+      return [
+        video.searchText,
+        video.title,
+        video.channel,
+        video.views,
+        video.uploaded,
+        video.duration,
+        tags.join(" "),
+      ].filter(Boolean).join(" ").toLowerCase();
+    }
+
+    function getSuggestedTags(video) {
+      const haystack = [
+        video.title,
+        video.channel,
+        video.searchText,
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      return Object.entries(RULES)
+        .filter(([, keywords]) => keywords.some(keyword => haystack.includes(keyword.toLowerCase())))
+        .map(([tag]) => tag);
+    }
+
+    function getDecision(videoId) {
+      return state.decisions[videoId] || {
+        status: "unreviewed",
+        tags: [],
+        note: "",
+        updatedAt: "",
+      };
+    }
+
+    function getStatus(videoId) {
+      return getDecision(videoId).status || "unreviewed";
+    }
+
+    function setStatus(videoId, status) {
+      if (status === "unreviewed") {
+        delete state.decisions[videoId];
+        state.currentId = videoId;
+        saveDecisions();
+        return;
+      }
+
+      const current = getDecision(videoId);
+      state.decisions[videoId] = {
+        ...current,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      state.currentId = videoId;
+      saveDecisions();
+    }
+
+    function applyBulkStatus(status) {
+      const ids = getScopeIds();
+      if (!ids.length) return;
+      ids.forEach(videoId => setStatus(videoId, status));
+      state.selectedIds.clear();
+      render();
+      showToast(status === "unreviewed"
+        ? `Reset ${ids.length} videos to unreviewed.`
+        : `Marked ${ids.length} videos as ${status}.`);
+    }
+
+    function getScopeIds() {
+      if (state.selectedIds.size) return Array.from(state.selectedIds);
+      return getFilteredVideos().map(video => video.videoId);
+    }
+
+    function selectVisible() {
+      getRenderedVideos().forEach(video => state.selectedIds.add(video.videoId));
+      render();
+    }
+
+    function invertVisibleSelection() {
+      for (const video of getRenderedVideos()) {
+        if (state.selectedIds.has(video.videoId)) state.selectedIds.delete(video.videoId);
+        else state.selectedIds.add(video.videoId);
+      }
+      render();
+    }
+
+    function clearSelection() {
+      state.selectedIds.clear();
+      render();
+    }
+
+    function getFilteredVideos() {
+      const query = els.searchInput.value.trim().toLowerCase();
+      const status = els.statusFilter.value;
+      const channel = els.channelFilter.value;
+      const tag = state.activeTag;
+
+      return getSortedVideos(state.videos.filter(video => {
+        if (query && !video.searchText.includes(query)) return false;
+        if (status !== "all" && getStatus(video.videoId) !== status) return false;
+        if (channel !== "all" && video.channel !== channel) return false;
+        if (tag !== "all" && !video.suggestedTags.includes(tag)) return false;
+        return true;
+      }));
+    }
+
+    function getSortedVideos(videos) {
+      const sort = els.sortSelect.value;
+      const copy = [...videos];
+
+      if (sort === "channel") {
+        copy.sort((a, b) => `${a.channel} ${a.index}`.localeCompare(`${b.channel} ${b.index}`));
+      } else if (sort === "duration-desc") {
+        copy.sort((a, b) => (b.durationSeconds || 0) - (a.durationSeconds || 0));
+      } else if (sort === "views-desc") {
+        copy.sort((a, b) => (b.viewCountApprox || 0) - (a.viewCountApprox || 0));
+      } else if (sort === "title") {
+        copy.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+      } else {
+        copy.sort((a, b) => (a.index || 0) - (b.index || 0));
+      }
+
+      return copy;
+    }
+
+    function getRenderedVideos() {
+      return getFilteredVideos().slice(0, state.renderedCount);
+    }
+
+    function maybeRenderMore() {
+      if (!state.videos.length) return;
+      const nearBottom = window.innerHeight + window.scrollY > document.body.offsetHeight - 900;
+      if (!nearBottom) return;
+
+      const total = getFilteredVideos().length;
+      if (state.renderedCount < total) {
+        state.renderedCount += PAGE_SIZE;
+        renderVideoList();
+        renderStats();
+      }
+    }
+
+    function render() {
+      renderStats();
+      renderVideoList();
+      renderSidebar();
+      updateBulkLabels();
+    }
+
+    function renderStats() {
+      const total = state.videos.length;
+      const visible = getFilteredVideos().length;
+      const counts = countStatuses(state.videos);
+
+      els.totalCount.textContent = total;
+      els.visibleCount.textContent = visible;
+      els.keepCount.textContent = counts.keep;
+      els.maybeCount.textContent = counts.maybe;
+      els.deleteCount.textContent = counts.unreviewed + counts.delete;
+
+      const decisionCount = Object.keys(state.decisions).length;
+      const importedIds = new Set(state.videos.map(video => video.videoId));
+      const orphaned = Object.keys(state.decisions).filter(id => !importedIds.has(id)).length;
+      els.stateSummary.textContent = `${decisionCount} saved decisions. ${orphaned} orphaned decisions hidden from this import.`;
+    }
+
+    function countStatuses(videos) {
+      const counts = { unreviewed: 0, keep: 0, maybe: 0, delete: 0 };
+      for (const video of videos) counts[getStatus(video.videoId)]++;
+      return counts;
+    }
+
+    function updateBulkLabels() {
+      const selected = state.selectedIds.size;
+      const visible = getFilteredVideos().length;
+      const scope = selected || visible;
+      const scopeName = selected ? "selected" : "visible";
+
+      els.scopeLabel.textContent = state.videos.length ? `${scope} ${scopeName} videos` : "No videos loaded";
+      els.scopeHint.textContent = selected
+        ? "Bulk actions apply to selected videos."
+        : "Bulk actions apply to all visible filtered results.";
+
+      els.keepBulk.textContent = `Keep ${scopeName}`;
+      els.maybeBulk.textContent = `Maybe ${scopeName}`;
+      els.deleteBulk.textContent = `Delete ${scopeName}`;
+
+      [els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportTagged].forEach(button => {
+        button.disabled = !state.videos.length;
+      });
+    }
+
+    function renderVideoList() {
+      const videos = getRenderedVideos();
+      const total = getFilteredVideos().length;
+
+      if (!state.videos.length) {
+        els.videoList.innerHTML = '<div class="empty">No JSON imported yet.</div>';
+        return;
+      }
+
+      if (!videos.length) {
+        els.videoList.innerHTML = '<div class="empty">No videos match the current filters.</div>';
+        return;
+      }
+
+      els.videoList.replaceChildren(...videos.map(video => createVideoRow(video)));
+
+      if (videos.length < total) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.textContent = `Show more (${videos.length} / ${total})`;
+        more.addEventListener("click", () => {
+          state.renderedCount += PAGE_SIZE;
+          renderVideoList();
+          renderStats();
+        });
+        els.videoList.appendChild(more);
+      }
+    }
+
+    function createVideoRow(video) {
+      const status = getStatus(video.videoId);
+      const row = document.createElement("article");
+      row.className = "video-row";
+      row.dataset.status = status;
+      row.dataset.videoId = video.videoId;
+
+      const checkbox = document.createElement("input");
+      checkbox.className = "row-check";
+      checkbox.type = "checkbox";
+      checkbox.checked = state.selectedIds.has(video.videoId);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) state.selectedIds.add(video.videoId);
+        else state.selectedIds.delete(video.videoId);
+        state.currentId = video.videoId;
+        render();
+      });
+
+      const thumb = document.createElement("img");
+      thumb.className = "thumb";
+      thumb.loading = "lazy";
+      thumb.alt = "";
+      thumb.src = video.thumbnailUrl || "";
+
+      const content = document.createElement("div");
+      const title = document.createElement("h2");
+      title.className = "video-title";
+      const link = document.createElement("a");
+      link.href = video.cleanUrl || video.url || "#";
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = video.title || "(untitled)";
+      title.appendChild(link);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      [video.channel, video.views, video.uploaded, video.duration].filter(Boolean).forEach(part => {
+        const span = document.createElement("span");
+        span.textContent = part;
+        meta.appendChild(span);
+      });
+
+      const tags = document.createElement("div");
+      tags.className = "tags";
+      const decisionTags = getDecision(video.videoId).tags || [];
+      const allTags = Array.from(new Set([...video.suggestedTags, ...decisionTags]));
+      allTags.forEach(tag => {
+        const chip = document.createElement("span");
+        chip.className = "tag";
+        chip.textContent = tag;
+        tags.appendChild(chip);
+      });
+
+      content.append(title, meta, tags);
+
+      const actions = document.createElement("div");
+      actions.className = "status-actions";
+      actions.append(
+        createStatusButton(video.videoId, "keep", status),
+        createStatusButton(video.videoId, "maybe", status),
+        createStatusButton(video.videoId, "delete", status),
+        createStatusButton(video.videoId, "unreviewed", status, "Reset"),
+        createOpenButton(video),
+      );
+
+      row.addEventListener("click", event => {
+        if (event.target.closest("button, a, input")) return;
+        state.currentId = video.videoId;
+        render();
+      });
+
+      row.append(checkbox, thumb, content, actions);
+      return row;
+    }
+
+    function createStatusButton(videoId, status, currentStatus, label) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.actionStatus = status;
+      button.textContent = label || status[0].toUpperCase() + status.slice(1);
+      if (status === currentStatus) button.classList.add("is-active");
+      button.addEventListener("click", () => {
+        setStatus(videoId, status);
+        render();
+      });
+      return button;
+    }
+
+    function createOpenButton(video) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Open";
+      button.addEventListener("click", () => {
+        window.open(video.cleanUrl || video.url, "_blank", "noreferrer");
+      });
+      return button;
+    }
+
+    function renderSidebar() {
+      renderChannelList();
+      renderTagSummary();
+    }
+
+    function renderChannelList() {
+      const channels = groupCounts(state.videos, video => video.channel || "(unknown)")
+        .slice(0, 18);
+      els.channelList.replaceChildren(...channels.map(item => {
+        const button = document.createElement("button");
+        button.className = "channel-button";
+        button.type = "button";
+        button.title = item.name;
+        button.innerHTML = `<span></span><strong>${item.count}</strong>`;
+        button.querySelector("span").textContent = item.name;
+        button.addEventListener("click", () => {
+          els.channelFilter.value = item.name;
+          state.renderedCount = PAGE_SIZE;
+          render();
+        });
+        return button;
+      }));
+    }
+
+    function renderTagSummary() {
+      const counts = Object.keys(RULES).map(tag => ({
+        name: tag,
+        count: state.videos.filter(video => video.suggestedTags.includes(tag)).length,
+      })).sort((a, b) => b.count - a.count);
+
+      els.tagSummary.replaceChildren(...counts.map(item => {
+        const button = document.createElement("button");
+        button.className = "channel-button";
+        button.type = "button";
+        button.innerHTML = `<span></span><strong>${item.count}</strong>`;
+        button.querySelector("span").textContent = item.name;
+        button.addEventListener("click", () => {
+          state.activeTag = item.name;
+          renderTagFilters();
+          state.renderedCount = PAGE_SIZE;
+          render();
+        });
+        return button;
+      }));
+    }
+
+    function groupCounts(items, getName) {
+      const counts = new Map();
+      for (const item of items) {
+        const name = getName(item);
+        counts.set(name, (counts.get(name) || 0) + 1);
+      }
+      return Array.from(counts, ([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }
+
+    function populateChannels() {
+      const current = els.channelFilter.value;
+      const channels = groupCounts(state.videos, video => video.channel || "(unknown)")
+        .map(item => item.name);
+      els.channelFilter.replaceChildren(createOption("all", "All channels"), ...channels.map(channel => createOption(channel, channel)));
+      els.channelFilter.value = channels.includes(current) ? current : "all";
+    }
+
+    function createOption(value, label) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    function renderTagFilters() {
+      const chips = [
+        createTagChip("all", "All tags"),
+        ...Object.keys(RULES).map(tag => createTagChip(tag, tag)),
+      ];
+      els.tagFilter.replaceChildren(...chips);
+    }
+
+    function createTagChip(value, label) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "tag-chip";
+      chip.textContent = label;
+      if (state.activeTag === value) chip.classList.add("is-active");
+      chip.addEventListener("click", () => {
+        state.activeTag = value;
+        state.renderedCount = PAGE_SIZE;
+        renderTagFilters();
+        render();
+      });
+      return chip;
+    }
+
+    function exportKeepMaybe() {
+      const keep = [];
+      const maybe = [];
+      for (const video of state.videos) {
+        const decision = getDecision(video.videoId);
+        if (decision.status === "keep") keep.push(toExportVideo(video, decision));
+        if (decision.status === "maybe") maybe.push(toExportVideo(video, decision));
+      }
+
+      downloadJson(`watchlater_keep_maybe_${getDateStamp()}.json`, {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        source: "youtube-watchlater-triage",
+        mode: "keep-list",
+        keep,
+        maybe,
+      });
+    }
+
+    function exportTaggedAll() {
+      const videos = state.videos.map(video => {
+        const decision = getDecision(video.videoId);
+        return toExportVideo(video, decision);
+      });
+
+      downloadJson(`watchlater_tagged_all_${getDateStamp()}.json`, {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        source: "youtube-watchlater-triage",
+        mode: "tagged-all",
+        videos,
+      });
+    }
+
+    function toExportVideo(video, decision) {
+      return {
+        videoId: video.videoId,
+        status: decision.status || "unreviewed",
+        tags: Array.from(new Set([...(video.suggestedTags || []), ...(decision.tags || [])])),
+        title: video.title || "",
+        channel: video.channel || "",
+        cleanUrl: video.cleanUrl || video.url || "",
+        durationSeconds: video.durationSeconds ?? null,
+        views: video.views || "",
+        viewCountApprox: video.viewCountApprox ?? null,
+        uploaded: video.uploaded || "",
+        thumbnailUrl: video.thumbnailUrl || "",
+      };
+    }
+
+    function downloadJson(filename, payload) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast(`Exported ${filename}.`);
+    }
+
+    function getDateStamp() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function clearDecisions() {
+      const count = Object.keys(state.decisions).length;
+      if (!count) return;
+      const answer = prompt(`Type CLEAR ${count} to remove ${count} saved decisions from this browser.`);
+      if (answer !== `CLEAR ${count}`) return;
+      state.decisions = {};
+      state.selectedIds.clear();
+      saveDecisions();
+      render();
+      showToast("Cleared saved decisions.");
+    }
+
+    function loadDecisions() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      } catch (_error) {
+        return {};
+      }
+    }
+
+    function saveDecisions() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.decisions));
+    }
+
+    function handleShortcuts(event) {
+      const tagName = document.activeElement?.tagName?.toLowerCase();
+      const isTyping = tagName === "input" || tagName === "select" || tagName === "textarea";
+
+      if (event.key === "/" && !isTyping) {
+        event.preventDefault();
+        els.searchInput.focus();
+        return;
+      }
+
+      if (isTyping || !state.currentId) return;
+
+      if (event.key === "k") {
+        setStatus(state.currentId, "keep");
+        render();
+      } else if (event.key === "m") {
+        setStatus(state.currentId, "maybe");
+        render();
+      } else if (event.key === "d") {
+        setStatus(state.currentId, "delete");
+        render();
+      }
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("is-visible");
+      window.clearTimeout(showToast.timeout);
+      showToast.timeout = window.setTimeout(() => {
+        els.toast.classList.remove("is-visible");
+      }, 2600);
+    }
+  </script>
+</body>
+</html>
