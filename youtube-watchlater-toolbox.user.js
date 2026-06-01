@@ -16,6 +16,7 @@
     scrollDelayMs: 1200,
     maxStableRounds: 3,
     toolboxId: "yt-watchlater-toolbox",
+    stylesId: "yt-watchlater-toolbox-styles",
   };
 
   const SELECTORS = {
@@ -268,10 +269,10 @@
   }
 
   function injectStyles() {
-    if (document.getElementById(`${CONFIG.toolboxId}-styles`)) return;
+    if (document.getElementById(CONFIG.stylesId)) return;
 
     const style = document.createElement("style");
-    style.id = `${CONFIG.toolboxId}-styles`;
+    style.id = CONFIG.stylesId;
     style.textContent = `
       #${CONFIG.toolboxId} {
         position: fixed;
@@ -399,15 +400,31 @@
     document.head.appendChild(style);
   }
 
-  function start() {
-    if (!isWatchLaterPage()) return;
+  function removeToolbox() {
+    document.getElementById(CONFIG.toolboxId)?.remove();
+  }
+
+  function syncToolboxVisibility() {
+    if (!isWatchLaterPage()) {
+      removeToolbox();
+      return;
+    }
+
     injectStyles();
     createToolbox();
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start, { once: true });
-  } else {
-    start();
+  function watchYouTubeNavigation() {
+    window.addEventListener("yt-navigate-finish", syncToolboxVisibility);
+    window.addEventListener("popstate", syncToolboxVisibility);
+    window.setInterval(syncToolboxVisibility, 1500);
   }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncToolboxVisibility, { once: true });
+  } else {
+    syncToolboxVisibility();
+  }
+
+  watchYouTubeNavigation();
 })();
