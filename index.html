@@ -182,6 +182,10 @@
       font-weight: 700;
     }
 
+    .tag-chip.is-empty {
+      opacity: 0.42;
+    }
+
     .workspace {
       display: grid;
       grid-template-columns: 1fr 300px;
@@ -1220,19 +1224,21 @@
     }
 
     function renderTagFilters() {
+      const tagCounts = getTagCounts();
       const chips = [
-        createTagChip("all", "All tags"),
-        ...Object.keys(RULES).map(tag => createTagChip(tag, tag)),
+        createTagChip("all", `All tags ${state.videos.length}`, state.videos.length),
+        ...Object.keys(RULES).map(tag => createTagChip(tag, `${tag} ${tagCounts[tag] || 0}`, tagCounts[tag] || 0)),
       ];
       els.tagFilter.replaceChildren(...chips);
     }
 
-    function createTagChip(value, label) {
+    function createTagChip(value, label, count) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "tag-chip";
       chip.textContent = label;
       if (state.activeTag === value) chip.classList.add("is-active");
+      if (value !== "all" && count === 0) chip.classList.add("is-empty");
       chip.addEventListener("click", () => {
         state.activeTag = value;
         state.renderedCount = PAGE_SIZE;
@@ -1240,6 +1246,17 @@
         render();
       });
       return chip;
+    }
+
+    function getTagCounts() {
+      const counts = {};
+      for (const tag of Object.keys(RULES)) counts[tag] = 0;
+      for (const video of state.videos) {
+        for (const tag of video.suggestedTags || []) {
+          counts[tag] = (counts[tag] || 0) + 1;
+        }
+      }
+      return counts;
     }
 
     function exportKeepMaybe() {
