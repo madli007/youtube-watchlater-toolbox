@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.2.0
+// @version      0.3.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -24,9 +24,11 @@
   const SELECTORS = {
     video: "ytd-playlist-video-renderer",
     title: "#video-title",
-    channel: "ytd-channel-name a",
+    channel: "ytd-channel-name a, #channel-name a",
     duration: "ytd-thumbnail-overlay-time-status-renderer span",
     metadata: "#metadata-line",
+    thumbnail: "ytd-thumbnail img",
+    badge: "ytd-badge-supported-renderer",
     loading: "ytd-continuation-item-renderer, tp-yt-paper-spinner, ytd-playlist-video-list-renderer #spinner",
   };
 
@@ -56,6 +58,76 @@
     }
   }
 
+  function cleanText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function parseDurationSeconds(duration) {
+    const parts = cleanText(duration).split(":").map(part => Number(part));
+    if (!parts.length || parts.some(part => Number.isNaN(part))) return null;
+
+    return parts.reduce((total, part) => (total * 60) + part, 0);
+  }
+
+  function parseTimeSeconds(value) {
+    const time = cleanText(value);
+    if (!time) return null;
+
+    if (/^\d+$/.test(time)) return Number(time);
+
+    const match = time.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+    if (!match) return null;
+
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
+    return (hours * 3600) + (minutes * 60) + seconds;
+  }
+
+  function parseWatchUrl(url) {
+    if (!url) {
+      return {
+        videoId: "",
+        playlistId: "",
+        playlistIndex: null,
+        startTimeSeconds: null,
+        cleanUrl: "",
+      };
+    }
+
+    try {
+      const parsed = new URL(url);
+      const videoId = parsed.searchParams.get("v") || "";
+      const playlistId = parsed.searchParams.get("list") || "";
+      const playlistIndex = parsed.searchParams.has("index")
+        ? Number(parsed.searchParams.get("index"))
+        : null;
+      const startTimeSeconds = parseTimeSeconds(parsed.searchParams.get("t") || "");
+      const cleanUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+
+      return {
+        videoId,
+        playlistId,
+        playlistIndex: Number.isFinite(playlistIndex) ? playlistIndex : null,
+        startTimeSeconds,
+        cleanUrl,
+      };
+    } catch (_error) {
+      return {
+        videoId: "",
+        playlistId: "",
+        playlistIndex: null,
+        startTimeSeconds: null,
+        cleanUrl: url,
+      };
+    }
+  }
+
+  function getImageUrl(imageEl) {
+    if (!imageEl) return "";
+    return imageEl.currentSrc || imageEl.src || imageEl.getAttribute("data-thumb") || "";
+  }
+
   function getLoadedVideos() {
     return Array.from(document.querySelectorAll(SELECTORS.video))
       .map((video, index) => {
@@ -63,20 +135,39 @@
         const channelEl = video.querySelector(SELECTORS.channel);
         const durationEl = video.querySelector(SELECTORS.duration);
         const metaEl = video.querySelector(SELECTORS.metadata);
+        const thumbnailEl = video.querySelector(SELECTORS.thumbnail);
         const href = titleEl?.getAttribute("href") || "";
+        const channelHref = channelEl?.getAttribute("href") || "";
         const metadataSpans = metaEl ? Array.from(metaEl.querySelectorAll("span")) : [];
+        const metadataParts = metadataSpans.map(span => cleanText(span.textContent)).filter(Boolean);
+        const badges = Array.from(video.querySelectorAll(SELECTORS.badge))
+          .map(badge => cleanText(badge.textContent))
+          .filter(Boolean);
         const url = normalizeYouTubeUrl(href);
+        const watchUrl = parseWatchUrl(url);
+        const duration = cleanText(durationEl?.textContent);
 
         if (!titleEl && !url) return null;
 
         return {
           index: index + 1,
-          title: titleEl?.textContent?.trim() || "",
-          channel: channelEl?.textContent?.trim() || "",
+          playlistIndex: watchUrl.playlistIndex || index + 1,
+          videoId: watchUrl.videoId,
+          title: cleanText(titleEl?.textContent),
+          channel: cleanText(channelEl?.textContent),
+          channelUrl: normalizeYouTubeUrl(channelHref),
           url,
-          duration: durationEl?.textContent?.trim() || "",
-          views: metadataSpans[0]?.textContent?.trim() || "",
-          uploaded: metadataSpans[1]?.textContent?.trim() || "",
+          cleanUrl: watchUrl.cleanUrl,
+          playlistId: watchUrl.playlistId,
+          startTimeSeconds: watchUrl.startTimeSeconds,
+          duration,
+          durationSeconds: parseDurationSeconds(duration),
+          thumbnailUrl: getImageUrl(thumbnailEl),
+          views: metadataParts[0] || "",
+          uploaded: metadataParts[1] || "",
+          metadata: metadataParts,
+          badges,
+          isUnavailable: !cleanText(titleEl?.textContent) || /private|deleted|unavailable/i.test(cleanText(video.textContent)),
         };
       })
       .filter(Boolean);
@@ -84,13 +175,15 @@
 
   function buildCsv(videos) {
     const rows = [
-      ["Index", "Title", "Channel", "URL", "Duration", "Views", "Uploaded"],
+      ["Index", "Video ID", "Title", "Channel", "URL", "Duration", "Duration Seconds", "Views", "Uploaded"],
       ...videos.map(video => [
         video.index,
+        video.videoId,
         video.title,
         video.channel,
-        video.url,
+        video.cleanUrl || video.url,
         video.duration,
+        video.durationSeconds ?? "",
         video.views,
         video.uploaded,
       ]),
