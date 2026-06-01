@@ -11,6 +11,12 @@ Glavni problem ni export, ampak odlocanje:
 - katere premakniti/arhivirati po temah;
 - kako hitro najti Marvel, Clone Wars, Dragon Ball, reactione in podobne sklope v vec tisoc videih.
 
+Za velik Watch Later seznam je najboljsi default obratna logika:
+
+- uporabnik oznaci videe, ki jih zeli obdrzati;
+- vse neoznacene videe se obravnava kot kandidate za brisanje;
+- pred brisanjem mora app vedno pokazati dry run in export backup.
+
 ## Priporocen pristop
 
 Najmanj bloated varianta:
@@ -44,6 +50,15 @@ To pomeni, da se app odpre direktno v browserju kot file ali prek zelo malega lo
    - `delete-urls.txt`;
    - `tagged.json`;
    - opcijsko Markdown seznam za osebni arhiv.
+
+Primarni cleanup flow naj bo:
+
+1. import JSON exporta;
+2. app samodejno predlaga `keep` za zadetke kot Marvel, Clone Wars, Dragon Ball, reaction kanale;
+3. uporabnik pregleda in rocno popravi;
+4. uporabnik klikne `Export delete candidates`;
+5. delete candidates so vsi videi, ki niso `keep` in niso `maybe`;
+6. Watch Later toolbox importira ta delete seznam in odstrani samo te videe.
 
 ## UI ideja
 
@@ -144,7 +159,7 @@ Kasneje se lahko Tampermonkey skripta nauci importati `delete-videos.json` ali s
 
 Potem bi tok bil:
 
-1. lokalna aplikacija naredi delete seznam;
+1. lokalna aplikacija naredi delete seznam iz vseh videov, ki niso oznaceni kot `keep`;
 2. Watch Later toolbox importira seznam;
 3. prikaze dry run;
 4. uporabnik potrdi;
@@ -152,13 +167,36 @@ Potem bi tok bil:
 
 To je varnejse kot takojsnji `Delete all`, ker je odlocanje narejeno izven YouTube UI-ja.
 
+Alternativni tok je import `keep.json`, kjer Watch Later toolbox sam izracuna razliko:
+
+1. toolbox nalozi cel Watch Later seznam;
+2. uporabnik importira `keep.json`;
+3. toolbox oznaci vse videe, ki niso v keep seznamu;
+4. uporabnik klikne `Delete not kept`;
+5. skripta naredi backup in odstrani samo ne-keep videe.
+
+Ta varianta je najbolj ergonomicna, ker v lokalni aplikaciji razmisljas samo o tem, kaj zelis obdrzati.
+
+Varnostna pravila za `Delete not kept`:
+
+- obvezen backup JSON/CSV pred brisanjem;
+- dry run z jasnim stevilom `keep`, `delete`, `missing`;
+- prikaz prvih 20 kandidatov za brisanje;
+- confirm z vpisom stevila kandidatov, na primer `DELETE 3821`;
+- brisanje z zamikom;
+- log uspesnih in spodletelih odstranitev;
+- resume po prekinitvi.
+
 ## Predlagan vrstni red
 
 1. Dokoncaj robusten JSON export.
 2. Naredi `index.html` lokalni importer s searchom in statusi.
 3. Dodaj tag rules za Marvel, Star Wars, Dragon Ball, reactions.
 4. Dodaj export `delete-urls.txt` in `tagged-videos.json`.
-5. Sele potem dodaj delete/import flow v Tampermonkey skripto.
+5. Dodaj export `keep.json`.
+6. Dodaj import `keep.json` v Tampermonkey skripto.
+7. Dodaj dry-run `Delete not kept`.
+8. Sele potem dodaj dejansko brisanje iz Watch Later.
 
 ## Zakaj ne baza/backend
 
