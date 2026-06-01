@@ -142,7 +142,7 @@
       top: 65px;
       z-index: 15;
       display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.6fr) minmax(130px, 0.6fr) minmax(140px, 0.7fr);
+      grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.6fr) minmax(130px, 0.6fr) minmax(140px, 0.7fr) auto;
       gap: 10px;
       padding: 12px 18px;
       background: rgba(24, 27, 33, 0.96);
@@ -550,6 +550,7 @@
         <option value="views-desc">Views high to low</option>
         <option value="title">Title</option>
       </select>
+      <button id="clearFilters" type="button">Clear filters</button>
     </section>
     <section id="tagFilter" class="tag-filter" aria-label="Suggested tag filters"></section>
 
@@ -634,6 +635,7 @@
       statusFilter: document.getElementById("statusFilter"),
       channelFilter: document.getElementById("channelFilter"),
       sortSelect: document.getElementById("sortSelect"),
+      clearFilters: document.getElementById("clearFilters"),
       tagFilter: document.getElementById("tagFilter"),
       totalCount: document.getElementById("totalCount"),
       visibleCount: document.getElementById("visibleCount"),
@@ -679,6 +681,7 @@
         render();
       });
       els.sortSelect.addEventListener("change", render);
+      els.clearFilters.addEventListener("click", clearFilters);
       els.keepBulk.addEventListener("click", () => applyBulkStatus("keep"));
       els.maybeBulk.addEventListener("click", () => applyBulkStatus("maybe"));
       els.deleteBulk.addEventListener("click", () => applyBulkStatus("delete"));
@@ -829,8 +832,25 @@
     }
 
     function clearSelection() {
+      if (!state.selectedIds.size) {
+        showToast("No selected videos to clear.");
+        return;
+      }
       state.selectedIds.clear();
       render();
+      showToast("Cleared selected videos.");
+    }
+
+    function clearFilters() {
+      els.searchInput.value = "";
+      els.statusFilter.value = "all";
+      els.channelFilter.value = "all";
+      els.sortSelect.value = "index";
+      state.activeTag = "all";
+      state.renderedCount = PAGE_SIZE;
+      renderTagFilters();
+      render();
+      showToast("Cleared filters.");
     }
 
     function getFilteredVideos() {
@@ -929,7 +949,7 @@
       els.maybeBulk.textContent = `Maybe ${scopeName}`;
       els.deleteBulk.textContent = `Delete ${scopeName}`;
 
-      [els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportTagged].forEach(button => {
+      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportTagged].forEach(button => {
         button.disabled = !state.videos.length;
       });
     }
