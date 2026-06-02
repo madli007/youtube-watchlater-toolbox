@@ -487,6 +487,7 @@
         previewState.importedAt = new Date().toISOString();
 
         const summary = runKeepMaybeDryRun();
+        setCount(summary.loaded);
         setStatus(formatDryRunSummary(summary));
       } catch (error) {
         clearKeepMaybePreview();
@@ -589,6 +590,7 @@
     previewState.importedAt = "";
     previewState.lastSummary = null;
     clearPreviewClasses();
+    setCount();
     setStatus("Preview cleared.");
   }
 
@@ -609,9 +611,9 @@
     if (statusEl) statusEl.textContent = message;
   }
 
-  function setCount() {
+  function setCount(count) {
     const countEl = document.querySelector(`#${CONFIG.toolboxId} [data-toolbox-count]`);
-    if (countEl) countEl.textContent = String(getLoadedVideos().length);
+    if (countEl) countEl.textContent = String(typeof count === "number" ? count : getLoadedVideos().length);
   }
 
   function setBusy(isBusy) {
