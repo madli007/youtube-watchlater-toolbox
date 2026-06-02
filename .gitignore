@@ -29,6 +29,7 @@ coverage/
 
 # Personal Watch Later exports and local triage output
 .personal-exports-backup/
+local-exports/
 watchlater_export*.json
 watchlater_export*.csv
 watchlater_keep_maybe*.json
