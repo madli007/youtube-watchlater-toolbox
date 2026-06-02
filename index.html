@@ -947,7 +947,7 @@
     function setStatusAndAdvance(videoId, status) {
       setStatus(videoId, status);
       moveCurrent(1);
-      render();
+      render({ scrollToCurrent: true });
     }
 
     function moveCurrent(direction) {
@@ -1081,12 +1081,24 @@
       }
     }
 
-    function render() {
+    function render(options = {}) {
       ensureCurrentVisible();
       renderStats();
       renderVideoList();
       renderSidebar();
       updateBulkLabels();
+      if (options.scrollToCurrent) scrollCurrentIntoView();
+    }
+
+    function scrollCurrentIntoView() {
+      if (!state.currentId) return;
+      window.requestAnimationFrame(() => {
+        const row = document.querySelector(`.video-row[data-video-id="${CSS.escape(state.currentId)}"]`);
+        row?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      });
     }
 
     function ensureCurrentVisible() {
@@ -1645,11 +1657,11 @@
       } else if (event.key === "j" || event.key === "ArrowDown") {
         event.preventDefault();
         moveCurrent(1);
-        render();
+        render({ scrollToCurrent: true });
       } else if (event.key === "J" || event.key === "ArrowUp") {
         event.preventDefault();
         moveCurrent(-1);
-        render();
+        render({ scrollToCurrent: true });
       }
     }
 
