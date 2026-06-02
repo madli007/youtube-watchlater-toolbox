@@ -627,6 +627,8 @@
         </label>
         <button id="exportKeepMaybe" type="button">Export keep/maybe</button>
         <button id="exportDeleteCandidates" type="button">Export delete candidates</button>
+        <button id="exportSelected" type="button">Export selected</button>
+        <button id="exportVisible" type="button">Export visible</button>
         <button id="exportTagged" type="button">Export tagged all</button>
         <button id="clearDecisions" type="button">Clear decisions</button>
       </div>
@@ -746,6 +748,8 @@
       fileInput: document.getElementById("fileInput"),
       exportKeepMaybe: document.getElementById("exportKeepMaybe"),
       exportDeleteCandidates: document.getElementById("exportDeleteCandidates"),
+      exportSelected: document.getElementById("exportSelected"),
+      exportVisible: document.getElementById("exportVisible"),
       exportTagged: document.getElementById("exportTagged"),
       clearDecisions: document.getElementById("clearDecisions"),
       searchInput: document.getElementById("searchInput"),
@@ -833,6 +837,8 @@
       els.clearSelection.addEventListener("click", clearSelection);
       els.exportKeepMaybe.addEventListener("click", exportKeepMaybe);
       els.exportDeleteCandidates.addEventListener("click", exportDeleteCandidates);
+      els.exportSelected.addEventListener("click", exportSelectedVideos);
+      els.exportVisible.addEventListener("click", exportVisibleVideos);
       els.exportTagged.addEventListener("click", exportTaggedAll);
       els.clearDecisions.addEventListener("click", clearDecisions);
       document.addEventListener("keydown", handleShortcuts);
@@ -1154,10 +1160,14 @@
       els.keepBulk.textContent = `Keep ${scopeName}`;
       els.maybeBulk.textContent = `Maybe ${scopeName}`;
       els.deleteBulk.textContent = `Delete ${scopeName}`;
+      els.exportSelected.textContent = selected ? `Export selected (${selected})` : "Export selected";
+      els.exportVisible.textContent = visible ? `Export visible (${visible})` : "Export visible";
 
-      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged].forEach(button => {
+      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged, els.exportVisible].forEach(button => {
         button.disabled = !state.videos.length;
       });
+      els.exportSelected.disabled = !state.selectedIds.size;
+      els.exportVisible.disabled = !visible;
     }
 
     function getActiveFilterSummary() {
@@ -1578,6 +1588,53 @@
         },
         deleteCandidates,
         protected: protectedVideos,
+      });
+    }
+
+    function exportSelectedVideos() {
+      const videos = getSelectedVideos();
+      if (!videos.length) {
+        showToast("No selected videos to export.");
+        return;
+      }
+      exportScopedVideos("selected", videos);
+    }
+
+    function exportVisibleVideos() {
+      const videos = getFilteredVideos();
+      if (!videos.length) {
+        showToast("No visible videos to export.");
+        return;
+      }
+      exportScopedVideos("visible", videos);
+    }
+
+    function getSelectedVideos() {
+      const byId = new Map(state.videos.map(video => [video.videoId, video]));
+      return Array.from(state.selectedIds)
+        .map(videoId => byId.get(videoId))
+        .filter(Boolean);
+    }
+
+    function exportScopedVideos(scope, videos) {
+      const exportedVideos = videos.map(video => toExportVideo(video, getDecision(video.videoId)));
+      const counts = countStatuses(videos);
+
+      downloadJson(`watchlater_${scope}_${getDateStamp()}.json`, {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        source: "youtube-watchlater-triage",
+        mode: "scoped-videos",
+        scope,
+        counts: {
+          total: exportedVideos.length,
+          keep: counts.keep,
+          maybe: counts.maybe,
+          delete: counts.delete,
+          unreviewed: counts.unreviewed,
+        },
+        filters: scope === "visible" ? getActiveFilterSummary() : [],
+        videos: exportedVideos,
       });
     }
 
