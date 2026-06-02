@@ -40,6 +40,7 @@
     json: "{}",
     all: "\u21F2",
     import: "\u21E7",
+    report: "\u2637",
     clear: "\u00D7",
     done: "\u2713",
     loading: "\u2026",
@@ -594,6 +595,76 @@
     setStatus("Preview cleared.");
   }
 
+  function exportDryRunReport() {
+    if (!previewState.lastSummary) {
+      setStatus(`${ICONS.warning} No active dry-run preview to export.`);
+      return;
+    }
+
+    const report = buildDryRunReport();
+    downloadText(
+      `watchlater_dry_run_report_${getDateStamp()}.json`,
+      JSON.stringify(report, null, 2),
+      "application/json;charset=utf-8",
+    );
+    setStatus(`${ICONS.done} Exported dry-run report.`);
+  }
+
+  function buildDryRunReport() {
+    const items = getLoadedVideoItems();
+    const keepIds = previewState.keepIds;
+    const maybeIds = previewState.maybeIds;
+    const protectedIds = new Set([...keepIds, ...maybeIds]);
+    const loadedIds = new Set();
+    const keep = [];
+    const maybe = [];
+    const deleteCandidates = [];
+    const unknown = [];
+
+    for (const item of items) {
+      const video = item.data;
+      if (!video.videoId) {
+        unknown.push(video);
+        continue;
+      }
+
+      loadedIds.add(video.videoId);
+
+      if (keepIds.has(video.videoId)) {
+        keep.push(video);
+      } else if (maybeIds.has(video.videoId)) {
+        maybe.push(video);
+      } else {
+        deleteCandidates.push(video);
+      }
+    }
+
+    const missingProtectedIds = [...protectedIds].filter(id => !loadedIds.has(id));
+
+    return {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "keep-maybe-dry-run",
+      exportedAt: new Date().toISOString(),
+      importedAt: previewState.importedAt,
+      summary: {
+        ...previewState.lastSummary,
+        missingProtectedIds: missingProtectedIds.length,
+      },
+      imported: {
+        keepIds: [...keepIds],
+        maybeIds: [...maybeIds],
+      },
+      loaded: {
+        keep,
+        maybe,
+        deleteCandidates,
+        unknown,
+      },
+      missingProtectedIds,
+    };
+  }
+
   function clearPreviewClasses() {
     document.querySelectorAll(SELECTORS.video).forEach(element => {
       element.classList.remove(
@@ -701,6 +772,7 @@
     const exportAllCsvButton = createButton(ICONS.all, "Load + CSV", () => exportAll("csv"));
     const exportAllJsonButton = createButton(ICONS.all, "Load + JSON", () => exportAll("json"));
     const importKeepMaybeButton = createButton(ICONS.import, "Import keep/maybe", importKeepMaybe);
+    const exportReportButton = createButton(ICONS.report, "Export dry-run report", exportDryRunReport);
     const clearPreviewButton = createButton(ICONS.clear, "Clear preview", clearKeepMaybePreview);
 
     actions.append(
@@ -710,6 +782,7 @@
       exportAllCsvButton,
       exportAllJsonButton,
       importKeepMaybeButton,
+      exportReportButton,
       clearPreviewButton,
     );
     titleWrap.append(title, subtitle);
