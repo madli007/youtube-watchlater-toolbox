@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.4.0
+// @version      0.5.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -39,11 +39,20 @@
     csv: "\u21E9",
     json: "{}",
     all: "\u21F2",
+    import: "\u21E7",
+    clear: "\u00D7",
     done: "\u2713",
     loading: "\u2026",
     warning: "!",
     collapse: "\u2212",
     expand: "+",
+  };
+
+  const previewState = {
+    keepIds: new Set(),
+    maybeIds: new Set(),
+    importedAt: "",
+    lastSummary: null,
   };
 
   function isWatchLaterPage() {
@@ -223,55 +232,66 @@
 
   function getLoadedVideos() {
     return Array.from(document.querySelectorAll(SELECTORS.video))
-      .map((video, index) => {
-        const titleEl = video.querySelector(SELECTORS.title);
-        const channelEl = video.querySelector(SELECTORS.channel);
-        const durationEl = video.querySelector(SELECTORS.duration);
-        const metaEl = video.querySelector(SELECTORS.metadata);
-        const thumbnailEl = video.querySelector(SELECTORS.thumbnail);
-        const href = titleEl?.getAttribute("href") || "";
-        const channelHref = channelEl?.getAttribute("href") || "";
-        const channel = cleanText(channelEl?.textContent);
-        const metadataParts = getMetadataParts(video, metaEl, channel);
-        const views = metadataParts.find(looksLikeViews) || metadataParts[0] || "";
-        const uploaded = metadataParts.find(looksLikeUploaded) || metadataParts[1] || "";
-        const badges = Array.from(video.querySelectorAll(SELECTORS.badge))
-          .map(badge => cleanText(badge.textContent))
-          .filter(Boolean);
-        const url = normalizeYouTubeUrl(href);
-        const watchUrl = parseWatchUrl(url);
-        const duration = cleanText(durationEl?.textContent);
-        const title = cleanText(titleEl?.textContent);
-        const thumbnailUrl = getThumbnailUrl(thumbnailEl, watchUrl.videoId);
-
-        if (!titleEl && !url) return null;
-
-        return {
-          index: index + 1,
-          playlistIndex: watchUrl.playlistIndex || index + 1,
-          videoId: watchUrl.videoId,
-          title,
-          channel,
-          channelUrl: normalizeYouTubeUrl(channelHref),
-          url,
-          cleanUrl: watchUrl.cleanUrl,
-          embedUrl: watchUrl.videoId ? `https://www.youtube.com/embed/${watchUrl.videoId}` : "",
-          playlistId: watchUrl.playlistId,
-          startTimeSeconds: watchUrl.startTimeSeconds,
-          duration,
-          durationSeconds: parseDurationSeconds(duration),
-          thumbnailUrl,
-          views,
-          viewCountApprox: parseViewCountApprox(views),
-          uploaded,
-          metadataText: metadataParts.join(` ${String.fromCharCode(0x2022)} `),
-          metadata: metadataParts,
-          badges,
-          searchText: buildSearchText([title, channel, views, uploaded, duration]),
-          isUnavailable: !cleanText(titleEl?.textContent) || /private|deleted|unavailable/i.test(cleanText(video.textContent)),
-        };
-      })
+      .map((video, index) => extractVideoData(video, index))
       .filter(Boolean);
+  }
+
+  function getLoadedVideoItems() {
+    return Array.from(document.querySelectorAll(SELECTORS.video))
+      .map((element, index) => ({
+        element,
+        data: extractVideoData(element, index),
+      }))
+      .filter(item => item.data);
+  }
+
+  function extractVideoData(video, index) {
+    const titleEl = video.querySelector(SELECTORS.title);
+    const channelEl = video.querySelector(SELECTORS.channel);
+    const durationEl = video.querySelector(SELECTORS.duration);
+    const metaEl = video.querySelector(SELECTORS.metadata);
+    const thumbnailEl = video.querySelector(SELECTORS.thumbnail);
+    const href = titleEl?.getAttribute("href") || "";
+    const channelHref = channelEl?.getAttribute("href") || "";
+    const channel = cleanText(channelEl?.textContent);
+    const metadataParts = getMetadataParts(video, metaEl, channel);
+    const views = metadataParts.find(looksLikeViews) || metadataParts[0] || "";
+    const uploaded = metadataParts.find(looksLikeUploaded) || metadataParts[1] || "";
+    const badges = Array.from(video.querySelectorAll(SELECTORS.badge))
+      .map(badge => cleanText(badge.textContent))
+      .filter(Boolean);
+    const url = normalizeYouTubeUrl(href);
+    const watchUrl = parseWatchUrl(url);
+    const duration = cleanText(durationEl?.textContent);
+    const title = cleanText(titleEl?.textContent);
+    const thumbnailUrl = getThumbnailUrl(thumbnailEl, watchUrl.videoId);
+
+    if (!titleEl && !url) return null;
+
+    return {
+      index: index + 1,
+      playlistIndex: watchUrl.playlistIndex || index + 1,
+      videoId: watchUrl.videoId,
+      title,
+      channel,
+      channelUrl: normalizeYouTubeUrl(channelHref),
+      url,
+      cleanUrl: watchUrl.cleanUrl,
+      embedUrl: watchUrl.videoId ? `https://www.youtube.com/embed/${watchUrl.videoId}` : "",
+      playlistId: watchUrl.playlistId,
+      startTimeSeconds: watchUrl.startTimeSeconds,
+      duration,
+      durationSeconds: parseDurationSeconds(duration),
+      thumbnailUrl,
+      views,
+      viewCountApprox: parseViewCountApprox(views),
+      uploaded,
+      metadataText: metadataParts.join(` ${String.fromCharCode(0x2022)} `),
+      metadata: metadataParts,
+      badges,
+      searchText: buildSearchText([title, channel, views, uploaded, duration]),
+      isUnavailable: !cleanText(titleEl?.textContent) || /private|deleted|unavailable/i.test(cleanText(video.textContent)),
+    };
   }
 
   function buildCsv(videos) {
@@ -447,6 +467,143 @@
     }
   }
 
+  function importKeepMaybe() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      setBusy(true);
+      setStatus(`${ICONS.loading} Importing keep/maybe...`);
+
+      try {
+        const payload = JSON.parse(await file.text());
+        const parsed = parseKeepMaybePayload(payload);
+
+        previewState.keepIds = parsed.keepIds;
+        previewState.maybeIds = parsed.maybeIds;
+        previewState.importedAt = new Date().toISOString();
+
+        const summary = runKeepMaybeDryRun();
+        setStatus(formatDryRunSummary(summary));
+      } catch (error) {
+        clearKeepMaybePreview();
+        setStatus(`${ICONS.warning} ${error.message || "Import failed."}`);
+      } finally {
+        setBusy(false);
+      }
+    }, { once: true });
+
+    input.click();
+  }
+
+  function parseKeepMaybePayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid keep/maybe JSON.");
+    }
+
+    const keep = Array.isArray(payload.keep) ? payload.keep : [];
+    const maybe = Array.isArray(payload.maybe) ? payload.maybe : [];
+    const keepIds = new Set(keep.map(readVideoId).filter(Boolean));
+    const maybeIds = new Set(maybe.map(readVideoId).filter(Boolean));
+
+    if (!keepIds.size && !maybeIds.size) {
+      throw new Error("No keep/maybe video IDs found.");
+    }
+
+    return { keepIds, maybeIds };
+  }
+
+  function readVideoId(item) {
+    if (typeof item === "string") return cleanText(item);
+    return cleanText(item?.videoId);
+  }
+
+  function runKeepMaybeDryRun() {
+    clearPreviewClasses();
+
+    const items = getLoadedVideoItems();
+    const keepIds = previewState.keepIds;
+    const maybeIds = previewState.maybeIds;
+    const protectedIds = new Set([...keepIds, ...maybeIds]);
+    const loadedIds = new Set();
+    const summary = {
+      loaded: items.length,
+      importedKeep: keepIds.size,
+      importedMaybe: maybeIds.size,
+      protectedLoaded: 0,
+      keepLoaded: 0,
+      maybeLoaded: 0,
+      deleteCandidates: 0,
+      unknown: 0,
+      missingProtected: 0,
+    };
+
+    for (const item of items) {
+      const { element, data } = item;
+      const id = data.videoId;
+
+      if (!id) {
+        summary.unknown++;
+        element.classList.add("ytwlt-preview-unknown");
+        continue;
+      }
+
+      loadedIds.add(id);
+
+      if (keepIds.has(id)) {
+        summary.keepLoaded++;
+        summary.protectedLoaded++;
+        element.classList.add("ytwlt-preview-protected", "ytwlt-preview-keep");
+      } else if (maybeIds.has(id)) {
+        summary.maybeLoaded++;
+        summary.protectedLoaded++;
+        element.classList.add("ytwlt-preview-protected", "ytwlt-preview-maybe");
+      } else {
+        summary.deleteCandidates++;
+        element.classList.add("ytwlt-preview-delete-candidate");
+      }
+    }
+
+    summary.missingProtected = [...protectedIds].filter(id => !loadedIds.has(id)).length;
+    previewState.lastSummary = summary;
+    return summary;
+  }
+
+  function formatDryRunSummary(summary) {
+    return [
+      `${ICONS.done} Keep/maybe dry run`,
+      `Loaded: ${summary.loaded}`,
+      `Protected loaded: ${summary.protectedLoaded} (${summary.keepLoaded} keep, ${summary.maybeLoaded} maybe)`,
+      `Delete candidates: ${summary.deleteCandidates}`,
+      `Unknown/no ID: ${summary.unknown}`,
+      `Missing protected IDs: ${summary.missingProtected}`,
+    ].join("\n");
+  }
+
+  function clearKeepMaybePreview() {
+    previewState.keepIds = new Set();
+    previewState.maybeIds = new Set();
+    previewState.importedAt = "";
+    previewState.lastSummary = null;
+    clearPreviewClasses();
+    setStatus("Preview cleared.");
+  }
+
+  function clearPreviewClasses() {
+    document.querySelectorAll(SELECTORS.video).forEach(element => {
+      element.classList.remove(
+        "ytwlt-preview-protected",
+        "ytwlt-preview-keep",
+        "ytwlt-preview-maybe",
+        "ytwlt-preview-delete-candidate",
+        "ytwlt-preview-unknown",
+      );
+    });
+  }
+
   function setStatus(message) {
     const statusEl = document.querySelector(`#${CONFIG.toolboxId} [data-toolbox-status]`);
     if (statusEl) statusEl.textContent = message;
@@ -541,8 +698,18 @@
     const jsonButton = createButton(ICONS.json, "Export JSON", exportJson);
     const exportAllCsvButton = createButton(ICONS.all, "Load + CSV", () => exportAll("csv"));
     const exportAllJsonButton = createButton(ICONS.all, "Load + JSON", () => exportAll("json"));
+    const importKeepMaybeButton = createButton(ICONS.import, "Import keep/maybe", importKeepMaybe);
+    const clearPreviewButton = createButton(ICONS.clear, "Clear preview", clearKeepMaybePreview);
 
-    actions.append(loadButton, csvButton, jsonButton, exportAllCsvButton, exportAllJsonButton);
+    actions.append(
+      loadButton,
+      csvButton,
+      jsonButton,
+      exportAllCsvButton,
+      exportAllJsonButton,
+      importKeepMaybeButton,
+      clearPreviewButton,
+    );
     titleWrap.append(title, subtitle);
     header.append(titleWrap, collapseButton);
     body.append(actions, status);
@@ -684,6 +851,30 @@
         color: rgba(248, 250, 252, 0.74);
         font-size: 12px;
         line-height: 18px;
+        white-space: pre-line;
+      }
+
+      ytd-playlist-video-renderer.ytwlt-preview-protected {
+        outline: 2px solid rgba(51, 196, 122, 0.95);
+        outline-offset: 2px;
+        background: rgba(51, 196, 122, 0.10);
+      }
+
+      ytd-playlist-video-renderer.ytwlt-preview-maybe {
+        outline-color: rgba(240, 184, 79, 0.95);
+        background: rgba(240, 184, 79, 0.10);
+      }
+
+      ytd-playlist-video-renderer.ytwlt-preview-delete-candidate {
+        outline: 2px solid rgba(239, 107, 115, 0.85);
+        outline-offset: 2px;
+        background: rgba(239, 107, 115, 0.09);
+      }
+
+      ytd-playlist-video-renderer.ytwlt-preview-unknown {
+        outline: 2px solid rgba(110, 198, 255, 0.85);
+        outline-offset: 2px;
+        background: rgba(110, 198, 255, 0.09);
       }
     `;
 
