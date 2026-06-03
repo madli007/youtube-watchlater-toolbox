@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.5.0
+// @version      0.6.0
 // @description  Load and export YouTube Watch Later videos from a compact toolbox.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
@@ -50,8 +50,12 @@
   };
 
   const previewState = {
+    mode: "",
+    scope: "",
     keepIds: new Set(),
     maybeIds: new Set(),
+    scopedIds: new Set(),
+    scopedStatuses: new Map(),
     importedAt: "",
     lastSummary: null,
   };
@@ -468,7 +472,7 @@
     }
   }
 
-  function importKeepMaybe() {
+  function importPreviewJson() {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json,application/json";
@@ -477,21 +481,25 @@
       if (!file) return;
 
       setBusy(true);
-      setStatus(`${ICONS.loading} Importing keep/maybe...`);
+      setStatus(`${ICONS.loading} Importing triage JSON...`);
 
       try {
         const payload = JSON.parse(await file.text());
-        const parsed = parseKeepMaybePayload(payload);
+        const parsed = parsePreviewPayload(payload);
 
+        previewState.mode = parsed.mode;
+        previewState.scope = parsed.scope || "";
         previewState.keepIds = parsed.keepIds;
         previewState.maybeIds = parsed.maybeIds;
+        previewState.scopedIds = parsed.scopedIds;
+        previewState.scopedStatuses = parsed.scopedStatuses;
         previewState.importedAt = new Date().toISOString();
 
-        const summary = runKeepMaybeDryRun();
+        const summary = runImportedPreview();
         setCount(summary.loaded);
-        setStatus(formatDryRunSummary(summary));
+        setStatus(formatPreviewSummary(summary));
       } catch (error) {
-        clearKeepMaybePreview();
+        clearPreview();
         setStatus(`${ICONS.warning} ${error.message || "Import failed."}`);
       } finally {
         setBusy(false);
@@ -499,6 +507,11 @@
     }, { once: true });
 
     input.click();
+  }
+
+  function parsePreviewPayload(payload) {
+    if (payload?.mode === "scoped-videos") return parseScopedPayload(payload);
+    return parseKeepMaybePayload(payload);
   }
 
   function parseKeepMaybePayload(payload) {
@@ -515,12 +528,53 @@
       throw new Error("No keep/maybe video IDs found.");
     }
 
-    return { keepIds, maybeIds };
+    return {
+      mode: "keep-maybe",
+      scope: "",
+      keepIds,
+      maybeIds,
+      scopedIds: new Set(),
+      scopedStatuses: new Map(),
+    };
+  }
+
+  function parseScopedPayload(payload) {
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.videos)) {
+      throw new Error("Invalid scoped JSON.");
+    }
+
+    const scopedIds = new Set();
+    const scopedStatuses = new Map();
+
+    for (const video of payload.videos) {
+      const videoId = readVideoId(video);
+      if (!videoId) continue;
+      scopedIds.add(videoId);
+      scopedStatuses.set(videoId, cleanText(video.status || "unreviewed") || "unreviewed");
+    }
+
+    if (!scopedIds.size) {
+      throw new Error("No scoped video IDs found.");
+    }
+
+    return {
+      mode: "scoped",
+      scope: cleanText(payload.scope || "videos"),
+      keepIds: new Set(),
+      maybeIds: new Set(),
+      scopedIds,
+      scopedStatuses,
+    };
   }
 
   function readVideoId(item) {
     if (typeof item === "string") return cleanText(item);
     return cleanText(item?.videoId);
+  }
+
+  function runImportedPreview() {
+    if (previewState.mode === "scoped") return runScopedPreview();
+    return runKeepMaybeDryRun();
   }
 
   function runKeepMaybeDryRun() {
@@ -532,6 +586,7 @@
     const protectedIds = new Set([...keepIds, ...maybeIds]);
     const loadedIds = new Set();
     const summary = {
+      mode: "keep-maybe",
       loaded: items.length,
       importedKeep: keepIds.size,
       importedMaybe: maybeIds.size,
@@ -574,7 +629,76 @@
     return summary;
   }
 
-  function formatDryRunSummary(summary) {
+  function runScopedPreview() {
+    clearPreviewClasses();
+
+    const items = getLoadedVideoItems();
+    const scopedIds = previewState.scopedIds;
+    const scopedStatuses = previewState.scopedStatuses;
+    const loadedIds = new Set();
+    const summary = {
+      mode: "scoped",
+      scope: previewState.scope || "videos",
+      loaded: items.length,
+      imported: scopedIds.size,
+      matched: 0,
+      missingImported: 0,
+      loadedNotInImport: 0,
+      unknown: 0,
+      matchedByStatus: {
+        keep: 0,
+        maybe: 0,
+        delete: 0,
+        unreviewed: 0,
+      },
+    };
+
+    for (const item of items) {
+      const { element, data } = item;
+      const id = data.videoId;
+
+      if (!id) {
+        summary.unknown++;
+        element.classList.add("ytwlt-preview-unknown");
+        continue;
+      }
+
+      loadedIds.add(id);
+
+      if (!scopedIds.has(id)) {
+        summary.loadedNotInImport++;
+        continue;
+      }
+
+      summary.matched++;
+      element.classList.add("ytwlt-preview-scoped");
+
+      const status = scopedStatuses.get(id) || "unreviewed";
+      if (status === "keep") {
+        summary.matchedByStatus.keep++;
+        element.classList.add("ytwlt-preview-keep");
+      } else if (status === "maybe") {
+        summary.matchedByStatus.maybe++;
+        element.classList.add("ytwlt-preview-maybe");
+      } else if (status === "delete") {
+        summary.matchedByStatus.delete++;
+        element.classList.add("ytwlt-preview-delete-candidate");
+      } else {
+        summary.matchedByStatus.unreviewed++;
+      }
+    }
+
+    summary.missingImported = [...scopedIds].filter(id => !loadedIds.has(id)).length;
+    previewState.lastSummary = summary;
+    return summary;
+  }
+
+  function formatPreviewSummary(summary) {
+    if (summary.mode === "scoped") return formatScopedSummary(summary);
+    return formatKeepMaybeSummary(summary);
+  }
+
+  function formatKeepMaybeSummary(summary) {
     return [
       `${ICONS.done} Keep/maybe dry run`,
       `Loaded: ${summary.loaded}`,
@@ -585,9 +709,26 @@
     ].join("\n");
   }
 
-  function clearKeepMaybePreview() {
+  function formatScopedSummary(summary) {
+    return [
+      `${ICONS.done} Scoped import preview (${summary.scope})`,
+      `Loaded: ${summary.loaded}`,
+      `Imported scoped videos: ${summary.imported}`,
+      `Matched loaded: ${summary.matched}`,
+      `Matched statuses: ${summary.matchedByStatus.keep} keep, ${summary.matchedByStatus.maybe} maybe, ${summary.matchedByStatus.delete} delete, ${summary.matchedByStatus.unreviewed} unreviewed`,
+      `Missing imported IDs: ${summary.missingImported}`,
+      `Loaded not in import: ${summary.loadedNotInImport}`,
+      `Unknown/no ID: ${summary.unknown}`,
+    ].join("\n");
+  }
+
+  function clearPreview() {
+    previewState.mode = "";
+    previewState.scope = "";
     previewState.keepIds = new Set();
     previewState.maybeIds = new Set();
+    previewState.scopedIds = new Set();
+    previewState.scopedStatuses = new Map();
     previewState.importedAt = "";
     previewState.lastSummary = null;
     clearPreviewClasses();
@@ -597,20 +738,22 @@
 
   function exportDryRunReport() {
     if (!previewState.lastSummary) {
-      setStatus(`${ICONS.warning} No active dry-run preview to export.`);
+      setStatus(`${ICONS.warning} No active preview to export.`);
       return;
     }
 
     const report = buildDryRunReport();
     downloadText(
-      `watchlater_dry_run_report_${getDateStamp()}.json`,
+      `watchlater_preview_report_${getDateStamp()}.json`,
       JSON.stringify(report, null, 2),
       "application/json;charset=utf-8",
     );
-    setStatus(`${ICONS.done} Exported dry-run report.`);
+    setStatus(`${ICONS.done} Exported preview report.`);
   }
 
   function buildDryRunReport() {
+    if (previewState.mode === "scoped") return buildScopedReport();
+
     const items = getLoadedVideoItems();
     const keepIds = previewState.keepIds;
     const maybeIds = previewState.maybeIds;
@@ -665,12 +808,67 @@
     };
   }
 
+  function buildScopedReport() {
+    const items = getLoadedVideoItems();
+    const scopedIds = previewState.scopedIds;
+    const scopedStatuses = previewState.scopedStatuses;
+    const loadedIds = new Set();
+    const matched = [];
+    const loadedNotInImport = [];
+    const unknown = [];
+
+    for (const item of items) {
+      const video = item.data;
+      if (!video.videoId) {
+        unknown.push(video);
+        continue;
+      }
+
+      loadedIds.add(video.videoId);
+
+      if (scopedIds.has(video.videoId)) {
+        matched.push({
+          ...video,
+          importedStatus: scopedStatuses.get(video.videoId) || "unreviewed",
+        });
+      } else {
+        loadedNotInImport.push(video);
+      }
+    }
+
+    const missingImportedIds = [...scopedIds].filter(id => !loadedIds.has(id));
+
+    return {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "scoped-preview",
+      scope: previewState.scope || "videos",
+      exportedAt: new Date().toISOString(),
+      importedAt: previewState.importedAt,
+      summary: {
+        ...previewState.lastSummary,
+        missingImportedIds: missingImportedIds.length,
+      },
+      imported: {
+        videoIds: [...scopedIds],
+        statuses: Object.fromEntries(scopedStatuses),
+      },
+      loaded: {
+        matched,
+        loadedNotInImport,
+        unknown,
+      },
+      missingImportedIds,
+    };
+  }
+
   function clearPreviewClasses() {
     document.querySelectorAll(SELECTORS.video).forEach(element => {
       element.classList.remove(
         "ytwlt-preview-protected",
         "ytwlt-preview-keep",
         "ytwlt-preview-maybe",
+        "ytwlt-preview-scoped",
         "ytwlt-preview-delete-candidate",
         "ytwlt-preview-unknown",
       );
@@ -771,9 +969,9 @@
     const jsonButton = createButton(ICONS.json, "Export JSON", exportJson);
     const exportAllCsvButton = createButton(ICONS.all, "Load + CSV", () => exportAll("csv"));
     const exportAllJsonButton = createButton(ICONS.all, "Load + JSON", () => exportAll("json"));
-    const importKeepMaybeButton = createButton(ICONS.import, "Import keep/maybe", importKeepMaybe);
-    const exportReportButton = createButton(ICONS.report, "Export dry-run report", exportDryRunReport);
-    const clearPreviewButton = createButton(ICONS.clear, "Clear preview", clearKeepMaybePreview);
+    const importPreviewButton = createButton(ICONS.import, "Import triage JSON", importPreviewJson);
+    const exportReportButton = createButton(ICONS.report, "Export preview report", exportDryRunReport);
+    const clearPreviewButton = createButton(ICONS.clear, "Clear preview", clearPreview);
 
     actions.append(
       loadButton,
@@ -781,7 +979,7 @@
       jsonButton,
       exportAllCsvButton,
       exportAllJsonButton,
-      importKeepMaybeButton,
+      importPreviewButton,
       exportReportButton,
       clearPreviewButton,
     );
@@ -935,9 +1133,20 @@
         background: rgba(51, 196, 122, 0.10);
       }
 
+      ytd-playlist-video-renderer.ytwlt-preview-keep {
+        outline-color: rgba(51, 196, 122, 0.95);
+        background: rgba(51, 196, 122, 0.10);
+      }
+
       ytd-playlist-video-renderer.ytwlt-preview-maybe {
         outline-color: rgba(240, 184, 79, 0.95);
         background: rgba(240, 184, 79, 0.10);
+      }
+
+      ytd-playlist-video-renderer.ytwlt-preview-scoped {
+        outline: 2px solid rgba(110, 198, 255, 0.9);
+        outline-offset: 2px;
+        background: rgba(110, 198, 255, 0.08);
       }
 
       ytd-playlist-video-renderer.ytwlt-preview-delete-candidate {
