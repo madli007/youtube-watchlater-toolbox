@@ -12,6 +12,7 @@ The triage page:
 - searches and filters videos locally;
 - suggests tags from hardcoded keyword rules;
 - stores decisions in browser `localStorage`;
+- exports and imports decision-only JSON for manual sync between devices;
 - exports `keep/maybe`, delete candidates, and tagged reports.
 
 No backend, npm install, database, or API service is required.
@@ -25,6 +26,7 @@ Do not commit personal Watch Later exports. They are ignored by `.gitignore`:
 - `watchlater_keep_maybe*.json`
 - `watchlater_delete_candidates*.json`
 - `watchlater_tagged_all*.json`
+- `watchlater_decisions*.json`
 - `watchlater_dry_run_report*.json`
 - `delete-urls*.txt`
 

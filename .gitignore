@@ -35,5 +35,6 @@ watchlater_export*.csv
 watchlater_keep_maybe*.json
 watchlater_delete_candidates*.json
 watchlater_tagged_all*.json
+watchlater_decisions*.json
 watchlater_dry_run_report*.json
 delete-urls*.txt

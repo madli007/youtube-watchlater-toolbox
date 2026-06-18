@@ -125,9 +125,20 @@
       min-height: 34px;
       color: var(--text);
       background: var(--accent);
+      border: 1px solid var(--accent);
       border-radius: 7px;
       padding: 7px 10px;
       font-weight: 700;
+    }
+
+    .file-button.secondary {
+      background: var(--panel-3);
+      border-color: var(--border);
+      font-weight: 400;
+    }
+
+    .file-button.secondary:hover {
+      background: #343b48;
     }
 
     .file-button input {
@@ -630,6 +641,11 @@
         <button id="exportSelected" type="button">Export selected</button>
         <button id="exportVisible" type="button">Export visible</button>
         <button id="exportTagged" type="button">Export tagged all</button>
+        <button id="exportDecisions" type="button">Export decisions</button>
+        <label class="file-button secondary">
+          Import decisions
+          <input id="decisionsInput" type="file" accept=".json,application/json">
+        </label>
         <button id="clearDecisions" type="button">Clear decisions</button>
       </div>
     </header>
@@ -751,6 +767,8 @@
       exportSelected: document.getElementById("exportSelected"),
       exportVisible: document.getElementById("exportVisible"),
       exportTagged: document.getElementById("exportTagged"),
+      exportDecisions: document.getElementById("exportDecisions"),
+      decisionsInput: document.getElementById("decisionsInput"),
       clearDecisions: document.getElementById("clearDecisions"),
       searchInput: document.getElementById("searchInput"),
       statusFilter: document.getElementById("statusFilter"),
@@ -840,6 +858,8 @@
       els.exportSelected.addEventListener("click", exportSelectedVideos);
       els.exportVisible.addEventListener("click", exportVisibleVideos);
       els.exportTagged.addEventListener("click", exportTaggedAll);
+      els.exportDecisions.addEventListener("click", exportDecisions);
+      els.decisionsInput.addEventListener("change", importDecisionsFile);
       els.clearDecisions.addEventListener("click", clearDecisions);
       document.addEventListener("keydown", handleShortcuts);
       window.addEventListener("scroll", maybeRenderMore);
@@ -1168,6 +1188,7 @@
       });
       els.exportSelected.disabled = !state.selectedIds.size;
       els.exportVisible.disabled = !visible;
+      els.exportDecisions.disabled = !Object.keys(state.decisions).length;
     }
 
     function getActiveFilterSummary() {
@@ -1636,6 +1657,149 @@
         filters: scope === "visible" ? getActiveFilterSummary() : [],
         videos: exportedVideos,
       });
+    }
+
+    function exportDecisions() {
+      const decisions = getPortableDecisions(state.decisions);
+      const count = Object.keys(decisions).length;
+      if (!count) {
+        showToast("No saved decisions to export.");
+        return;
+      }
+
+      downloadJson(`watchlater_decisions_${getDateStamp()}.json`, {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        source: "youtube-watchlater-triage",
+        mode: "decisions-export",
+        decisions,
+      });
+    }
+
+    async function importDecisionsFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const raw = await file.text();
+        const parsed = JSON.parse(raw);
+        const incoming = parseDecisionsPayload(parsed);
+        const preview = previewDecisionsMerge(incoming, state.decisions);
+        const totalIncoming = Object.keys(incoming).length;
+
+        if (!totalIncoming) {
+          showToast("No decisions found in that file.");
+          return;
+        }
+
+        const ok = confirm([
+          `Import ${totalIncoming} decisions from ${file.name}?`,
+          "",
+          `New: ${preview.newCount}`,
+          `Updated: ${preview.updatedCount}`,
+          `Skipped: ${preview.skippedCount}`,
+          `Conflicts: ${preview.conflictCount}`,
+          "",
+          "For matching video IDs, the newer updatedAt wins.",
+        ].join("\n"));
+        if (!ok) return;
+
+        state.decisions = preview.merged;
+        saveDecisions();
+        render();
+        showToast(`Imported decisions: ${preview.newCount} new, ${preview.updatedCount} updated, ${preview.skippedCount} skipped.`);
+      } catch (error) {
+        showToast(error.message || "Decision import failed.");
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    function parseDecisionsPayload(payload) {
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Expected a decisions export JSON object.");
+      }
+
+      const decisions = payload.decisions || payload;
+      if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) {
+        throw new Error("Expected a decisions map keyed by videoId.");
+      }
+
+      return getPortableDecisions(decisions);
+    }
+
+    function previewDecisionsMerge(incoming, current) {
+      const merged = { ...current };
+      const stats = {
+        newCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        conflictCount: 0,
+        merged,
+      };
+
+      for (const [videoId, incomingDecision] of Object.entries(incoming)) {
+        const currentDecision = current[videoId] ? normalizeDecision(current[videoId]) : null;
+
+        if (!currentDecision) {
+          merged[videoId] = incomingDecision;
+          stats.newCount++;
+          continue;
+        }
+
+        const differs = !areDecisionsEqual(incomingDecision, currentDecision);
+        if (differs) stats.conflictCount++;
+
+        const incomingTime = getDecisionTime(incomingDecision);
+        const currentTime = getDecisionTime(currentDecision);
+        if (incomingTime > currentTime) {
+          merged[videoId] = incomingDecision;
+          stats.updatedCount++;
+        } else {
+          merged[videoId] = currentDecision;
+          stats.skippedCount++;
+        }
+      }
+
+      return stats;
+    }
+
+    function getPortableDecisions(decisions) {
+      const portable = {};
+      for (const [videoId, decision] of Object.entries(decisions || {})) {
+        if (!videoId || !decision || typeof decision !== "object") continue;
+        const normalized = normalizeDecision(decision);
+        if (normalized.status === "unreviewed") continue;
+        portable[videoId] = normalized;
+      }
+      return portable;
+    }
+
+    function normalizeDecision(decision) {
+      const validStatuses = new Set(["keep", "maybe", "delete", "archive", "unreviewed"]);
+      const status = validStatuses.has(decision.status) ? decision.status : "unreviewed";
+      return {
+        status,
+        tags: normalizeTags(decision.tags),
+        note: typeof decision.note === "string" ? decision.note : "",
+        updatedAt: typeof decision.updatedAt === "string" ? decision.updatedAt : "",
+      };
+    }
+
+    function normalizeTags(tags) {
+      if (!Array.isArray(tags)) return [];
+      return Array.from(new Set(tags
+        .map(tag => String(tag || "").trim())
+        .filter(Boolean)));
+    }
+
+    function areDecisionsEqual(a, b) {
+      return JSON.stringify(normalizeDecision(a)) === JSON.stringify(normalizeDecision(b));
+    }
+
+    function getDecisionTime(decision) {
+      const time = Date.parse(decision.updatedAt || "");
+      return Number.isFinite(time) ? time : 0;
     }
 
     function toExportVideo(video, decision) {
