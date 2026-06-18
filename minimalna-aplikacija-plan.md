@@ -143,6 +143,38 @@ Minimalna struktura v `localStorage`:
 
 Originalni imported JSON ostane locen od uporabnikovih odlocitev. Tako lahko kasneje ponovno importas novejsi export in obdrzis stare odlocitve po `videoId`.
 
+## Naslednja faza: prenos odlocitev med napravami
+
+Prva sync resitev naj ostane brez backenda in naj samo naredi state prenosljiv.
+
+Dodaj:
+
+- `Export decisions`: izvozi samo `localStorage` odlocitve po `videoId`;
+- `Import decisions`: uvozi tak export in ga merge-a v trenutne odlocitve;
+- konfliktno pravilo: ce isti `videoId` obstaja na obeh straneh, zmaga zapis z novejsim `updatedAt`;
+- kratek preview pred importom: koliko je novih, posodobljenih, preskocenih in konfliktnih zapisov.
+
+Priporocen format:
+
+```json
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-06-18T16:00:00.000Z",
+  "source": "youtube-watchlater-triage",
+  "mode": "decisions-export",
+  "decisions": {
+    "S5wgoGWgdDw": {
+      "status": "keep",
+      "tags": ["marvel", "reaction"],
+      "note": "",
+      "updatedAt": "2026-06-18T15:48:00.000Z"
+    }
+  }
+}
+```
+
+Kasnejsa razsiritev je lahko `workspace-snapshot`, ki poleg odlocitev izvozi se trenutno uvozene videe. To je uporabno za nadaljevanje dela na drugi napravi brez ponovnega YouTube exporta, ampak naj ne bo prva implementacija.
+
 ## Export iz aplikacije
 
 Najbolj uporabni exporti:
@@ -194,9 +226,10 @@ Varnostna pravila za `Delete not kept`:
 3. Dodaj tag rules za Marvel, Star Wars, Dragon Ball, reactions.
 4. Dodaj export `delete-urls.txt` in `tagged-videos.json`.
 5. Dodaj export `keep.json`.
-6. Dodaj import `keep.json` v Tampermonkey skripto.
-7. Dodaj dry-run `Delete not kept`.
-8. Sele potem dodaj dejansko brisanje iz Watch Later.
+6. Dodaj export/import odlocitev za rocni sync med napravami.
+7. Dodaj import `keep.json` v Tampermonkey skripto.
+8. Dodaj dry-run `Delete not kept`.
+9. Sele potem dodaj dejansko brisanje iz Watch Later.
 
 ## Zakaj ne baza/backend
 
@@ -204,7 +237,7 @@ Za ta use case baza ni nujna. `videoId` je stabilen kljuc, JSON je dovolj majhen
 
 Backend bi postal smiseln sele, ce bi hotel:
 
-- sync med napravami;
+- avtomatski sync med napravami brez rocnega export/import toka;
 - vec uporabnikov;
 - avtomatsko enrichment prek YouTube API-ja;
 - scheduled cleanup;

@@ -75,6 +75,37 @@ Ce odlocitev obstaja v `localStorage`, video pa ni v trenutnem importu:
 - video se ne prikazuje v glavnem seznamu;
 - kasneje se lahko doda maintenance panel za orphaned decisions.
 
+### Prenos odlocitev med napravami
+
+Naslednja faza po osnovnem MVP naj doda rocni sync brez backenda:
+
+- `Export decisions` izvozi samo uporabnikove odlocitve iz `localStorage`;
+- `Import decisions` merge-a uvozeno mapo odlocitev v lokalni state;
+- matching je izkljucno po `videoId`;
+- pri konfliktu zmaga zapis z novejsim `updatedAt`;
+- pred importom naj UI pokaze preview: new, updated, skipped, conflicts.
+
+Priporocen format:
+
+```json
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-06-18T16:00:00.000Z",
+  "source": "youtube-watchlater-triage",
+  "mode": "decisions-export",
+  "decisions": {
+    "S5wgoGWgdDw": {
+      "status": "keep",
+      "tags": ["marvel", "reaction"],
+      "note": "",
+      "updatedAt": "2026-06-18T15:48:00.000Z"
+    }
+  }
+}
+```
+
+Ta faza mora ostati GitHub Pages compatible: brez baze, brez loginov, brez API tokenov. Kasnejsa opcija je `workspace-snapshot`, ki poleg odlocitev izvozi tudi trenutni imported video dataset.
+
 ### Import
 
 MVP podpira en JSON import naenkrat.
@@ -330,6 +361,7 @@ MVP UI lahko podpira:
 5. Dodati checkbox selection in bulk actions.
 6. Dodati `localStorage` decisions po `videoId`.
 7. Dodati export `keep/maybe`.
-8. Dodati userscript import `keep/maybe` in dry-run.
-9. Dodati backup + typed confirm.
-10. Sele potem dodati dejanski `Delete not kept`.
+8. Dodati export/import odlocitev za rocni sync med napravami.
+9. Dodati userscript import `keep/maybe` in dry-run.
+10. Dodati backup + typed confirm.
+11. Sele potem dodati dejanski `Delete not kept`.
