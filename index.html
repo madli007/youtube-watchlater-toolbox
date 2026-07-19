@@ -170,6 +170,60 @@
       border-bottom: 1px solid var(--border);
     }
 
+    .dataset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 16px;
+      padding: 10px 18px;
+      background: #15181e;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dataset-views {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dataset-views strong {
+      margin-right: 3px;
+      font-size: 12px;
+    }
+
+    .dataset-view.is-active {
+      color: #081015;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 750;
+    }
+
+    .comparison-summary {
+      max-width: min(100%, 760px);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .comparison-summary details {
+      margin-top: 5px;
+    }
+
+    .comparison-summary summary {
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    .comparison-detail-list {
+      display: grid;
+      gap: 3px;
+      max-height: 180px;
+      overflow: auto;
+      margin-top: 5px;
+      padding-left: 14px;
+    }
+
     .channel-combo {
       position: relative;
       min-width: 0;
@@ -239,6 +293,25 @@
 
     .tag-chip.is-empty {
       opacity: 0.42;
+    }
+
+    .import-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border: 1px solid #2d6285;
+      border-radius: 999px;
+      padding: 3px 7px;
+      color: #bce4ff;
+      background: #172c3a;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .import-badge.changed {
+      color: #ffe0a3;
+      background: #332817;
+      border-color: #735b29;
     }
 
     .workspace {
@@ -717,6 +790,17 @@
       <button id="clearFilters" type="button">Clear filters</button>
     </section>
     <section id="tagFilter" class="tag-filter" aria-label="Suggested tag filters"></section>
+    <section class="dataset-bar" aria-label="Import comparison views">
+      <div id="datasetViews" class="dataset-views">
+        <strong>Import view</strong>
+        <button class="dataset-view is-active" type="button" data-dataset-view="all">All</button>
+        <button class="dataset-view" type="button" data-dataset-view="inbox">Inbox</button>
+        <button class="dataset-view" type="button" data-dataset-view="new">New</button>
+        <button class="dataset-view" type="button" data-dataset-view="changed">Metadata changed</button>
+        <button class="dataset-view" type="button" data-dataset-view="decided">Already decided</button>
+      </div>
+      <div id="comparisonSummary" class="comparison-summary">Import a second export to compare datasets.</div>
+    </section>
 
     <div class="workspace">
       <main class="main">
@@ -783,6 +867,7 @@
     const HISTORY_STORAGE_KEY = "watchlater-triage-history-v1";
     const USER_RULES_STORAGE_KEY = "watchlater-triage-user-rules-v1";
     const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
+    const DATASET_BASELINE_STORAGE_KEY = "watchlater-triage-dataset-baseline-v1";
     const PAGE_SIZE = 220;
     const BULK_CONFIRM_THRESHOLD = 100;
     const MAX_HISTORY_ENTRIES = 20;
@@ -816,6 +901,9 @@
       userRules: normalizeUserRules(loadStoredObject(USER_RULES_STORAGE_KEY)),
       savedViews: normalizeSavedViews(loadStoredArray(SAVED_VIEWS_STORAGE_KEY)),
       lastImport: null,
+      datasetView: "all",
+      importComparison: createEmptyImportComparison(),
+      datasetBaseline: loadDatasetBaseline(),
     };
 
     const els = {
@@ -838,6 +926,8 @@
       sortSelect: document.getElementById("sortSelect"),
       clearFilters: document.getElementById("clearFilters"),
       tagFilter: document.getElementById("tagFilter"),
+      datasetViews: document.getElementById("datasetViews"),
+      comparisonSummary: document.getElementById("comparisonSummary"),
       totalCount: document.getElementById("totalCount"),
       visibleCount: document.getElementById("visibleCount"),
       keepCount: document.getElementById("keepCount"),
@@ -908,6 +998,14 @@
       });
       els.sortSelect.addEventListener("change", render);
       els.clearFilters.addEventListener("click", clearFilters);
+      els.datasetViews.addEventListener("click", event => {
+        const button = event.target.closest("[data-dataset-view]");
+        if (!button || button.disabled) return;
+        state.datasetView = button.dataset.datasetView;
+        state.selectedIds.clear();
+        state.renderedCount = PAGE_SIZE;
+        render();
+      });
       els.keepBulk.addEventListener("click", () => applyBulkStatus("keep"));
       els.maybeBulk.addEventListener("click", () => applyBulkStatus("maybe"));
       els.deleteBulk.addEventListener("click", () => applyBulkStatus("delete"));
@@ -944,26 +1042,51 @@
           .map(video => enrichVideo(video))
           .filter(video => video.videoId);
 
-        state.videos = deduped;
-        state.selectedIds.clear();
-        state.activeTag = "all";
-        state.activeChannel = "all";
-        state.renderedCount = PAGE_SIZE;
-        state.currentId = deduped[0]?.videoId || "";
-        state.lastImport = {
+        const importedAt = new Date().toISOString();
+        const currentImport = {
           fileName: file.name,
-          importedAt: new Date().toISOString(),
+          importedAt,
           videoCount: deduped.length,
           sourceExportedAt: typeof parsed?.exportedAt === "string" ? parsed.exportedAt : "",
           sourceMode: typeof parsed?.mode === "string" ? parsed.mode : "",
         };
+        const inMemoryBaselineAvailable = state.videos.length > 0 || state.lastImport !== null;
+        const previousVideos = inMemoryBaselineAvailable
+          ? state.videos.map(toWorkspaceVideo)
+          : state.datasetBaseline?.videos;
+        const previousImport = inMemoryBaselineAvailable
+          ? state.lastImport
+          : state.datasetBaseline?.lastImport;
+        const comparison = compareVideoDatasets(
+          Array.isArray(previousVideos) ? previousVideos : null,
+          deduped,
+          state.decisions,
+          previousImport,
+          currentImport,
+        );
+
+        state.videos = deduped;
+        state.selectedIds.clear();
+        state.activeTag = "all";
+        state.activeChannel = "all";
+        state.importComparison = comparison;
+        state.datasetView = comparison.baselineAvailable && getInboxIds(comparison).length ? "inbox" : "all";
+        state.renderedCount = PAGE_SIZE;
+        state.currentId = deduped[0]?.videoId || "";
+        state.lastImport = currentImport;
+        state.datasetBaseline = createDatasetBaseline(deduped, currentImport);
+        const baselineSaved = saveDatasetBaseline(state.datasetBaseline);
         els.statusFilter.value = "all";
         els.searchInput.value = "";
         els.channelSearch.value = "";
         populateChannels();
         renderTagFilters();
         render();
-        showToast(`Imported ${deduped.length} videos from ${file.name}.`);
+        const comparisonText = comparison.baselineAvailable
+          ? ` ${comparison.newIds.length} new, ${comparison.removedVideos.length} no longer present.`
+          : " This import is now the comparison baseline.";
+        const storageText = baselineSaved ? "" : " The comparison baseline could not be saved locally.";
+        showToast(`Imported ${deduped.length} videos from ${file.name}.${comparisonText}${storageText}`);
       } catch (error) {
         showToast(error.message || "Import failed.");
       } finally {
@@ -1127,6 +1250,7 @@
       els.channelSearch.value = "";
       els.sortSelect.value = "index";
       state.activeTag = "all";
+      state.datasetView = "all";
       state.renderedCount = PAGE_SIZE;
       renderTagFilters();
       render();
@@ -1139,8 +1263,11 @@
       const channel = state.activeChannel;
       const channelQuery = els.channelSearch.value.trim().toLowerCase();
       const tag = state.activeTag;
+      const datasetIds = getDatasetViewIds(state.datasetView);
 
       return getSortedVideos(state.videos.filter(video => {
+        if (datasetIds && !datasetIds.has(video.videoId)) return false;
+        if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
         if (query && !video.searchText.includes(query)) return false;
         if (status !== "all" && getStatus(video.videoId) !== status) return false;
         if (channel !== "all" && video.channel !== channel) return false;
@@ -1194,6 +1321,7 @@
       renderVideoList();
       renderSidebar();
       renderHistory();
+      renderImportComparison();
       updateBulkLabels();
       if (options.scrollToCurrent) scrollCurrentIntoView();
     }
@@ -1276,6 +1404,197 @@
       els.undoBulk.disabled = !state.history.some(entry => entry.action === "bulk-status");
     }
 
+    function getDatasetViewIds(view) {
+      const comparison = state.importComparison;
+      if (!comparison.baselineAvailable || view === "all") return null;
+      if (view === "inbox" || view === "new") return new Set(comparison.newIds);
+      if (view === "changed") return new Set(comparison.changedIds);
+      if (view === "decided") return new Set(comparison.decidedIds);
+      return null;
+    }
+
+    function renderImportComparison() {
+      const comparison = state.importComparison;
+      const inboxCount = comparison.baselineAvailable ? getInboxIds(comparison).length : 0;
+      const viewCounts = {
+        all: state.videos.length,
+        inbox: inboxCount,
+        new: comparison.newIds.length,
+        changed: comparison.changedIds.length,
+        decided: comparison.decidedIds.length,
+      };
+      const labels = {
+        all: "All",
+        inbox: "Inbox",
+        new: "New",
+        changed: "Metadata changed",
+        decided: "Already decided",
+      };
+
+      for (const button of els.datasetViews.querySelectorAll("[data-dataset-view]")) {
+        const view = button.dataset.datasetView;
+        button.textContent = `${labels[view]} ${viewCounts[view] ?? 0}`;
+        button.classList.toggle("is-active", state.datasetView === view);
+        button.disabled = view !== "all" && (!comparison.baselineAvailable || viewCounts[view] === 0);
+      }
+
+      if (!state.videos.length) {
+        els.comparisonSummary.textContent = "Import a second export to compare datasets.";
+        return;
+      }
+      if (!comparison.baselineAvailable) {
+        els.comparisonSummary.textContent = "No previous dataset was available. This import is now the local comparison baseline.";
+        return;
+      }
+
+      const previousName = comparison.previousImport?.fileName || "previous dataset";
+      const currentIds = new Set(state.videos.map(video => video.videoId));
+      const orphanedIds = Object.keys(state.decisions).filter(videoId => !currentIds.has(videoId));
+      const summary = document.createElement("div");
+      summary.textContent = `Compared with ${previousName}: ${comparison.newIds.length} new · ${comparison.removedVideos.length} no longer present · ${comparison.decidedIds.length} already decided · ${comparison.changedIds.length} metadata changed · ${orphanedIds.length} orphaned decisions.`;
+      els.comparisonSummary.replaceChildren(summary);
+
+      if (comparison.removedVideos.length || orphanedIds.length) {
+        const details = document.createElement("details");
+        const detailsSummary = document.createElement("summary");
+        detailsSummary.textContent = "Show removed videos and orphaned decisions";
+        const list = document.createElement("div");
+        list.className = "comparison-detail-list";
+        const visibleRemoved = comparison.removedVideos.slice(0, 50);
+        const visibleOrphaned = orphanedIds.slice(0, 50);
+        for (const video of visibleRemoved) {
+          const item = document.createElement("span");
+          item.textContent = `No longer present: ${video.title || video.videoId}${video.channel ? ` — ${video.channel}` : ""}`;
+          list.appendChild(item);
+        }
+        if (comparison.removedVideos.length > visibleRemoved.length) {
+          const item = document.createElement("span");
+          item.textContent = `…and ${comparison.removedVideos.length - visibleRemoved.length} more videos no longer present.`;
+          list.appendChild(item);
+        }
+        for (const videoId of visibleOrphaned) {
+          const item = document.createElement("span");
+          item.textContent = `Orphaned decision: ${videoId}`;
+          list.appendChild(item);
+        }
+        if (orphanedIds.length > visibleOrphaned.length) {
+          const item = document.createElement("span");
+          item.textContent = `…and ${orphanedIds.length - visibleOrphaned.length} more orphaned decisions.`;
+          list.appendChild(item);
+        }
+        details.append(detailsSummary, list);
+        els.comparisonSummary.appendChild(details);
+      }
+    }
+
+    function createEmptyImportComparison() {
+      return {
+        baselineAvailable: false,
+        comparedAt: "",
+        previousImport: null,
+        currentImport: null,
+        newIds: [],
+        removedVideos: [],
+        decidedIds: [],
+        changedIds: [],
+        changedFieldsById: {},
+        orphanedDecisionIds: [],
+      };
+    }
+
+    function createVideoSnapshot(video) {
+      const rawDurationSeconds = video?.durationSeconds;
+      return {
+        videoId: String(video?.videoId || ""),
+        title: String(video?.title || ""),
+        channel: String(video?.channel || ""),
+        channelUrl: String(video?.channelUrl || ""),
+        duration: String(video?.duration || ""),
+        durationSeconds: rawDurationSeconds !== null && rawDurationSeconds !== "" && Number.isFinite(Number(rawDurationSeconds))
+          ? Number(rawDurationSeconds)
+          : null,
+        badges: normalizeTags(video?.badges).sort(),
+        isUnavailable: Boolean(video?.isUnavailable),
+      };
+    }
+
+    function createDatasetBaseline(videos, lastImport) {
+      return {
+        schemaVersion: 1,
+        savedAt: new Date().toISOString(),
+        lastImport: normalizePlainObject(lastImport),
+        videos: dedupeVideos(Array.isArray(videos) ? videos : [])
+          .map(createVideoSnapshot)
+          .filter(video => video.videoId),
+      };
+    }
+
+    function getChangedMetadataFields(previousVideo, currentVideo) {
+      const previous = createVideoSnapshot(previousVideo);
+      const current = createVideoSnapshot(currentVideo);
+      const fields = ["title", "channel", "channelUrl", "duration", "durationSeconds", "badges", "isUnavailable"];
+      return fields.filter(field => JSON.stringify(previous[field]) !== JSON.stringify(current[field]));
+    }
+
+    function compareVideoDatasets(previousVideos, currentVideos, decisions = {}, previousImport = null, currentImport = null) {
+      const comparison = createEmptyImportComparison();
+      comparison.currentImport = normalizePlainObject(currentImport);
+      comparison.previousImport = normalizePlainObject(previousImport);
+      comparison.comparedAt = new Date().toISOString();
+      comparison.baselineAvailable = Array.isArray(previousVideos);
+      if (!comparison.baselineAvailable) return comparison;
+
+      const previousById = new Map(dedupeVideos(previousVideos).map(video => [String(video.videoId), video]));
+      const currentById = new Map(dedupeVideos(Array.isArray(currentVideos) ? currentVideos : []).map(video => [String(video.videoId), video]));
+      comparison.newIds = Array.from(currentById.keys()).filter(videoId => !previousById.has(videoId));
+      comparison.removedVideos = Array.from(previousById.entries())
+        .filter(([videoId]) => !currentById.has(videoId))
+        .map(([, video]) => createVideoSnapshot(video));
+      comparison.decidedIds = Array.from(currentById.keys())
+        .filter(videoId => Object.prototype.hasOwnProperty.call(decisions || {}, videoId));
+
+      for (const [videoId, currentVideo] of currentById) {
+        const previousVideo = previousById.get(videoId);
+        if (!previousVideo) continue;
+        const changedFields = getChangedMetadataFields(previousVideo, currentVideo);
+        if (!changedFields.length) continue;
+        comparison.changedIds.push(videoId);
+        comparison.changedFieldsById[videoId] = changedFields;
+      }
+
+      comparison.orphanedDecisionIds = Object.keys(decisions || {}).filter(videoId => !currentById.has(videoId));
+      return comparison;
+    }
+
+    function normalizeImportComparison(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return createEmptyImportComparison();
+      const removedVideos = Array.isArray(value.removedVideos)
+        ? value.removedVideos.map(createVideoSnapshot).filter(video => video.videoId)
+        : [];
+      const changedFieldsById = {};
+      if (value.changedFieldsById && typeof value.changedFieldsById === "object" && !Array.isArray(value.changedFieldsById)) {
+        for (const [videoId, fields] of Object.entries(value.changedFieldsById)) {
+          changedFieldsById[videoId] = normalizeTags(fields);
+        }
+      }
+      return {
+        baselineAvailable: Boolean(value.baselineAvailable),
+        comparedAt: typeof value.comparedAt === "string" ? value.comparedAt : "",
+        previousImport: normalizePlainObject(value.previousImport),
+        currentImport: normalizePlainObject(value.currentImport),
+        newIds: normalizeTags(value.newIds),
+        removedVideos,
+        decidedIds: normalizeTags(value.decidedIds),
+        changedIds: normalizeTags(value.changedIds),
+        changedFieldsById,
+        orphanedDecisionIds: normalizeTags(value.orphanedDecisionIds),
+      };
+    }
+
+    function getInboxIds(comparison = state.importComparison) {
+      return comparison.newIds.filter(videoId => getStatus(videoId) === "unreviewed");
+    }
+
     function getActiveFilterSummary() {
       const filters = [];
       const query = els.searchInput.value.trim();
@@ -1284,6 +1603,7 @@
       if (state.activeChannel !== "all") filters.push(`channel=${state.activeChannel}`);
       else if (els.channelSearch.value.trim()) filters.push(`channel search="${els.channelSearch.value.trim()}"`);
       if (state.activeTag !== "all") filters.push(`tag=${state.activeTag}`);
+      if (state.datasetView !== "all") filters.push(`import view=${state.datasetView}`);
       if (els.sortSelect.value !== "index") {
         const label = els.sortSelect.options[els.sortSelect.selectedIndex]?.textContent || els.sortSelect.value;
         filters.push(`sort=${label}`);
@@ -1366,6 +1686,20 @@
 
       const tags = document.createElement("div");
       tags.className = "tags";
+      if (state.importComparison.newIds.includes(video.videoId)) {
+        const badge = document.createElement("span");
+        badge.className = "import-badge";
+        badge.textContent = "New since last import";
+        tags.appendChild(badge);
+      }
+      if (state.importComparison.changedIds.includes(video.videoId)) {
+        const badge = document.createElement("span");
+        badge.className = "import-badge changed";
+        const fields = state.importComparison.changedFieldsById[video.videoId] || [];
+        badge.textContent = "Metadata changed";
+        badge.title = fields.length ? `Changed: ${fields.join(", ")}` : "Metadata changed since the previous import";
+        tags.appendChild(badge);
+      }
       const decisionTags = getDecision(video.videoId).tags || [];
       const allTags = Array.from(new Set([...video.suggestedTags, ...decisionTags]));
       allTags.forEach(tag => {
@@ -1773,6 +2107,7 @@
         userRules: state.userRules,
         savedViews: state.savedViews,
         lastImport: state.lastImport,
+        importComparison: state.importComparison,
         history: state.history,
         ui: getWorkspaceUiState(),
       });
@@ -1791,6 +2126,7 @@
           userRules: normalizeUserRules(workspace.userRules),
           savedViews: normalizeSavedViews(workspace.savedViews),
           lastImport: normalizePlainObject(workspace.lastImport),
+          importComparison: normalizeImportComparison(workspace.importComparison),
           history: normalizeHistory(workspace.history),
           ui: normalizeWorkspaceUi(workspace.ui),
         },
@@ -1819,6 +2155,7 @@
         userRules: normalizeUserRules(workspace.userRules),
         savedViews: normalizeSavedViews(workspace.savedViews),
         lastImport: normalizePlainObject(workspace.lastImport),
+        importComparison: normalizeImportComparison(workspace.importComparison),
         history: normalizeHistory(workspace.history),
         ui: normalizeWorkspaceUi(workspace.ui),
       };
@@ -1861,10 +2198,13 @@
         state.userRules = incoming.userRules;
         state.savedViews = incoming.savedViews;
         state.lastImport = incoming.lastImport;
+        state.importComparison = incoming.importComparison;
         state.decisions = incoming.decisions;
         state.videos = dedupeVideos(incoming.videos)
           .map(video => enrichVideo(video))
           .filter(video => video.videoId);
+        state.datasetBaseline = createDatasetBaseline(state.videos, state.lastImport);
+        saveDatasetBaseline(state.datasetBaseline);
         state.history = mergeHistoryEntries([
           ...(importBackup ? [importBackup] : []),
           ...incoming.history,
@@ -1900,6 +2240,7 @@
         channelSearch: els.channelSearch.value,
         tag: state.activeTag,
         sort: els.sortSelect.value,
+        datasetView: state.datasetView,
         selectedIds: Array.from(state.selectedIds),
         currentId: state.currentId,
       };
@@ -1913,6 +2254,9 @@
       els.channelSearch.value = normalized.channelSearch;
       state.activeChannel = normalized.channel;
       state.activeTag = normalized.tag;
+      state.datasetView = normalized.datasetView !== "all" && !state.importComparison.baselineAvailable
+        ? "all"
+        : normalized.datasetView;
       const videoIds = new Set(state.videos.map(video => video.videoId));
       state.selectedIds = new Set(normalized.selectedIds.filter(id => videoIds.has(id)));
       state.currentId = videoIds.has(normalized.currentId) ? normalized.currentId : (state.videos[0]?.videoId || "");
@@ -1932,6 +2276,7 @@
         channelSearch: typeof source.channelSearch === "string" ? source.channelSearch : "",
         tag: typeof source.tag === "string" ? source.tag : "all",
         sort: typeof source.sort === "string" ? source.sort : "index",
+        datasetView: ["all", "inbox", "new", "changed", "decided"].includes(source.datasetView) ? source.datasetView : "all",
         selectedIds: Array.isArray(source.selectedIds) ? source.selectedIds.map(String) : [],
         currentId: typeof source.currentId === "string" ? source.currentId : "",
       };
@@ -2332,6 +2677,30 @@
 
     function saveStoredJson(key, value) {
       localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function loadDatasetBaseline() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(DATASET_BASELINE_STORAGE_KEY) || "null");
+        if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.videos)) return null;
+        return {
+          schemaVersion: 1,
+          savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+          lastImport: normalizePlainObject(parsed.lastImport),
+          videos: parsed.videos.map(createVideoSnapshot).filter(video => video.videoId),
+        };
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function saveDatasetBaseline(baseline) {
+      try {
+        localStorage.setItem(DATASET_BASELINE_STORAGE_KEY, JSON.stringify(baseline));
+        return true;
+      } catch (_error) {
+        return false;
+      }
     }
 
     function handleShortcuts(event) {

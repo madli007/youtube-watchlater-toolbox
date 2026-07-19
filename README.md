@@ -9,6 +9,8 @@ Open `index.html` in a browser, or publish this repository with GitHub Pages and
 The triage page:
 
 - imports a Watch Later JSON export;
+- compares each import with the previous local dataset and shows new, removed, already-decided, metadata-changed, and orphaned items;
+- provides an Inbox view containing only new videos that are still unreviewed;
 - searches and filters videos locally;
 - suggests tags from hardcoded keyword rules;
 - stores decisions in browser `localStorage`;
