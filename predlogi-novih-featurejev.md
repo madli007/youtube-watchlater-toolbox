@@ -40,6 +40,10 @@ Zato navaden **backup/restore odločitev ni več predlog za nov feature**. Spoda
 
 ## P0: zaključek varnega cleanup procesa
 
+- [ ] 1. Varna izvedba brisanja na YouTubu
+- [ ] 2. Preverjanje in uskladitev po izvedbi
+- [ ] 3. Workspace snapshot, zgodovina in undo
+
 ### 1. Varna izvedba brisanja na YouTubu
 
 Userscript trenutno zna uvožene odločitve prikazati kot predogled, nima pa izvedbenega koraka. Smiselna naslednja funkcija je **Execute delete candidates**.
@@ -86,6 +90,11 @@ Ročni export/import samih odločitev je po zadnjem komitu že implementiran. Na
 Obstoječi decision-only JSON naj ostane lahek format za sync, workspace snapshot pa ločen format za popolno obnovo seje.
 
 ## P1: hitrejši ponavljajoči se triage
+
+- [ ] 4. Inkrementalni import in primerjava izvozov
+- [ ] 5. Urejanje tagov, pravil in opomb
+- [ ] 6. Napredni filtri in shranjeni pogledi
+- [ ] 7. Pravila na nivoju kanala
 
 ### 4. Inkrementalni import in primerjava izvozov
 
@@ -147,6 +156,10 @@ Pravila naj bodo transparentna in reverzibilna: aplikacija naj pokaže, koliko v
 
 ## P2: organizacija in odločanje
 
+- [ ] 8. Premik ali kopiranje v tematske playliste
+- [ ] 9. Časovni proračun in statistika
+- [ ] 10. Gručenje serij in podobnih videov
+
 ### 8. Premik ali kopiranje v tematske playliste
 
 Namesto binarne izbire obdrži/izbriši bi aplikacija lahko podprla ciljno playlisto, na primer `Dev`, `Movies`, `Music` ali `Long form`.
@@ -185,6 +198,9 @@ Naslove je mogoče lokalno združevati v skupine brez zunanjega API-ja:
 Uporabnik bi nato lahko označil celotno skupino ali izbral “obdrži samo najnovejšega / najbolj gledanega”. Pred izvedbo mora vedno videti člane skupine.
 
 ## P3: udobje pri vsakodnevni uporabi
+
+- [ ] 11. Vgrajen hitri ogled med triageom
+- [ ] 12. Način “odloči se namesto mene”
 
 ### 11. Vgrajen hitri ogled med triageom
 
