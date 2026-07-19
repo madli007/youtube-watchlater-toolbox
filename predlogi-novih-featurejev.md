@@ -41,7 +41,7 @@ Zato navaden **backup/restore odločitev ni več predlog za nov feature**. Spoda
 ## P0: zaključek varnega cleanup procesa
 
 - [x] 1. Varna izvedba brisanja na YouTubu
-- [ ] 2. Preverjanje in uskladitev po izvedbi
+- [x] 2. Preverjanje in uskladitev po izvedbi
 - [ ] 3. Workspace snapshot, zgodovina in undo
 
 ### 1. Varna izvedba brisanja na YouTubu

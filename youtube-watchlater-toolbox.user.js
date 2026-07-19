@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.7.0
-// @description  Export, preview, and safely execute Watch Later cleanup plans.
+// @version      0.8.0
+// @description  Export, execute, and reconcile Watch Later cleanup plans.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
 // @grant        none
@@ -525,9 +525,40 @@
   }
 
   function parsePreviewPayload(payload) {
+    if (payload?.mode === "delete-reconciliation-report") return parseReconciliationPayload(payload);
     if (payload?.mode === "delete-execution-report") return parseExecutionReportPayload(payload);
     if (payload?.mode === "scoped-videos") return parseScopedPayload(payload);
     return parseKeepMaybePayload(payload);
+  }
+
+  function parseReconciliationPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid delete reconciliation report.");
+    }
+
+    const candidates = Array.isArray(payload.remainingCandidates)
+      ? payload.remainingCandidates
+      : Array.isArray(payload.retryVideoIds)
+        ? payload.retryVideoIds
+        : [];
+    const scopedIds = new Set(candidates.map(readVideoId).filter(Boolean));
+    if (!scopedIds.size) {
+      throw new Error("The reconciliation report has no remaining candidates to retry.");
+    }
+    const protectedIds = new Set(
+      (Array.isArray(payload.protectedPresent) ? payload.protectedPresent : [])
+        .map(readVideoId)
+        .filter(Boolean),
+    );
+
+    return {
+      mode: "retry-failures",
+      scope: `reconciliation ${cleanText(payload.runId || payload.reconciledAt || "retry")}`,
+      keepIds: protectedIds,
+      maybeIds: new Set(),
+      scopedIds,
+      scopedStatuses: new Map([...scopedIds].map(videoId => [videoId, "delete"])),
+    };
   }
 
   function parseExecutionReportPayload(payload) {
@@ -540,10 +571,16 @@
       throw new Error("The execution report has no failed video IDs to retry.");
     }
 
+    const protectedItems = Array.isArray(payload.protectedVideos)
+      ? payload.protectedVideos
+      : Array.isArray(payload.protectedVideoIds)
+        ? payload.protectedVideoIds
+        : [];
+
     return {
       mode: "retry-failures",
       scope: `retry ${cleanText(payload.runId || "failures")}`,
-      keepIds: new Set(),
+      keepIds: new Set(protectedItems.map(readVideoId).filter(Boolean)),
       maybeIds: new Set(),
       scopedIds,
       scopedStatuses: new Map([...scopedIds].map(videoId => [videoId, "delete"])),
@@ -946,6 +983,18 @@
     return previewState.scopedIds.has(videoId) && previewState.scopedStatuses.get(videoId) === "delete";
   }
 
+  function isProtectedVideoId(videoId) {
+    if (previewState.mode === "keep-maybe") {
+      return previewState.keepIds.has(videoId) || previewState.maybeIds.has(videoId);
+    }
+    if (previewState.mode === "scoped") {
+      const status = previewState.scopedStatuses.get(videoId);
+      return status === "keep" || status === "maybe";
+    }
+    if (previewState.mode === "retry-failures") return previewState.keepIds.has(videoId);
+    return false;
+  }
+
   function toExecutionVideo(video) {
     return {
       videoId: video.videoId,
@@ -964,8 +1013,17 @@
     const items = getLoadedVideoItems();
     const loadedIds = new Set(items.map(item => item.data.videoId).filter(Boolean));
     const targets = [];
+    const protectedVideos = [];
     const excluded = [];
     const seenIds = new Set();
+    const seenProtectedIds = new Set();
+
+    for (const item of items) {
+      const video = item.data;
+      if (!video.videoId || seenProtectedIds.has(video.videoId) || !isProtectedVideoId(video.videoId)) continue;
+      seenProtectedIds.add(video.videoId);
+      protectedVideos.push(toExecutionVideo(video));
+    }
 
     for (let index = items.length - 1; index >= 0; index--) {
       const video = items[index].data;
@@ -995,6 +1053,7 @@
       mode,
       loadedVideos: items.map(item => item.data),
       targets,
+      protectedVideos,
       excluded,
     };
   }
@@ -1039,9 +1098,12 @@
       counts: {
         loaded: preparation.loadedVideos.length,
         targets: preparation.targets.length,
+        protected: preparation.protectedVideos.length,
         excluded: preparation.excluded.length,
       },
       targets: preparation.targets,
+      protectedVideos: preparation.protectedVideos,
+      protectedVideoIds: preparation.protectedVideos.map(video => video.videoId),
       excluded: preparation.excluded,
     };
 
@@ -1112,6 +1174,8 @@
         status: "running",
         targetVideoIds: preparation.targets.map(video => video.videoId),
         targets: preparation.targets,
+        protectedVideoIds: preparation.protectedVideos.map(video => video.videoId),
+        protectedVideos: preparation.protectedVideos,
         successes: [],
         failures: [],
         skipped: preparation.excluded,
@@ -1448,6 +1512,8 @@
       },
       targetVideoIds: run.targetVideoIds,
       targets: run.targets,
+      protectedVideoIds: Array.isArray(run.protectedVideoIds) ? run.protectedVideoIds : [],
+      protectedVideos: Array.isArray(run.protectedVideos) ? run.protectedVideos : [],
       successes: run.successes,
       failures: run.failures,
       skipped: run.skipped,
@@ -1479,6 +1545,132 @@
     const label = status === "completed" ? `${ICONS.done} Delete run completed` : `${ICONS.stop} Delete run stopped`;
     setStatus(`${formatExecutionProgress(run, label)}\nExecution report download started.`);
     updateExecutionControls();
+    window.setTimeout(() => reconcileSavedExecution({ automatic: true }), 0);
+  }
+
+  function getRecordedExecutionResult(run, videoId) {
+    const success = run.successes.find(item => readVideoId(item) === videoId);
+    if (success) return { outcome: "success", ...success };
+    const failure = run.failures.find(item => readVideoId(item) === videoId);
+    if (failure) return { outcome: "failure", ...failure };
+    const skipped = run.skipped.find(item => readVideoId(item) === videoId);
+    if (skipped) return { outcome: "skipped", ...skipped };
+    return { outcome: "unprocessed", videoId };
+  }
+
+  function buildReconciliationReport(run, currentVideos) {
+    const currentById = new Map(currentVideos.filter(video => video.videoId).map(video => [video.videoId, video]));
+    const targetById = new Map((run.targets || []).map(video => [readVideoId(video), video]));
+    const protectedById = new Map((run.protectedVideos || []).map(video => [readVideoId(video), video]));
+    const protectedVideoIds = Array.isArray(run.protectedVideoIds)
+      ? run.protectedVideoIds.filter(Boolean)
+      : [...protectedById.keys()].filter(Boolean);
+    const makeCandidate = videoId => ({
+      ...(targetById.get(videoId) || currentById.get(videoId) || { videoId }),
+      videoId,
+      executionResult: getRecordedExecutionResult(run, videoId),
+    });
+    const confirmedRemoved = run.targetVideoIds
+      .filter(videoId => !currentById.has(videoId))
+      .map(makeCandidate);
+    const remainingCandidates = run.targetVideoIds
+      .filter(videoId => currentById.has(videoId))
+      .map(makeCandidate);
+    const protectedPresent = protectedVideoIds
+      .filter(videoId => currentById.has(videoId))
+      .map(videoId => currentById.get(videoId));
+    const missingProtected = protectedVideoIds
+      .filter(videoId => !currentById.has(videoId))
+      .map(videoId => protectedById.get(videoId) || { videoId });
+    const unknownCurrentVideos = currentVideos.filter(video => !video.videoId);
+    const reconciledAt = new Date().toISOString();
+
+    return {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "delete-reconciliation-report",
+      runId: run.runId,
+      executionMode: run.mode,
+      executionStatus: run.status,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      planExportedAt: run.planExportedAt,
+      reconciledAt,
+      protectedCheckAvailable: Array.isArray(run.protectedVideoIds) || Array.isArray(run.protectedVideos),
+      summary: {
+        plannedTargets: run.targetVideoIds.length,
+        confirmedRemoved: confirmedRemoved.length,
+        remainingCandidates: remainingCandidates.length,
+        protectedExpected: protectedVideoIds.length,
+        protectedPresent: protectedPresent.length,
+        missingProtected: missingProtected.length,
+        currentPlaylistVideos: currentVideos.length,
+        currentVideosWithoutId: unknownCurrentVideos.length,
+      },
+      confirmedRemoved,
+      remainingCandidates,
+      retryVideoIds: remainingCandidates.map(video => video.videoId),
+      protectedPresent,
+      missingProtected,
+      currentPlaylist: {
+        videos: currentVideos,
+        unknownVideos: unknownCurrentVideos,
+      },
+    };
+  }
+
+  function formatReconciliationSummary(report) {
+    const lines = [
+      `${report.summary.missingProtected ? ICONS.warning : ICONS.done} Reconciliation completed`,
+      `Confirmed removed: ${report.summary.confirmedRemoved}/${report.summary.plannedTargets}`,
+      `Still present / retry: ${report.summary.remainingCandidates}`,
+      `Missing protected videos: ${report.summary.missingProtected}/${report.summary.protectedExpected}`,
+    ];
+    if (!report.protectedCheckAvailable) {
+      lines.push("Protected-video verification unavailable for this older saved run.");
+    }
+    lines.push("Reconciliation report download started.");
+    return lines.join("\n");
+  }
+
+  async function reconcileSavedExecution({ automatic = false } = {}) {
+    const run = executionState.run;
+    if (!run) {
+      if (!automatic) setStatus(`${ICONS.warning} No saved delete run to reconcile.`);
+      return;
+    }
+    if (executionState.workerActive) {
+      if (!automatic) setStatus(`${ICONS.warning} Wait for the active delete action before reconciling.`);
+      return;
+    }
+
+    setBusy(true);
+    setStatus(`${ICONS.loading} Reloading the full playlist for reconciliation...`);
+    try {
+      const currentVideos = await loadAllVideos(({ loadedCount, isLoading }) => {
+        setCount();
+        setStatus(`${ICONS.loading} Reconciling... ${loadedCount} current videos found${isLoading ? ", still fetching" : ""}`);
+      });
+      const report = buildReconciliationReport(run, currentVideos);
+      run.lastReconciliation = {
+        reconciledAt: report.reconciledAt,
+        summary: report.summary,
+        retryVideoIds: report.retryVideoIds,
+        missingProtectedVideoIds: report.missingProtected.map(readVideoId).filter(Boolean),
+      };
+      saveExecutionRun();
+      downloadText(
+        `watchlater_reconciliation_${getDateStamp()}.json`,
+        JSON.stringify(report, null, 2),
+        "application/json;charset=utf-8",
+      );
+      setStatus(formatReconciliationSummary(report));
+    } catch (error) {
+      setStatus(`${ICONS.warning} Reconciliation failed: ${error.message || "could not reload the playlist"}`);
+    } finally {
+      setBusy(false);
+      updateExecutionControls();
+    }
   }
 
   function updateExecutionControls() {
@@ -1494,6 +1686,7 @@
     const resumeButton = toolbox.querySelector("[data-execution-action='resume']");
     const stopButton = toolbox.querySelector("[data-execution-action='stop']");
     const reportButton = toolbox.querySelector("[data-execution-action='report']");
+    const reconcileButton = toolbox.querySelector("[data-execution-action='reconcile']");
     const clearButton = toolbox.querySelector("[data-execution-action='clear']");
 
     toolbox.querySelectorAll(".ytwlt-button:not([data-execution-action])").forEach(button => {
@@ -1508,6 +1701,7 @@
     if (resumeButton) resumeButton.disabled = !resumable;
     if (stopButton) stopButton.disabled = !unfinished;
     if (reportButton) reportButton.disabled = !run;
+    if (reconcileButton) reconcileButton.disabled = active || !run;
     if (clearButton) clearButton.disabled = active || !run;
   }
 
@@ -1631,6 +1825,7 @@
     const resumeDeleteButton = createButton(ICONS.resume, "Resume saved run", resumeDeleteExecution);
     const stopDeleteButton = createButton(ICONS.stop, "Stop deletion", requestStopExecution);
     const executionReportButton = createButton(ICONS.report, "Export execution report", exportExecutionReport);
+    const reconcileButton = createButton(ICONS.done, "Reconcile saved run", reconcileSavedExecution);
     const clearExecutionButton = createButton(ICONS.clear, "Clear saved run", clearStoredExecutionRun);
     const delayLabel = document.createElement("label");
     const delayText = document.createElement("span");
@@ -1644,6 +1839,7 @@
     resumeDeleteButton.setAttribute("data-execution-action", "resume");
     stopDeleteButton.setAttribute("data-execution-action", "stop");
     executionReportButton.setAttribute("data-execution-action", "report");
+    reconcileButton.setAttribute("data-execution-action", "reconcile");
     clearExecutionButton.setAttribute("data-execution-action", "clear");
 
     delayText.textContent = "Delay (seconds)";
@@ -1678,6 +1874,7 @@
       resumeDeleteButton,
       stopDeleteButton,
       executionReportButton,
+      reconcileButton,
       clearExecutionButton,
     );
     titleWrap.append(title, subtitle);

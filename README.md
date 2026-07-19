@@ -15,7 +15,9 @@ The triage page:
 - exports and imports decision-only JSON for manual sync between devices;
 - exports `keep/maybe`, delete candidates, and tagged reports.
 
-The userscript can safely execute an imported cleanup plan on the Watch Later page. It loads the full playlist, exports a mandatory pre-delete backup and execution plan, requires a typed `DELETE <count>` confirmation, and removes videos from bottom to top through YouTube's explicitly matched menu action. Delete runs support pause, resume after refresh, stop, configurable delays, automatic periodic pauses, and JSON execution reports. A report with failures can be imported again to retry only those items.
+The userscript can safely execute an imported cleanup plan on the Watch Later page. It loads the full playlist, exports a mandatory pre-delete backup and execution plan, requires a typed `DELETE <count>` confirmation, and removes videos from bottom to top through YouTube's explicitly matched menu action. Delete runs support pause, resume after refresh, stop, configurable delays, automatic periodic pauses, and JSON execution reports.
+
+After a run completes or stops, the userscript reloads the playlist and exports `watchlater_reconciliation_YYYY-MM-DD.json`. The report distinguishes confirmed removals from candidates that are still present, and verifies that protected videos captured by the plan are still present. Reconciliation can also be repeated manually with `Reconcile saved run`. Importing a reconciliation report previews only its remaining candidates so they can be retried safely.
 
 No backend, npm install, database, or API service is required.
 
@@ -33,6 +35,7 @@ Do not commit personal Watch Later exports. They are ignored by `.gitignore`:
 - `watchlater_pre_delete_backup*.json`
 - `watchlater_execution_plan*.json`
 - `watchlater_execution_report*.json`
+- `watchlater_reconciliation*.json`
 - `delete-urls*.txt`
 
 The public `index.html` file does not contain exported video data. It does contain generic and project-specific tag keywords.
