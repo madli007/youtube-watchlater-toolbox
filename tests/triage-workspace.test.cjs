@@ -9,7 +9,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, updateDecisionDetails, getPortableDecisions };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
 );
 
 const elementStub = {
@@ -49,7 +49,7 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     legacy: ["old format"],
     invalid: "nope",
   },
-  savedViews: [{ name: "Keep" }],
+  savedViews: [{ id: "keep-view", name: "Keep", filters: { status: "keep", minDurationMinutes: 10 } }],
   lastImport: { fileName: "watchlater.json", importedAt: exportedAt },
   importComparison: {
     baselineAvailable: true,
@@ -60,7 +60,16 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     orphanedDecisionIds: ["ignored"],
   },
   history: [],
-  ui: { status: "keep", datasetView: "inbox", selectedIds: ["one"] },
+  ui: {
+    status: "keep",
+    datasetView: "inbox",
+    channels: ["Channel"],
+    tags: ["dev", "manual"],
+    tagMode: "and",
+    minDurationMinutes: 10,
+    availability: "available",
+    selectedIds: ["one"],
+  },
 }, exportedAt);
 
 assert.equal(workspace.mode, "workspace-snapshot");
@@ -82,9 +91,17 @@ assert.equal(parsed.videos[0].videoId, "one");
 assert.equal(parsed.decisions.one.status, "keep");
 assert.equal(parsed.ui.status, "keep");
 assert.equal(parsed.ui.datasetView, "inbox");
+assert.deepEqual([...parsed.ui.channels], ["Channel"]);
+assert.deepEqual([...parsed.ui.tags], ["dev", "manual"]);
+assert.equal(parsed.ui.tagMode, "and");
+assert.equal(parsed.ui.minDurationMinutes, "10");
+assert.equal(parsed.ui.availability, "available");
 assert.equal(parsed.importComparison.removedVideos[0].videoId, "gone");
 assert.deepEqual([...parsed.ui.selectedIds], ["one"]);
 assert.deepEqual([...parsed.userRules.custom.positive], ["alpha", "beta"]);
+assert.equal(parsed.savedViews[0].id, "keep-view");
+assert.equal(parsed.savedViews[0].filters.status, "keep");
+assert.equal(parsed.savedViews[0].filters.minDurationMinutes, "10");
 assert.throws(
   () => sandbox.testApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
   /workspace snapshot/i,
@@ -172,5 +189,67 @@ assert.equal(detailDecisions.one.note, "Watch later");
 assert.equal(Object.keys(sandbox.testApi.getPortableDecisions(detailDecisions)).length, 1);
 sandbox.testApi.updateDecisionDetails(detailDecisions, "one", [], "", exportedAt);
 assert.equal(detailDecisions.one, undefined);
+
+const legacyFilters = sandbox.testApi.normalizeFilterState({
+  channel: "Channel A",
+  tag: "dev",
+  minViews: "1000",
+  availability: "unavailable",
+});
+assert.deepEqual([...legacyFilters.channels], ["Channel A"]);
+assert.deepEqual([...legacyFilters.tags], ["dev"]);
+assert.equal(legacyFilters.minViews, "1000");
+assert.equal(legacyFilters.availability, "unavailable");
+
+assert.equal(sandbox.testApi.parseApproximateAgeDays("pred 2 dnevoma"), 2);
+assert.equal(sandbox.testApi.parseApproximateAgeDays("3 weeks ago"), 21);
+assert.equal(sandbox.testApi.parseApproximateViewCount("1,4 tis. ogledov"), 1400);
+assert.equal(sandbox.testApi.parseApproximateViewCount("2.5M views"), 2500000);
+
+const filterVideo = {
+  videoId: "filter-one",
+  title: "Advanced filters",
+  channel: "Channel A",
+  durationSeconds: 900,
+  views: "1,4 tis. ogledov",
+  uploaded: "pred 2 dnevoma",
+  badges: ["4K"],
+  isUnavailable: false,
+  suggestedTags: ["dev"],
+};
+const filterDecision = { status: "maybe", tags: ["manual"], note: "Watch this" };
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  status: "maybe",
+  channels: ["Channel A", "Channel B"],
+  tags: ["dev", "manual"],
+  tagMode: "and",
+  minDurationMinutes: 10,
+  maxDurationMinutes: 20,
+  maxAgeDays: 3,
+  minViews: 1000,
+  availability: "available",
+  badge: "badge:4K",
+  suggestedTag: "yes",
+  note: "yes",
+}), true);
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  tags: ["dev", "missing"],
+  tagMode: "and",
+}), false);
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  tags: ["dev", "missing"],
+  tagMode: "or",
+}), true);
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  minViews: 2000,
+}), false);
+
+const normalizedViews = sandbox.testApi.normalizeSavedViews([
+  { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"] } },
+  { name: "Legacy" },
+]);
+assert.equal(normalizedViews.length, 2);
+assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.minDurationMinutes, "30");
+assert.deepEqual([...normalizedViews.find(view => view.id === "podcasts").filters.tags], ["podcast"]);
 
 console.log("triage workspace test passed");

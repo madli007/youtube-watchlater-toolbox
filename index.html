@@ -168,6 +168,49 @@
       backdrop-filter: blur(10px);
     }
 
+    .advanced-filters {
+      padding: 0 18px 12px;
+      background: rgba(24, 27, 33, 0.96);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .advanced-filters summary {
+      width: fit-content;
+      padding: 9px 0 4px;
+      color: var(--accent);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .advanced-filter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      padding-top: 8px;
+    }
+
+    .advanced-filter-grid label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .saved-view-bar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      gap: 8px;
+      align-items: end;
+      padding-top: 10px;
+    }
+
+    .saved-view-bar label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .tag-filter {
       display: flex;
       gap: 8px;
@@ -313,6 +356,13 @@
       background: #172c3a;
       font-size: 11px;
       white-space: nowrap;
+    }
+
+    .channel-option.is-selected {
+      color: #081015;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 700;
     }
 
     .import-badge.changed {
@@ -804,6 +854,10 @@
         grid-template-columns: 1fr 1fr;
       }
 
+      .advanced-filter-grid {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
+      }
+
       .stats {
         grid-template-columns: repeat(2, minmax(90px, 1fr));
       }
@@ -820,6 +874,11 @@
 
       .filters {
         position: static;
+        grid-template-columns: 1fr;
+      }
+
+      .advanced-filter-grid,
+      .saved-view-bar {
         grid-template-columns: 1fr;
       }
 
@@ -883,7 +942,7 @@
         <option value="delete">Delete</option>
       </select>
       <div id="channelCombo" class="channel-combo">
-        <input id="channelSearch" type="search" placeholder="All channels">
+        <input id="channelSearch" type="search" placeholder="Search channels..." aria-label="Search and select channels">
         <div id="channelMenu" class="channel-menu"></div>
       </div>
       <select id="sortSelect">
@@ -896,7 +955,81 @@
       </select>
       <button id="clearFilters" type="button">Clear filters</button>
     </section>
-    <section id="tagFilter" class="tag-filter" aria-label="Suggested tag filters"></section>
+    <details id="advancedFilters" class="advanced-filters">
+      <summary>Advanced filters</summary>
+      <div class="advanced-filter-grid">
+        <label>
+          Minimum duration (minutes)
+          <input id="minDurationInput" type="number" min="0" step="1" inputmode="numeric" placeholder="No minimum">
+        </label>
+        <label>
+          Maximum duration (minutes)
+          <input id="maxDurationInput" type="number" min="0" step="1" inputmode="numeric" placeholder="No maximum">
+        </label>
+        <label>
+          Minimum age (days)
+          <input id="minAgeInput" type="number" min="0" step="1" inputmode="numeric" placeholder="Any age">
+        </label>
+        <label>
+          Maximum age (days)
+          <input id="maxAgeInput" type="number" min="0" step="1" inputmode="numeric" placeholder="Any age">
+        </label>
+        <label>
+          Minimum views
+          <input id="minViewsInput" type="number" min="0" step="1" inputmode="numeric" placeholder="No minimum">
+        </label>
+        <label>
+          Availability
+          <select id="availabilityFilter">
+            <option value="all">Available or unavailable</option>
+            <option value="available">Available only</option>
+            <option value="unavailable">Unavailable only</option>
+          </select>
+        </label>
+        <label>
+          YouTube badge
+          <select id="badgeFilter">
+            <option value="all">Any badge state</option>
+            <option value="any">Has a badge</option>
+            <option value="none">Has no badge</option>
+          </select>
+        </label>
+        <label>
+          Suggested tag
+          <select id="suggestedTagFilter">
+            <option value="all">With or without</option>
+            <option value="yes">Has suggested tag</option>
+            <option value="no">Has no suggested tag</option>
+          </select>
+        </label>
+        <label>
+          Manual note
+          <select id="noteFilter">
+            <option value="all">With or without</option>
+            <option value="yes">Has note</option>
+            <option value="no">Has no note</option>
+          </select>
+        </label>
+        <label>
+          Multiple tags match
+          <select id="tagModeSelect">
+            <option value="or">Any selected tag (OR)</option>
+            <option value="and">All selected tags (AND)</option>
+          </select>
+        </label>
+      </div>
+      <div class="saved-view-bar">
+        <label>
+          Saved view
+          <select id="savedViewSelect">
+            <option value="">Choose a saved view</option>
+          </select>
+        </label>
+        <button id="saveView" type="button">Save current view</button>
+        <button id="deleteView" type="button" disabled>Delete view</button>
+      </div>
+    </details>
+    <section id="tagFilter" class="tag-filter" aria-label="Tag filters"></section>
     <section class="dataset-bar" aria-label="Import comparison views">
       <div id="datasetViews" class="dataset-views">
         <strong>Import view</strong>
@@ -1062,13 +1195,14 @@
       videos: [],
       decisions: loadDecisions(),
       selectedIds: new Set(),
-      activeTag: "all",
-      activeChannel: "all",
+      activeTags: new Set(),
+      activeChannels: new Set(),
       renderedCount: PAGE_SIZE,
       currentId: "",
       history: loadHistory(),
       userRules: normalizeUserRules(loadStoredObject(USER_RULES_STORAGE_KEY)),
       savedViews: normalizeSavedViews(loadStoredArray(SAVED_VIEWS_STORAGE_KEY)),
+      activeSavedViewId: "",
       lastImport: null,
       datasetView: "all",
       importComparison: createEmptyImportComparison(),
@@ -1096,6 +1230,20 @@
       channelMenu: document.getElementById("channelMenu"),
       sortSelect: document.getElementById("sortSelect"),
       clearFilters: document.getElementById("clearFilters"),
+      advancedFilters: document.getElementById("advancedFilters"),
+      minDurationInput: document.getElementById("minDurationInput"),
+      maxDurationInput: document.getElementById("maxDurationInput"),
+      minAgeInput: document.getElementById("minAgeInput"),
+      maxAgeInput: document.getElementById("maxAgeInput"),
+      minViewsInput: document.getElementById("minViewsInput"),
+      availabilityFilter: document.getElementById("availabilityFilter"),
+      badgeFilter: document.getElementById("badgeFilter"),
+      suggestedTagFilter: document.getElementById("suggestedTagFilter"),
+      noteFilter: document.getElementById("noteFilter"),
+      tagModeSelect: document.getElementById("tagModeSelect"),
+      savedViewSelect: document.getElementById("savedViewSelect"),
+      saveView: document.getElementById("saveView"),
+      deleteView: document.getElementById("deleteView"),
       tagFilter: document.getElementById("tagFilter"),
       datasetViews: document.getElementById("datasetViews"),
       comparisonSummary: document.getElementById("comparisonSummary"),
@@ -1146,7 +1294,9 @@
     init();
 
     function init() {
+      renderBadgeOptions();
       renderTagFilters();
+      renderSavedViews();
       bindEvents();
       render();
     }
@@ -1154,21 +1304,16 @@
     function bindEvents() {
       els.fileInput.addEventListener("change", importFile);
       els.searchInput.addEventListener("input", () => {
-        state.renderedCount = PAGE_SIZE;
-        render();
+        handleFilterChange();
       });
       els.statusFilter.addEventListener("change", () => {
-        state.renderedCount = PAGE_SIZE;
-        render();
+        handleFilterChange();
       });
       els.channelSearch.addEventListener("focus", () => {
         openChannelMenu();
       });
       els.channelSearch.addEventListener("input", () => {
-        state.activeChannel = "all";
         openChannelMenu();
-        state.renderedCount = PAGE_SIZE;
-        render();
       });
       els.channelSearch.addEventListener("keydown", event => {
         if (event.key === "Escape") {
@@ -1180,21 +1325,37 @@
         if (event.key === "Enter") {
           event.preventDefault();
           const first = getChannelOptions()[0];
-          if (first) selectChannel(first.name);
+          if (first) toggleChannel(first.name);
         }
       });
       document.addEventListener("click", event => {
         if (!event.target.closest("#channelCombo")) closeChannelMenu();
       });
-      els.sortSelect.addEventListener("change", render);
+      els.sortSelect.addEventListener("change", handleFilterChange);
+      [
+        els.minDurationInput,
+        els.maxDurationInput,
+        els.minAgeInput,
+        els.maxAgeInput,
+        els.minViewsInput,
+      ].forEach(input => input.addEventListener("input", handleFilterChange));
+      [
+        els.availabilityFilter,
+        els.badgeFilter,
+        els.suggestedTagFilter,
+        els.noteFilter,
+        els.tagModeSelect,
+      ].forEach(select => select.addEventListener("change", handleFilterChange));
+      els.savedViewSelect.addEventListener("change", applySelectedSavedView);
+      els.saveView.addEventListener("click", saveCurrentView);
+      els.deleteView.addEventListener("click", deleteCurrentView);
       els.clearFilters.addEventListener("click", clearFilters);
       els.datasetViews.addEventListener("click", event => {
         const button = event.target.closest("[data-dataset-view]");
         if (!button || button.disabled) return;
         state.datasetView = button.dataset.datasetView;
         state.selectedIds.clear();
-        state.renderedCount = PAGE_SIZE;
-        render();
+        handleFilterChange();
       });
       els.keepBulk.addEventListener("click", () => applyBulkStatus("keep"));
       els.maybeBulk.addEventListener("click", () => applyBulkStatus("maybe"));
@@ -1263,8 +1424,9 @@
 
         state.videos = deduped;
         state.selectedIds.clear();
-        state.activeTag = "all";
-        state.activeChannel = "all";
+        state.activeTags.clear();
+        state.activeChannels.clear();
+        state.activeSavedViewId = "";
         state.importComparison = comparison;
         state.datasetView = comparison.baselineAvailable && getInboxIds(comparison).length ? "inbox" : "all";
         state.renderedCount = PAGE_SIZE;
@@ -1272,11 +1434,11 @@
         state.lastImport = currentImport;
         state.datasetBaseline = createDatasetBaseline(deduped, currentImport);
         const baselineSaved = saveDatasetBaseline(state.datasetBaseline);
-        els.statusFilter.value = "all";
-        els.searchInput.value = "";
-        els.channelSearch.value = "";
+        applyFilterState({ datasetView: state.datasetView });
         populateChannels();
+        renderBadgeOptions();
         renderTagFilters();
+        renderSavedViews();
         render();
         const comparisonText = comparison.baselineAvailable
           ? ` ${comparison.newIds.length} new, ${comparison.removedVideos.length} no longer present.`
@@ -1464,37 +1626,126 @@
     }
 
     function clearFilters() {
-      els.searchInput.value = "";
-      els.statusFilter.value = "all";
-      state.activeChannel = "all";
-      els.channelSearch.value = "";
-      els.sortSelect.value = "index";
-      state.activeTag = "all";
-      state.datasetView = "all";
-      state.renderedCount = PAGE_SIZE;
-      renderTagFilters();
-      render();
+      applyFilterState({});
       showToast("Cleared filters.");
     }
 
+    function handleFilterChange() {
+      state.activeSavedViewId = "";
+      state.renderedCount = PAGE_SIZE;
+      renderSavedViews();
+      renderTagFilters();
+      renderChannelMenu();
+      render();
+    }
+
     function getFilteredVideos() {
-      const query = els.searchInput.value.trim().toLowerCase();
-      const status = els.statusFilter.value;
-      const channel = state.activeChannel;
-      const channelQuery = els.channelSearch.value.trim().toLowerCase();
-      const tag = state.activeTag;
+      const filters = captureFilterState();
       const datasetIds = getDatasetViewIds(state.datasetView);
 
       return getSortedVideos(state.videos.filter(video => {
         if (datasetIds && !datasetIds.has(video.videoId)) return false;
         if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
-        if (query && !getVideoSearchText(video).includes(query)) return false;
-        if (status !== "all" && getStatus(video.videoId) !== status) return false;
-        if (channel !== "all" && video.channel !== channel) return false;
-        if (channelQuery && !String(video.channel || "").toLowerCase().includes(channelQuery)) return false;
-        if (tag !== "all" && !getVideoTags(video).includes(tag)) return false;
-        return true;
+        return videoMatchesFilters(video, getDecision(video.videoId), filters);
       }));
+    }
+
+    function videoMatchesFilters(video, decision, rawFilters) {
+      const filters = normalizeFilterState(rawFilters);
+      const suggestedTags = normalizeTags(video?.suggestedTags);
+      const allTags = Array.from(new Set([...suggestedTags, ...normalizeTags(decision?.tags)]));
+      const query = filters.search.toLowerCase();
+      const searchText = [
+        video?.searchText,
+        video?.title,
+        video?.channel,
+        video?.views,
+        video?.uploaded,
+        video?.duration,
+        allTags.join(" "),
+        decision?.note,
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      if (query && !searchText.includes(query)) return false;
+      if (filters.status !== "all" && normalizeDecision(decision || {}).status !== filters.status) return false;
+      if (filters.channels.length && !filters.channels.includes(String(video?.channel || "(unknown)"))) return false;
+      if (filters.tags.length) {
+        const matches = filters.tags.map(tag => allTags.includes(tag));
+        if (filters.tagMode === "and" ? matches.some(match => !match) : !matches.some(Boolean)) return false;
+      }
+
+      const durationSeconds = finiteNumberOrNull(video?.durationSeconds);
+      if (filters.minDurationMinutes !== "" && (durationSeconds === null || durationSeconds < Number(filters.minDurationMinutes) * 60)) return false;
+      if (filters.maxDurationMinutes !== "" && (durationSeconds === null || durationSeconds > Number(filters.maxDurationMinutes) * 60)) return false;
+
+      const ageDays = parseApproximateAgeDays(video?.uploaded);
+      if (filters.minAgeDays !== "" && (ageDays === null || ageDays < Number(filters.minAgeDays))) return false;
+      if (filters.maxAgeDays !== "" && (ageDays === null || ageDays > Number(filters.maxAgeDays))) return false;
+
+      const viewCount = finiteNumberOrNull(video?.viewCountApprox) ?? parseApproximateViewCount(video?.views);
+      if (filters.minViews !== "" && (viewCount === null || viewCount < Number(filters.minViews))) return false;
+      if (filters.availability === "available" && video?.isUnavailable) return false;
+      if (filters.availability === "unavailable" && !video?.isUnavailable) return false;
+
+      const badges = normalizeTags(video?.badges);
+      if (filters.badge === "any" && !badges.length) return false;
+      if (filters.badge === "none" && badges.length) return false;
+      if (filters.badge.startsWith("badge:") && !badges.includes(filters.badge.slice(6))) return false;
+      if (filters.suggestedTag === "yes" && !suggestedTags.length) return false;
+      if (filters.suggestedTag === "no" && suggestedTags.length) return false;
+      const hasNote = Boolean(String(decision?.note || "").trim());
+      if (filters.note === "yes" && !hasNote) return false;
+      if (filters.note === "no" && hasNote) return false;
+      return true;
+    }
+
+    function finiteNumberOrNull(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function parseApproximateAgeDays(value, now = Date.now()) {
+      const text = String(value || "").trim().toLowerCase();
+      if (!text) return null;
+      if (/\b(today|danes|just now|zdaj)\b/.test(text)) return 0;
+      if (/\b(yesterday|vceraj|v\u010Deraj)\b/.test(text)) return 1;
+
+      const match = text.match(/(\d+(?:[.,]\d+)?)\s*([^\d\s]+)/u);
+      if (match) {
+        const amount = Number(match[1].replace(",", "."));
+        const unit = match[2];
+        const factors = [
+          [/^(?:s|sec|secs|second|seconds|sekund)/, 1 / 86400],
+          [/^(?:mo|month|months|mesec|mesece|mesecev)/, 30.4375],
+          [/^(?:m|min|mins|minute|minutes|minut)/, 1 / 1440],
+          [/^(?:h|hr|hrs|hour|hours|ur)/, 1 / 24],
+          [/^(?:d|day|days|dan|dne|dnev)/, 1],
+          [/^(?:w|week|weeks|teden|tedna|tednov)/, 7],
+          [/^(?:y|yr|yrs|year|years|leto|leti|leta)/, 365.25],
+        ];
+        const factor = factors.find(([pattern]) => pattern.test(unit))?.[1];
+        if (factor !== undefined) return amount * factor;
+      }
+
+      const timestamp = Date.parse(value);
+      if (!Number.isFinite(timestamp)) return null;
+      return Math.max(0, (now - timestamp) / 86400000);
+    }
+
+    function parseApproximateViewCount(value) {
+      const text = String(value || "").trim().toLowerCase();
+      const numberText = text.match(/[\d.,]+/)?.[0];
+      if (!numberText) return null;
+      const normalized = numberText.includes(",") && numberText.includes(".")
+        ? numberText.replace(/\./g, "").replace(",", ".")
+        : numberText.replace(",", ".");
+      const number = Number(normalized);
+      if (!Number.isFinite(number)) return null;
+      if (/(?:tis|k)\b/.test(text)) return Math.round(number * 1000);
+      if (/(?:mio|m|million|millions)\b/.test(text)) return Math.round(number * 1000000);
+      if (/(?:billion|billions|b)\b/.test(text)) return Math.round(number * 1000000000);
+      return Math.round(number);
     }
 
     function getVideoTags(video) {
@@ -1830,16 +2081,204 @@
       return comparison.newIds.filter(videoId => getStatus(videoId) === "unreviewed");
     }
 
+    function normalizeFilterState(value) {
+      const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      const numberInput = input => {
+        if (input === "" || input === null || input === undefined) return "";
+        const number = Number(input);
+        return Number.isFinite(number) && number >= 0 ? String(number) : "";
+      };
+      return {
+        search: typeof source.search === "string" ? source.search : "",
+        status: ["all", "unreviewed", "keep", "maybe", "delete"].includes(source.status) ? source.status : "all",
+        channels: normalizeTags(source.channels || (source.channel && source.channel !== "all" ? [source.channel] : [])),
+        tags: normalizeTags(source.tags || (source.tag && source.tag !== "all" ? [source.tag] : [])),
+        tagMode: source.tagMode === "and" ? "and" : "or",
+        sort: ["index", "index-desc", "channel", "duration-desc", "views-desc", "title"].includes(source.sort) ? source.sort : "index",
+        datasetView: ["all", "inbox", "new", "changed", "decided"].includes(source.datasetView) ? source.datasetView : "all",
+        minDurationMinutes: numberInput(source.minDurationMinutes),
+        maxDurationMinutes: numberInput(source.maxDurationMinutes),
+        minAgeDays: numberInput(source.minAgeDays),
+        maxAgeDays: numberInput(source.maxAgeDays),
+        minViews: numberInput(source.minViews),
+        availability: ["all", "available", "unavailable"].includes(source.availability) ? source.availability : "all",
+        badge: typeof source.badge === "string" && (source.badge === "all" || source.badge === "any" || source.badge === "none" || source.badge.startsWith("badge:"))
+          ? source.badge
+          : "all",
+        suggestedTag: ["all", "yes", "no"].includes(source.suggestedTag) ? source.suggestedTag : "all",
+        note: ["all", "yes", "no"].includes(source.note) ? source.note : "all",
+      };
+    }
+
+    function captureFilterState() {
+      return normalizeFilterState({
+        search: els.searchInput.value,
+        status: els.statusFilter.value,
+        channels: Array.from(state.activeChannels),
+        tags: Array.from(state.activeTags),
+        tagMode: els.tagModeSelect.value,
+        sort: els.sortSelect.value,
+        datasetView: state.datasetView,
+        minDurationMinutes: els.minDurationInput.value,
+        maxDurationMinutes: els.maxDurationInput.value,
+        minAgeDays: els.minAgeInput.value,
+        maxAgeDays: els.maxAgeInput.value,
+        minViews: els.minViewsInput.value,
+        availability: els.availabilityFilter.value,
+        badge: els.badgeFilter.value,
+        suggestedTag: els.suggestedTagFilter.value,
+        note: els.noteFilter.value,
+      });
+    }
+
+    function applyFilterState(value, options = {}) {
+      const filters = normalizeFilterState(value);
+      els.searchInput.value = filters.search;
+      els.statusFilter.value = filters.status;
+      state.activeChannels = new Set(filters.channels);
+      state.activeTags = new Set(filters.tags);
+      els.channelSearch.value = "";
+      els.tagModeSelect.value = filters.tagMode;
+      els.sortSelect.value = filters.sort;
+      state.datasetView = filters.datasetView !== "all" && !state.importComparison.baselineAvailable
+        ? "all"
+        : filters.datasetView;
+      els.minDurationInput.value = filters.minDurationMinutes;
+      els.maxDurationInput.value = filters.maxDurationMinutes;
+      els.minAgeInput.value = filters.minAgeDays;
+      els.maxAgeInput.value = filters.maxAgeDays;
+      els.minViewsInput.value = filters.minViews;
+      els.availabilityFilter.value = filters.availability;
+      renderBadgeOptions(filters.badge);
+      els.suggestedTagFilter.value = filters.suggestedTag;
+      els.noteFilter.value = filters.note;
+      els.advancedFilters.open = [
+        filters.minDurationMinutes,
+        filters.maxDurationMinutes,
+        filters.minAgeDays,
+        filters.maxAgeDays,
+        filters.minViews,
+      ].some(filterValue => filterValue !== "")
+        || filters.availability !== "all"
+        || filters.badge !== "all"
+        || filters.suggestedTag !== "all"
+        || filters.note !== "all"
+        || (filters.tags.length > 1 && filters.tagMode === "and");
+      state.activeSavedViewId = options.savedViewId || "";
+      state.selectedIds.clear();
+      state.renderedCount = PAGE_SIZE;
+      renderTagFilters();
+      renderChannelMenu();
+      renderSavedViews();
+      render();
+    }
+
+    function renderBadgeOptions(selectedValue = els.badgeFilter.value || "all") {
+      const specialOptions = [
+        ["all", "Any badge state"],
+        ["any", "Has a badge"],
+        ["none", "Has no badge"],
+      ];
+      const badgeNames = Array.from(new Set(state.videos.flatMap(video => normalizeTags(video.badges))))
+        .sort((a, b) => a.localeCompare(b));
+      if (selectedValue.startsWith("badge:") && !badgeNames.includes(selectedValue.slice(6))) {
+        badgeNames.push(selectedValue.slice(6));
+      }
+      const options = [
+        ...specialOptions.map(([value, label]) => createOption(value, label)),
+        ...badgeNames.map(badge => createOption(`badge:${badge}`, badge)),
+      ];
+      els.badgeFilter.replaceChildren(...options);
+      els.badgeFilter.value = hasOption(els.badgeFilter, selectedValue) ? selectedValue : "all";
+    }
+
+    function createOption(value, label) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    function renderSavedViews() {
+      const placeholder = createOption("", state.savedViews.length ? "Choose a saved view" : "No saved views yet");
+      const options = state.savedViews.map(view => createOption(view.id, view.name));
+      els.savedViewSelect.replaceChildren(placeholder, ...options);
+      els.savedViewSelect.value = state.savedViews.some(view => view.id === state.activeSavedViewId)
+        ? state.activeSavedViewId
+        : "";
+      els.deleteView.disabled = !els.savedViewSelect.value;
+    }
+
+    function applySelectedSavedView() {
+      const view = state.savedViews.find(candidate => candidate.id === els.savedViewSelect.value);
+      if (!view) {
+        state.activeSavedViewId = "";
+        els.deleteView.disabled = true;
+        return;
+      }
+      applyFilterState(view.filters, { savedViewId: view.id });
+      showToast(`Applied saved view "${view.name}".`);
+    }
+
+    function saveCurrentView() {
+      const current = state.savedViews.find(view => view.id === state.activeSavedViewId);
+      const name = prompt("Name this saved view:", current?.name || "")?.trim();
+      if (!name) return;
+      const existing = state.savedViews.find(view => view.name.toLowerCase() === name.toLowerCase());
+      if (existing && existing.id !== current?.id && !confirm(`Replace the saved view "${existing.name}"?`)) return;
+      const now = new Date().toISOString();
+      const target = existing || current;
+      const view = {
+        id: target?.id || createSavedViewId(),
+        name,
+        filters: captureFilterState(),
+        createdAt: target?.createdAt || now,
+        updatedAt: now,
+      };
+      state.savedViews = [
+        ...state.savedViews.filter(candidate => candidate.id !== view.id),
+        view,
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      state.activeSavedViewId = view.id;
+      saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+      renderSavedViews();
+      showToast(`Saved view "${name}".`);
+    }
+
+    function createSavedViewId() {
+      if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+      return `view-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function deleteCurrentView() {
+      const view = state.savedViews.find(candidate => candidate.id === els.savedViewSelect.value);
+      if (!view || !confirm(`Delete the saved view "${view.name}"?`)) return;
+      state.savedViews = state.savedViews.filter(candidate => candidate.id !== view.id);
+      state.activeSavedViewId = "";
+      saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+      renderSavedViews();
+      showToast(`Deleted saved view "${view.name}".`);
+    }
+
     function getActiveFilterSummary() {
+      const current = captureFilterState();
       const filters = [];
-      const query = els.searchInput.value.trim();
+      const query = current.search.trim();
       if (query) filters.push(`search="${query}"`);
-      if (els.statusFilter.value !== "all") filters.push(`status=${els.statusFilter.value}`);
-      if (state.activeChannel !== "all") filters.push(`channel=${state.activeChannel}`);
-      else if (els.channelSearch.value.trim()) filters.push(`channel search="${els.channelSearch.value.trim()}"`);
-      if (state.activeTag !== "all") filters.push(`tag=${state.activeTag}`);
-      if (state.datasetView !== "all") filters.push(`import view=${state.datasetView}`);
-      if (els.sortSelect.value !== "index") {
+      if (current.status !== "all") filters.push(`status=${current.status}`);
+      if (current.channels.length) filters.push(`channels=${current.channels.join(" OR ")}`);
+      if (current.tags.length) filters.push(`tags=${current.tags.join(current.tagMode === "and" ? " AND " : " OR ")}`);
+      if (current.minDurationMinutes !== "") filters.push(`duration>=${current.minDurationMinutes}m`);
+      if (current.maxDurationMinutes !== "") filters.push(`duration<=${current.maxDurationMinutes}m`);
+      if (current.minAgeDays !== "") filters.push(`age>=${current.minAgeDays}d`);
+      if (current.maxAgeDays !== "") filters.push(`age<=${current.maxAgeDays}d`);
+      if (current.minViews !== "") filters.push(`views>=${Number(current.minViews).toLocaleString()}`);
+      if (current.availability !== "all") filters.push(current.availability);
+      if (current.badge !== "all") filters.push(current.badge.startsWith("badge:") ? `badge=${current.badge.slice(6)}` : `badge=${current.badge}`);
+      if (current.suggestedTag !== "all") filters.push(`suggested tag=${current.suggestedTag}`);
+      if (current.note !== "all") filters.push(`note=${current.note}`);
+      if (current.datasetView !== "all") filters.push(`import view=${current.datasetView}`);
+      if (current.sort !== "index") {
         const label = els.sortSelect.options[els.sortSelect.selectedIndex]?.textContent || els.sortSelect.value;
         filters.push(`sort=${label}`);
       }
@@ -1935,6 +2374,19 @@
         badge.title = fields.length ? `Changed: ${fields.join(", ")}` : "Metadata changed since the previous import";
         tags.appendChild(badge);
       }
+      if (video.isUnavailable) {
+        const badge = document.createElement("span");
+        badge.className = "import-badge changed";
+        badge.textContent = "Unavailable";
+        tags.appendChild(badge);
+      }
+      normalizeTags(video.badges).forEach(value => {
+        const badge = document.createElement("span");
+        badge.className = "import-badge";
+        badge.textContent = value;
+        badge.title = "YouTube badge";
+        tags.appendChild(badge);
+      });
       const decisionTags = getDecision(video.videoId).tags || [];
       video.suggestedTags.forEach(tag => {
         const chip = document.createElement("span");
@@ -2091,7 +2543,9 @@
         button.title = item.name;
         button.append(createChannelName(item.name), createCount(item.count));
         button.addEventListener("click", () => {
-          selectChannel(item.name);
+          state.activeChannels = new Set([item.name]);
+          els.channelSearch.value = "";
+          handleFilterChange();
         });
         return button;
       }));
@@ -2111,10 +2565,8 @@
         button.innerHTML = `<span></span><strong>${item.count}</strong>`;
         button.querySelector("span").textContent = item.name;
         button.addEventListener("click", () => {
-          state.activeTag = item.name;
-          renderTagFilters();
-          state.renderedCount = PAGE_SIZE;
-          render();
+          state.activeTags = new Set([item.name]);
+          handleFilterChange();
         });
         return button;
       }));
@@ -2216,7 +2668,7 @@
       });
       saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
       refreshEnrichedVideos();
-      if (state.activeTag !== "all" && !getAllTagNames().includes(state.activeTag)) state.activeTag = "all";
+      state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
       renderTagFilters();
       render();
@@ -2230,7 +2682,7 @@
       delete state.userRules[name];
       saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
       refreshEnrichedVideos();
-      if (state.activeTag !== "all" && !getAllTagNames().includes(state.activeTag)) state.activeTag = "all";
+      state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
       renderTagFilters();
       render();
@@ -2250,10 +2702,7 @@
 
     function populateChannels() {
       const channels = getAllChannelNames();
-      if (state.activeChannel !== "all" && !channels.includes(state.activeChannel)) {
-        state.activeChannel = "all";
-        els.channelSearch.value = "";
-      }
+      state.activeChannels = new Set(Array.from(state.activeChannels).filter(channel => channels.includes(channel)));
       renderChannelMenu();
     }
 
@@ -2265,7 +2714,7 @@
     function getChannelOptions() {
       const query = els.channelSearch.value.trim().toLowerCase();
       const channels = groupCounts(state.videos, video => video.channel || "(unknown)");
-      if (!query || state.activeChannel !== "all") return channels;
+      if (!query) return channels;
       return channels.filter(item => item.name.toLowerCase().includes(query));
     }
 
@@ -2278,27 +2727,30 @@
       els.channelCombo.classList.remove("is-open");
     }
 
-    function selectChannel(channel) {
-      state.activeChannel = channel;
-      els.channelSearch.value = channel;
-      closeChannelMenu();
-      state.renderedCount = PAGE_SIZE;
-      render();
+    function toggleChannel(channel) {
+      if (state.activeChannels.has(channel)) state.activeChannels.delete(channel);
+      else state.activeChannels.add(channel);
+      els.channelSearch.value = "";
+      handleFilterChange();
+      openChannelMenu();
     }
 
     function clearChannelFilter() {
-      state.activeChannel = "all";
+      state.activeChannels.clear();
       els.channelSearch.value = "";
-      state.renderedCount = PAGE_SIZE;
-      render();
+      handleFilterChange();
+      openChannelMenu();
     }
 
     function renderChannelMenu() {
+      els.channelSearch.placeholder = state.activeChannels.size
+        ? `${state.activeChannels.size} channels selected`
+        : "Search channels...";
       const options = getChannelOptions().slice(0, 80);
       const clearButton = document.createElement("button");
       clearButton.type = "button";
       clearButton.className = "channel-option";
-      clearButton.append(createChannelName("All channels"), createCount(""));
+      clearButton.append(createChannelName(state.activeChannels.size ? "Clear selected channels" : "All channels"), createCount(state.activeChannels.size || ""));
       clearButton.addEventListener("click", clearChannelFilter);
 
       const optionButtons = options.map(item => {
@@ -2306,8 +2758,9 @@
         button.type = "button";
         button.className = "channel-option";
         button.title = item.name;
-        button.append(createChannelName(item.name), createCount(item.count));
-        button.addEventListener("click", () => selectChannel(item.name));
+        if (state.activeChannels.has(item.name)) button.classList.add("is-selected");
+        button.append(createChannelName(item.name), createCount(state.activeChannels.has(item.name) ? `\u2713 ${item.count}` : item.count));
+        button.addEventListener("click", () => toggleChannel(item.name));
         return button;
       });
 
@@ -2378,13 +2831,13 @@
       chip.type = "button";
       chip.className = "tag-chip";
       chip.textContent = label;
-      if (state.activeTag === value) chip.classList.add("is-active");
+      if ((value === "all" && !state.activeTags.size) || state.activeTags.has(value)) chip.classList.add("is-active");
       if (value !== "all" && count === 0) chip.classList.add("is-empty");
       chip.addEventListener("click", () => {
-        state.activeTag = value;
-        state.renderedCount = PAGE_SIZE;
-        renderTagFilters();
-        render();
+        if (value === "all") state.activeTags.clear();
+        else if (state.activeTags.has(value)) state.activeTags.delete(value);
+        else state.activeTags.add(value);
+        handleFilterChange();
       });
       return chip;
     }
@@ -2658,7 +3111,9 @@
         saveHistory();
         applyWorkspaceUi(incoming.ui);
         populateChannels();
+        renderBadgeOptions();
         renderTagFilters();
+        renderSavedViews();
         render();
         showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.`);
       } catch (error) {
@@ -2675,13 +3130,8 @@
 
     function getWorkspaceUiState() {
       return {
-        search: els.searchInput.value,
-        status: els.statusFilter.value,
-        channel: state.activeChannel,
-        channelSearch: els.channelSearch.value,
-        tag: state.activeTag,
-        sort: els.sortSelect.value,
-        datasetView: state.datasetView,
+        ...captureFilterState(),
+        savedViewId: state.activeSavedViewId,
         selectedIds: Array.from(state.selectedIds),
         currentId: state.currentId,
       };
@@ -2689,15 +3139,7 @@
 
     function applyWorkspaceUi(ui) {
       const normalized = normalizeWorkspaceUi(ui);
-      els.searchInput.value = normalized.search;
-      els.statusFilter.value = hasOption(els.statusFilter, normalized.status) ? normalized.status : "all";
-      els.sortSelect.value = hasOption(els.sortSelect, normalized.sort) ? normalized.sort : "index";
-      els.channelSearch.value = normalized.channelSearch;
-      state.activeChannel = normalized.channel;
-      state.activeTag = normalized.tag;
-      state.datasetView = normalized.datasetView !== "all" && !state.importComparison.baselineAvailable
-        ? "all"
-        : normalized.datasetView;
+      applyFilterState(normalized, { savedViewId: normalized.savedViewId });
       const videoIds = new Set(state.videos.map(video => video.videoId));
       state.selectedIds = new Set(normalized.selectedIds.filter(id => videoIds.has(id)));
       state.currentId = videoIds.has(normalized.currentId) ? normalized.currentId : (state.videos[0]?.videoId || "");
@@ -2711,13 +3153,8 @@
     function normalizeWorkspaceUi(ui) {
       const source = ui && typeof ui === "object" && !Array.isArray(ui) ? ui : {};
       return {
-        search: typeof source.search === "string" ? source.search : "",
-        status: typeof source.status === "string" ? source.status : "all",
-        channel: typeof source.channel === "string" ? source.channel : "all",
-        channelSearch: typeof source.channelSearch === "string" ? source.channelSearch : "",
-        tag: typeof source.tag === "string" ? source.tag : "all",
-        sort: typeof source.sort === "string" ? source.sort : "index",
-        datasetView: ["all", "inbox", "new", "changed", "decided"].includes(source.datasetView) ? source.datasetView : "all",
+        ...normalizeFilterState(source),
+        savedViewId: typeof source.savedViewId === "string" ? source.savedViewId : "",
         selectedIds: Array.isArray(source.selectedIds) ? source.selectedIds.map(String) : [],
         currentId: typeof source.currentId === "string" ? source.currentId : "",
       };
@@ -2754,9 +3191,22 @@
 
     function normalizeSavedViews(views) {
       if (!Array.isArray(views)) return [];
+      const seen = new Set();
       return views
         .filter(view => view && typeof view === "object" && !Array.isArray(view))
-        .map(view => ({ ...view }));
+        .map((view, index) => {
+          const name = String(view.name || "").trim();
+          const fallbackId = `saved-view-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "view"}`;
+          return {
+            id: String(view.id || fallbackId),
+            name,
+            filters: normalizeFilterState(view.filters),
+            createdAt: typeof view.createdAt === "string" ? view.createdAt : "",
+            updatedAt: typeof view.updatedAt === "string" ? view.updatedAt : "",
+          };
+        })
+        .filter(view => view.name && !seen.has(view.id) && seen.add(view.id))
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
 
     function normalizePlainObject(value) {
