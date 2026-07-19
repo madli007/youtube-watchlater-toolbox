@@ -36,6 +36,7 @@ watchlater_keep_maybe*.json
 watchlater_delete_candidates*.json
 watchlater_tagged_all*.json
 watchlater_decisions*.json
+watchlater_workspace*.json
 watchlater_dry_run_report*.json
 watchlater_pre_delete_backup*.json
 watchlater_execution_plan*.json

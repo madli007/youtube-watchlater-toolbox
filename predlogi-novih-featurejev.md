@@ -42,7 +42,7 @@ Zato navaden **backup/restore odločitev ni več predlog za nov feature**. Spoda
 
 - [x] 1. Varna izvedba brisanja na YouTubu
 - [x] 2. Preverjanje in uskladitev po izvedbi
-- [ ] 3. Workspace snapshot, zgodovina in undo
+- [x] 3. Workspace snapshot, zgodovina in undo
 
 ### 1. Varna izvedba brisanja na YouTubu
 

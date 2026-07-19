@@ -484,6 +484,44 @@
       gap: 5px;
     }
 
+    .history-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 9px;
+    }
+
+    .history-item {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      background: #171a20;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    .history-item strong {
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .history-meta {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .history-item button,
+    .workspace-actions button,
+    .workspace-actions .file-button {
+      width: 100%;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .workspace-actions {
+      display: grid;
+      gap: 7px;
+    }
+
     .channel-button {
       display: flex;
       align-items: center;
@@ -646,6 +684,11 @@
           Import decisions
           <input id="decisionsInput" type="file" accept=".json,application/json">
         </label>
+        <button id="exportWorkspace" type="button">Export workspace</button>
+        <label class="file-button secondary">
+          Import workspace
+          <input id="workspaceInput" type="file" accept=".json,application/json">
+        </label>
         <button id="clearDecisions" type="button">Clear decisions</button>
       </div>
     </header>
@@ -723,6 +766,13 @@
           <h2>State</h2>
           <div id="stateSummary" class="scope-text">Decisions are saved locally by video ID.</div>
         </section>
+        <section class="panel">
+          <h2>Workspace history</h2>
+          <div class="workspace-actions">
+            <button id="undoBulk" type="button">Undo last bulk change</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
       </aside>
     </div>
   </div>
@@ -730,8 +780,12 @@
 
   <script>
     const STORAGE_KEY = "watchlater-triage-decisions-v1";
+    const HISTORY_STORAGE_KEY = "watchlater-triage-history-v1";
+    const USER_RULES_STORAGE_KEY = "watchlater-triage-user-rules-v1";
+    const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
     const PAGE_SIZE = 220;
     const BULK_CONFIRM_THRESHOLD = 100;
+    const MAX_HISTORY_ENTRIES = 20;
     const RULES = {
       reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction", "episode reaction", "watching for the first time", "after show reacts", "#strugglenation", "blind wave", "reel rejects", "the normies", "holden & jen", "kat & sonny", "the 354 squad", "sean tanktop", "mary cherry", "just stef", "alyska"],
       marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "spider-man", "spiderman", "captain america", "black panther", "ant-man", "wakanda", "avengers", "loki", "thor", "wanda", "deadpool", "x-men", "fantastic four", "moon knight", "hawkeye", "she-hulk", "doctor strange", "iron man", "secret invasion"],
@@ -758,6 +812,10 @@
       activeChannel: "all",
       renderedCount: PAGE_SIZE,
       currentId: "",
+      history: loadHistory(),
+      userRules: normalizeUserRules(loadStoredObject(USER_RULES_STORAGE_KEY)),
+      savedViews: normalizeSavedViews(loadStoredArray(SAVED_VIEWS_STORAGE_KEY)),
+      lastImport: null,
     };
 
     const els = {
@@ -769,6 +827,8 @@
       exportTagged: document.getElementById("exportTagged"),
       exportDecisions: document.getElementById("exportDecisions"),
       decisionsInput: document.getElementById("decisionsInput"),
+      exportWorkspace: document.getElementById("exportWorkspace"),
+      workspaceInput: document.getElementById("workspaceInput"),
       clearDecisions: document.getElementById("clearDecisions"),
       searchInput: document.getElementById("searchInput"),
       statusFilter: document.getElementById("statusFilter"),
@@ -798,6 +858,8 @@
       channelList: document.getElementById("channelList"),
       tagSummary: document.getElementById("tagSummary"),
       stateSummary: document.getElementById("stateSummary"),
+      undoBulk: document.getElementById("undoBulk"),
+      historyList: document.getElementById("historyList"),
       toast: document.getElementById("toast"),
     };
 
@@ -860,7 +922,10 @@
       els.exportTagged.addEventListener("click", exportTaggedAll);
       els.exportDecisions.addEventListener("click", exportDecisions);
       els.decisionsInput.addEventListener("change", importDecisionsFile);
+      els.exportWorkspace.addEventListener("click", exportWorkspace);
+      els.workspaceInput.addEventListener("change", importWorkspaceFile);
       els.clearDecisions.addEventListener("click", clearDecisions);
+      els.undoBulk.addEventListener("click", undoLastBulkChange);
       document.addEventListener("keydown", handleShortcuts);
       window.addEventListener("scroll", maybeRenderMore);
     }
@@ -885,6 +950,13 @@
         state.activeChannel = "all";
         state.renderedCount = PAGE_SIZE;
         state.currentId = deduped[0]?.videoId || "";
+        state.lastImport = {
+          fileName: file.name,
+          importedAt: new Date().toISOString(),
+          videoCount: deduped.length,
+          sourceExportedAt: typeof parsed?.exportedAt === "string" ? parsed.exportedAt : "",
+          sourceMode: typeof parsed?.mode === "string" ? parsed.mode : "",
+        };
         els.statusFilter.value = "all";
         els.searchInput.value = "";
         els.channelSearch.value = "";
@@ -936,7 +1008,8 @@
         video.searchText,
       ].filter(Boolean).join(" ").toLowerCase();
 
-      return Object.entries(RULES)
+      return Object.entries({ ...RULES, ...state.userRules })
+        .filter(([, keywords]) => Array.isArray(keywords))
         .filter(([, keywords]) => keywords.some(keyword => haystack.includes(keyword.toLowerCase())))
         .map(([tag]) => tag);
     }
@@ -954,11 +1027,11 @@
       return getDecision(videoId).status || "unreviewed";
     }
 
-    function setStatus(videoId, status) {
+    function setStatus(videoId, status, shouldSave = true) {
       if (status === "unreviewed") {
         delete state.decisions[videoId];
         state.currentId = videoId;
-        saveDecisions();
+        if (shouldSave) saveDecisions();
         return;
       }
 
@@ -969,7 +1042,7 @@
         updatedAt: new Date().toISOString(),
       };
       state.currentId = videoId;
-      saveDecisions();
+      if (shouldSave) saveDecisions();
     }
 
     function setStatusAndAdvance(videoId, status) {
@@ -1005,7 +1078,13 @@
         const ok = confirm(`Apply "${label}" to ${ids.length} ${scopeName} videos?`);
         if (!ok) return;
       }
-      ids.forEach(videoId => setStatus(videoId, status));
+      const label = status === "unreviewed" ? "unreviewed" : status;
+      if (!addHistoryEntry(`${ids.length} ${scopeName} → ${label}`, "bulk-status", ids)) {
+        showToast("Bulk change cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
+      ids.forEach(videoId => setStatus(videoId, status, false));
+      saveDecisions();
       state.selectedIds.clear();
       render();
       showToast(status === "unreviewed"
@@ -1114,6 +1193,7 @@
       renderStats();
       renderVideoList();
       renderSidebar();
+      renderHistory();
       updateBulkLabels();
       if (options.scrollToCurrent) scrollCurrentIntoView();
     }
@@ -1156,7 +1236,10 @@
       const decisionCount = Object.keys(state.decisions).length;
       const importedIds = new Set(state.videos.map(video => video.videoId));
       const orphaned = Object.keys(state.decisions).filter(id => !importedIds.has(id)).length;
-      els.stateSummary.textContent = `${decisionCount} saved decisions. ${orphaned} orphaned decisions hidden from this import.`;
+      const lastImport = state.lastImport?.importedAt
+        ? ` Last import: ${new Date(state.lastImport.importedAt).toLocaleString()}.`
+        : "";
+      els.stateSummary.textContent = `${decisionCount} saved decisions. ${orphaned} orphaned decisions hidden from this import.${lastImport}`;
     }
 
     function countStatuses(videos) {
@@ -1189,6 +1272,8 @@
       els.exportSelected.disabled = !state.selectedIds.size;
       els.exportVisible.disabled = !visible;
       els.exportDecisions.disabled = !Object.keys(state.decisions).length;
+      els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length;
+      els.undoBulk.disabled = !state.history.some(entry => entry.action === "bulk-status");
     }
 
     function getActiveFilterSummary() {
@@ -1676,6 +1761,204 @@
       });
     }
 
+    function exportWorkspace() {
+      if (!state.videos.length && !Object.keys(state.decisions).length) {
+        showToast("Nothing to export yet.");
+        return;
+      }
+
+      const payload = buildWorkspacePayload({
+        videos: state.videos.map(toWorkspaceVideo),
+        decisions: state.decisions,
+        userRules: state.userRules,
+        savedViews: state.savedViews,
+        lastImport: state.lastImport,
+        history: state.history,
+        ui: getWorkspaceUiState(),
+      });
+      downloadJson(`watchlater_workspace_${getDateStamp()}.json`, payload);
+    }
+
+    function buildWorkspacePayload(workspace, exportedAt = new Date().toISOString()) {
+      return {
+        schemaVersion: 1,
+        exportedAt,
+        source: "youtube-watchlater-triage",
+        mode: "workspace-snapshot",
+        workspace: {
+          videos: Array.isArray(workspace.videos) ? workspace.videos : [],
+          decisions: getPortableDecisions(workspace.decisions),
+          userRules: normalizeUserRules(workspace.userRules),
+          savedViews: normalizeSavedViews(workspace.savedViews),
+          lastImport: normalizePlainObject(workspace.lastImport),
+          history: normalizeHistory(workspace.history),
+          ui: normalizeWorkspaceUi(workspace.ui),
+        },
+      };
+    }
+
+    function parseWorkspacePayload(payload) {
+      if (!payload || typeof payload !== "object" || payload.mode !== "workspace-snapshot") {
+        throw new Error("Expected a workspace snapshot JSON file.");
+      }
+      if (payload.schemaVersion !== 1) {
+        throw new Error(`Unsupported workspace schema version: ${payload.schemaVersion ?? "missing"}.`);
+      }
+
+      const workspace = payload.workspace;
+      if (!workspace || typeof workspace !== "object" || !Array.isArray(workspace.videos)) {
+        throw new Error("Workspace snapshot is missing its video dataset.");
+      }
+      if (!workspace.decisions || typeof workspace.decisions !== "object" || Array.isArray(workspace.decisions)) {
+        throw new Error("Workspace snapshot is missing its decisions map.");
+      }
+
+      return {
+        videos: workspace.videos.filter(video => video && typeof video === "object"),
+        decisions: getPortableDecisions(workspace.decisions),
+        userRules: normalizeUserRules(workspace.userRules),
+        savedViews: normalizeSavedViews(workspace.savedViews),
+        lastImport: normalizePlainObject(workspace.lastImport),
+        history: normalizeHistory(workspace.history),
+        ui: normalizeWorkspaceUi(workspace.ui),
+      };
+    }
+
+    async function importWorkspaceFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const raw = await file.text();
+        const incoming = parseWorkspacePayload(JSON.parse(raw));
+        const incomingIds = new Set(incoming.videos.map(video => String(video.videoId || "")).filter(Boolean));
+        const decisionCount = Object.keys(incoming.decisions).length;
+        const ok = confirm([
+          `Import workspace from ${file.name}?`,
+          "",
+          `Videos: ${incomingIds.size}`,
+          `Decisions: ${decisionCount}`,
+          `History entries: ${incoming.history.length}`,
+          "",
+          "This replaces the current dataset, decisions, rules, saved views, and filters.",
+        ].join("\n"));
+        if (!ok) return;
+
+        const allDecisionIds = Array.from(new Set([
+          ...Object.keys(state.decisions),
+          ...Object.keys(incoming.decisions),
+        ]));
+        if (allDecisionIds.length && !addHistoryEntry(
+          `Before workspace import: ${file.name}`,
+          "workspace-import",
+          allDecisionIds,
+        )) {
+          showToast("Workspace import cancelled because the local safety snapshot could not be saved.");
+          return;
+        }
+        const importBackup = state.history[0]?.action === "workspace-import" ? state.history[0] : null;
+
+        state.userRules = incoming.userRules;
+        state.savedViews = incoming.savedViews;
+        state.lastImport = incoming.lastImport;
+        state.decisions = incoming.decisions;
+        state.videos = dedupeVideos(incoming.videos)
+          .map(video => enrichVideo(video))
+          .filter(video => video.videoId);
+        state.history = mergeHistoryEntries([
+          ...(importBackup ? [importBackup] : []),
+          ...incoming.history,
+          ...state.history.filter(entry => entry !== importBackup),
+        ]);
+
+        saveDecisions();
+        saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+        saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+        saveHistory();
+        applyWorkspaceUi(incoming.ui);
+        populateChannels();
+        renderTagFilters();
+        render();
+        showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.`);
+      } catch (error) {
+        showToast(error.message || "Workspace import failed.");
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    function toWorkspaceVideo(video) {
+      const { suggestedTags: _suggestedTags, searchText: _searchText, ...portable } = video;
+      return portable;
+    }
+
+    function getWorkspaceUiState() {
+      return {
+        search: els.searchInput.value,
+        status: els.statusFilter.value,
+        channel: state.activeChannel,
+        channelSearch: els.channelSearch.value,
+        tag: state.activeTag,
+        sort: els.sortSelect.value,
+        selectedIds: Array.from(state.selectedIds),
+        currentId: state.currentId,
+      };
+    }
+
+    function applyWorkspaceUi(ui) {
+      const normalized = normalizeWorkspaceUi(ui);
+      els.searchInput.value = normalized.search;
+      els.statusFilter.value = hasOption(els.statusFilter, normalized.status) ? normalized.status : "all";
+      els.sortSelect.value = hasOption(els.sortSelect, normalized.sort) ? normalized.sort : "index";
+      els.channelSearch.value = normalized.channelSearch;
+      state.activeChannel = normalized.channel;
+      state.activeTag = normalized.tag;
+      const videoIds = new Set(state.videos.map(video => video.videoId));
+      state.selectedIds = new Set(normalized.selectedIds.filter(id => videoIds.has(id)));
+      state.currentId = videoIds.has(normalized.currentId) ? normalized.currentId : (state.videos[0]?.videoId || "");
+      state.renderedCount = PAGE_SIZE;
+    }
+
+    function hasOption(select, value) {
+      return Array.from(select.options).some(option => option.value === value);
+    }
+
+    function normalizeWorkspaceUi(ui) {
+      const source = ui && typeof ui === "object" && !Array.isArray(ui) ? ui : {};
+      return {
+        search: typeof source.search === "string" ? source.search : "",
+        status: typeof source.status === "string" ? source.status : "all",
+        channel: typeof source.channel === "string" ? source.channel : "all",
+        channelSearch: typeof source.channelSearch === "string" ? source.channelSearch : "",
+        tag: typeof source.tag === "string" ? source.tag : "all",
+        sort: typeof source.sort === "string" ? source.sort : "index",
+        selectedIds: Array.isArray(source.selectedIds) ? source.selectedIds.map(String) : [],
+        currentId: typeof source.currentId === "string" ? source.currentId : "",
+      };
+    }
+
+    function normalizeUserRules(rules) {
+      if (!rules || typeof rules !== "object" || Array.isArray(rules)) return {};
+      const normalized = {};
+      for (const [name, keywords] of Object.entries(rules)) {
+        const cleanName = String(name || "").trim();
+        if (!cleanName || !Array.isArray(keywords)) continue;
+        normalized[cleanName] = normalizeTags(keywords);
+      }
+      return normalized;
+    }
+
+    function normalizeSavedViews(views) {
+      if (!Array.isArray(views)) return [];
+      return views
+        .filter(view => view && typeof view === "object" && !Array.isArray(view))
+        .map(view => ({ ...view }));
+    }
+
+    function normalizePlainObject(value) {
+      return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : null;
+    }
+
     async function importDecisionsFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1704,6 +1987,17 @@
         ].join("\n"));
         if (!ok) return;
 
+        const changedIds = Object.keys(preview.merged).filter(videoId =>
+          !state.decisions[videoId] || !areDecisionsEqual(state.decisions[videoId], preview.merged[videoId])
+        );
+        if (changedIds.length && !addHistoryEntry(
+          `Imported ${changedIds.length} decisions from ${file.name}`,
+          "decisions-import",
+          changedIds,
+        )) {
+          showToast("Decision import cancelled because the local safety snapshot could not be saved.");
+          return;
+        }
         state.decisions = preview.merged;
         saveDecisions();
         render();
@@ -1840,11 +2134,153 @@
       if (!count) return;
       const answer = prompt(`Type CLEAR ${count} to remove ${count} saved decisions from this browser.`);
       if (answer !== `CLEAR ${count}`) return;
+      if (!addHistoryEntry(`Cleared ${count} decisions`, "clear-decisions", Object.keys(state.decisions))) {
+        showToast("Clear cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
       state.decisions = {};
       state.selectedIds.clear();
       saveDecisions();
       render();
       showToast("Cleared saved decisions.");
+    }
+
+    function addHistoryEntry(description, action, videoIds) {
+      const beforeDecisions = {};
+      for (const videoId of Array.from(new Set(videoIds || []))) {
+        if (!videoId) continue;
+        beforeDecisions[videoId] = Object.prototype.hasOwnProperty.call(state.decisions, videoId)
+          ? normalizeDecision(state.decisions[videoId])
+          : null;
+      }
+      if (!Object.keys(beforeDecisions).length) return true;
+
+      const entry = createHistoryEntry(description, action, beforeDecisions);
+      state.history = [entry, ...state.history].slice(0, MAX_HISTORY_ENTRIES);
+      if (saveHistory()) return true;
+      state.history = state.history.filter(candidate => candidate.id !== entry.id);
+      return false;
+    }
+
+    function createHistoryEntry(description, action, beforeDecisions, createdAt = new Date().toISOString(), id = "") {
+      const normalizedDecisions = normalizeBeforeDecisions(beforeDecisions);
+      return {
+        id: id || createSnapshotId(),
+        createdAt,
+        description: String(description || "Workspace change"),
+        action: String(action || "change"),
+        affectedCount: Object.keys(normalizedDecisions).length,
+        beforeDecisions: normalizedDecisions,
+      };
+    }
+
+    function createSnapshotId() {
+      if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+      return `snapshot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function normalizeBeforeDecisions(decisions) {
+      const normalized = {};
+      if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) return normalized;
+      for (const [videoId, decision] of Object.entries(decisions)) {
+        if (!videoId) continue;
+        normalized[videoId] = decision === null ? null : normalizeDecision(decision);
+      }
+      return normalized;
+    }
+
+    function normalizeHistory(history) {
+      if (!Array.isArray(history)) return [];
+      return history
+        .filter(entry => entry && typeof entry === "object" && !Array.isArray(entry))
+        .map(entry => createHistoryEntry(
+          entry.description,
+          entry.action,
+          entry.beforeDecisions,
+          typeof entry.createdAt === "string" ? entry.createdAt : "",
+          typeof entry.id === "string" ? entry.id : "",
+        ))
+        .filter(entry => Object.keys(entry.beforeDecisions).length)
+        .slice(0, MAX_HISTORY_ENTRIES);
+    }
+
+    function mergeHistoryEntries(history) {
+      const seen = new Set();
+      const merged = [];
+      for (const entry of normalizeHistory(history)) {
+        if (seen.has(entry.id)) continue;
+        seen.add(entry.id);
+        merged.push(entry);
+        if (merged.length >= MAX_HISTORY_ENTRIES) break;
+      }
+      return merged;
+    }
+
+    function applyHistoryEntry(decisions, entry) {
+      const restored = { ...getPortableDecisions(decisions) };
+      for (const [videoId, previousDecision] of Object.entries(entry.beforeDecisions || {})) {
+        if (previousDecision === null) delete restored[videoId];
+        else restored[videoId] = normalizeDecision(previousDecision);
+      }
+      return restored;
+    }
+
+    function undoLastBulkChange() {
+      const entry = state.history.find(candidate => candidate.action === "bulk-status");
+      if (!entry) {
+        showToast("No bulk change is available to undo.");
+        return;
+      }
+      restoreHistoryEntry(entry, { removeOriginal: true, label: "Undo" });
+    }
+
+    function restoreHistoryEntry(entry, options = {}) {
+      const label = options.label || "Restore";
+      const ok = confirm(`${label} “${entry.description}”? This will restore ${entry.affectedCount} affected decisions.`);
+      if (!ok) return;
+
+      const affectedIds = Object.keys(entry.beforeDecisions || {});
+      if (!addHistoryEntry(`Before restoring: ${entry.description}`, "snapshot-restore", affectedIds)) {
+        showToast("Restore cancelled because a safety snapshot could not be saved.");
+        return;
+      }
+      state.decisions = applyHistoryEntry(state.decisions, entry);
+      if (options.removeOriginal) {
+        state.history = state.history.filter(candidate => candidate.id !== entry.id);
+      }
+      saveDecisions();
+      saveHistory();
+      state.selectedIds.clear();
+      render();
+      showToast(`Restored ${entry.affectedCount} decisions from snapshot.`);
+    }
+
+    function renderHistory() {
+      els.historyList.replaceChildren();
+      if (!state.history.length) {
+        const empty = document.createElement("div");
+        empty.className = "scope-text";
+        empty.textContent = "Bulk safety snapshots will appear here.";
+        els.historyList.appendChild(empty);
+        return;
+      }
+
+      for (const entry of state.history) {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        const title = document.createElement("strong");
+        title.textContent = entry.description;
+        const meta = document.createElement("div");
+        meta.className = "history-meta";
+        const date = Date.parse(entry.createdAt);
+        meta.textContent = `${entry.affectedCount} decisions · ${Number.isFinite(date) ? new Date(date).toLocaleString() : "unknown time"}`;
+        const restore = document.createElement("button");
+        restore.type = "button";
+        restore.textContent = "Restore snapshot";
+        restore.addEventListener("click", () => restoreHistoryEntry(entry));
+        item.append(title, meta, restore);
+        els.historyList.appendChild(item);
+      }
     }
 
     function loadDecisions() {
@@ -1857,6 +2293,45 @@
 
     function saveDecisions() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.decisions));
+    }
+
+    function loadHistory() {
+      try {
+        return normalizeHistory(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]"));
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function saveHistory() {
+      try {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history));
+        return true;
+      } catch (_error) {
+        return false;
+      }
+    }
+
+    function loadStoredObject(key) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      } catch (_error) {
+        return {};
+      }
+    }
+
+    function loadStoredArray(key) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(value) ? value : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function saveStoredJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
     }
 
     function handleShortcuts(event) {

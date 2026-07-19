@@ -13,6 +13,8 @@ The triage page:
 - suggests tags from hardcoded keyword rules;
 - stores decisions in browser `localStorage`;
 - exports and imports decision-only JSON for manual sync between devices;
+- exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;
+- creates local safety snapshots before bulk decision changes, decision imports, workspace replacement, or clearing, with undo and restore controls;
 - exports `keep/maybe`, delete candidates, and tagged reports.
 
 The userscript can safely execute an imported cleanup plan on the Watch Later page. It loads the full playlist, exports a mandatory pre-delete backup and execution plan, requires a typed `DELETE <count>` confirmation, and removes videos from bottom to top through YouTube's explicitly matched menu action. Delete runs support pause, resume after refresh, stop, configurable delays, automatic periodic pauses, and JSON execution reports.
@@ -31,6 +33,7 @@ Do not commit personal Watch Later exports. They are ignored by `.gitignore`:
 - `watchlater_delete_candidates*.json`
 - `watchlater_tagged_all*.json`
 - `watchlater_decisions*.json`
+- `watchlater_workspace*.json`
 - `watchlater_dry_run_report*.json`
 - `watchlater_pre_delete_backup*.json`
 - `watchlater_execution_plan*.json`
