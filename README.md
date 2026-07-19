@@ -12,7 +12,8 @@ The triage page:
 - compares each import with the previous local dataset and shows new, removed, already-decided, metadata-changed, and orphaned items;
 - provides an Inbox view containing only new videos that are still unreviewed;
 - searches and filters videos locally;
-- suggests tags from hardcoded keyword rules;
+- suggests tags from built-in and user-editable keyword rules with positive keywords, negative keywords, and optional channel scope;
+- keeps suggested tags visually separate from manual tags and lets each video store editable manual tags and a note;
 - stores decisions in browser `localStorage`;
 - exports and imports decision-only JSON for manual sync between devices;
 - exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;

@@ -34,7 +34,8 @@
 
     button,
     input,
-    select {
+    select,
+    textarea {
       font: inherit;
     }
 
@@ -58,7 +59,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       min-height: 34px;
       width: 100%;
       color: var(--text);
@@ -66,6 +68,11 @@
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 7px 10px;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
     }
 
     a {
@@ -165,7 +172,7 @@
       display: flex;
       gap: 8px;
       overflow-x: auto;
-      padding: 0 18px 12px;
+      padding: 8px 18px 12px;
       background: rgba(24, 27, 33, 0.96);
       border-bottom: 1px solid var(--border);
     }
@@ -503,6 +510,19 @@
       border: 1px solid #24465f;
     }
 
+    .tag.manual-tag {
+      color: #d8ffe8;
+      background: #173225;
+      border-color: #2d6a48;
+    }
+
+    .video-note {
+      margin: 7px 0 0;
+      color: #d7dce4;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
     .status-actions {
       display: grid;
       grid-template-columns: 1fr;
@@ -593,6 +613,89 @@
     .workspace-actions {
       display: grid;
       gap: 7px;
+    }
+
+    dialog {
+      width: min(680px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+      padding: 0;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(3px);
+    }
+
+    .dialog-form {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .dialog-form h2,
+    .dialog-form p {
+      margin: 0;
+    }
+
+    .dialog-form label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .dialog-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .rule-list {
+      display: grid;
+      gap: 7px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .rule-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px;
+      background: #13161b;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    .rule-item-meta {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .rule-item-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .rule-item-actions button {
+      min-height: 28px;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .rule-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
     .channel-button {
@@ -732,6 +835,10 @@
         grid-column: 2 / 4;
         grid-template-columns: repeat(4, minmax(70px, 1fr));
       }
+
+      .rule-fields {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -847,6 +954,13 @@
           <div id="tagSummary" class="channel-list"></div>
         </section>
         <section class="panel">
+          <h2>Tag rules</h2>
+          <div class="workspace-actions">
+            <button id="manageRules" type="button">Manage rules</button>
+          </div>
+          <div id="ruleSummary" class="scope-text"></div>
+        </section>
+        <section class="panel">
           <h2>State</h2>
           <div id="stateSummary" class="scope-text">Decisions are saved locally by video ID.</div>
         </section>
@@ -860,6 +974,61 @@
       </aside>
     </div>
   </div>
+  <dialog id="videoEditorDialog">
+    <form id="videoEditorForm" class="dialog-form" method="dialog">
+      <h2>Edit tags and note</h2>
+      <p id="videoEditorTitle" class="scope-text"></p>
+      <div>
+        <strong>Suggested tags</strong>
+        <div id="videoEditorSuggested" class="tags"></div>
+      </div>
+      <label>
+        Manual tags (comma or new line separated)
+        <textarea id="videoTagsInput" placeholder="vacation, weekend"></textarea>
+      </label>
+      <label>
+        Note
+        <textarea id="videoNoteInput" placeholder="Watch before vacation"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button id="cancelVideoEditor" type="button">Cancel</button>
+        <button class="keep-button" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="rulesDialog">
+    <form id="ruleEditorForm" class="dialog-form">
+      <div>
+        <h2>Tag rules</h2>
+        <p class="scope-text">A rule suggests a tag when a positive keyword matches, no negative keyword matches, and its optional channel matches.</p>
+      </div>
+      <div id="ruleList" class="rule-list"></div>
+      <div class="rule-fields">
+        <label>
+          Suggested tag
+          <input id="ruleNameInput" type="text" placeholder="documentary" required>
+        </label>
+        <label>
+          Channel (optional, exact match)
+          <input id="ruleChannelInput" type="text" list="ruleChannels" placeholder="All channels">
+          <datalist id="ruleChannels"></datalist>
+        </label>
+      </div>
+      <label>
+        Positive keywords (comma or new line separated)
+        <textarea id="rulePositiveInput" placeholder="documentary, behind the scenes" required></textarea>
+      </label>
+      <label>
+        Negative keywords (comma or new line separated)
+        <textarea id="ruleNegativeInput" placeholder="trailer, reaction"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button id="newRule" type="button">New rule</button>
+        <button id="closeRules" type="button">Close</button>
+        <button class="keep-button" type="submit">Save rule</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -904,6 +1073,8 @@
       datasetView: "all",
       importComparison: createEmptyImportComparison(),
       datasetBaseline: loadDatasetBaseline(),
+      editingVideoId: "",
+      editingRuleName: "",
     };
 
     const els = {
@@ -947,9 +1118,28 @@
       videoList: document.getElementById("videoList"),
       channelList: document.getElementById("channelList"),
       tagSummary: document.getElementById("tagSummary"),
+      manageRules: document.getElementById("manageRules"),
+      ruleSummary: document.getElementById("ruleSummary"),
       stateSummary: document.getElementById("stateSummary"),
       undoBulk: document.getElementById("undoBulk"),
       historyList: document.getElementById("historyList"),
+      videoEditorDialog: document.getElementById("videoEditorDialog"),
+      videoEditorForm: document.getElementById("videoEditorForm"),
+      videoEditorTitle: document.getElementById("videoEditorTitle"),
+      videoEditorSuggested: document.getElementById("videoEditorSuggested"),
+      videoTagsInput: document.getElementById("videoTagsInput"),
+      videoNoteInput: document.getElementById("videoNoteInput"),
+      cancelVideoEditor: document.getElementById("cancelVideoEditor"),
+      rulesDialog: document.getElementById("rulesDialog"),
+      ruleEditorForm: document.getElementById("ruleEditorForm"),
+      ruleList: document.getElementById("ruleList"),
+      ruleNameInput: document.getElementById("ruleNameInput"),
+      ruleChannelInput: document.getElementById("ruleChannelInput"),
+      ruleChannels: document.getElementById("ruleChannels"),
+      rulePositiveInput: document.getElementById("rulePositiveInput"),
+      ruleNegativeInput: document.getElementById("ruleNegativeInput"),
+      newRule: document.getElementById("newRule"),
+      closeRules: document.getElementById("closeRules"),
       toast: document.getElementById("toast"),
     };
 
@@ -1024,6 +1214,12 @@
       els.workspaceInput.addEventListener("change", importWorkspaceFile);
       els.clearDecisions.addEventListener("click", clearDecisions);
       els.undoBulk.addEventListener("click", undoLastBulkChange);
+      els.manageRules.addEventListener("click", openRulesDialog);
+      els.videoEditorForm.addEventListener("submit", saveVideoEditor);
+      els.cancelVideoEditor.addEventListener("click", () => els.videoEditorDialog.close());
+      els.ruleEditorForm.addEventListener("submit", saveRuleEditor);
+      els.newRule.addEventListener("click", resetRuleEditor);
+      els.closeRules.addEventListener("click", () => els.rulesDialog.close());
       document.addEventListener("keydown", handleShortcuts);
       window.addEventListener("scroll", maybeRenderMore);
     }
@@ -1125,20 +1321,38 @@
     }
 
     function getSuggestedTags(video) {
-      const haystack = [
-        video.title,
-        video.channel,
-        video.searchText,
-      ].filter(Boolean).join(" ").toLowerCase();
-
-      return Object.entries({ ...RULES, ...state.userRules })
-        .filter(([, keywords]) => Array.isArray(keywords))
-        .filter(([, keywords]) => keywords.some(keyword => haystack.includes(keyword.toLowerCase())))
+      return Object.entries(getEffectiveRules())
+        .filter(([, rule]) => ruleMatchesVideo(video, rule))
         .map(([tag]) => tag);
     }
 
+    function getEffectiveRules() {
+      const builtInRules = Object.fromEntries(
+        Object.entries(RULES).map(([name, keywords]) => [name, normalizeRule({ positive: keywords })]),
+      );
+      return { ...builtInRules, ...state.userRules };
+    }
+
+    function ruleMatchesVideo(video, rule) {
+      const normalized = normalizeRule(rule);
+      if (!normalized.positive.length) return false;
+      const channel = String(video?.channel || "").trim().toLowerCase();
+      if (normalized.channel && channel !== normalized.channel.toLowerCase()) return false;
+      const haystack = [video?.title, video?.channel, video?.searchText]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const hasPositive = normalized.positive.some(keyword => haystack.includes(keyword.toLowerCase()));
+      const hasNegative = normalized.negative.some(keyword => haystack.includes(keyword.toLowerCase()));
+      return hasPositive && !hasNegative;
+    }
+
+    function refreshEnrichedVideos() {
+      state.videos = state.videos.map(video => enrichVideo(toWorkspaceVideo(video)));
+    }
+
     function getDecision(videoId) {
-      return state.decisions[videoId] || {
+      return state.decisions[videoId] ? normalizeDecision(state.decisions[videoId]) : {
         status: "unreviewed",
         tags: [],
         note: "",
@@ -1151,14 +1365,20 @@
     }
 
     function setStatus(videoId, status, shouldSave = true) {
+      const current = getDecision(videoId);
       if (status === "unreviewed") {
-        delete state.decisions[videoId];
+        const reset = {
+          ...current,
+          status,
+          updatedAt: new Date().toISOString(),
+        };
+        if (reset.tags.length || reset.note.trim()) state.decisions[videoId] = reset;
+        else delete state.decisions[videoId];
         state.currentId = videoId;
         if (shouldSave) saveDecisions();
         return;
       }
 
-      const current = getDecision(videoId);
       state.decisions[videoId] = {
         ...current,
         status,
@@ -1268,13 +1488,28 @@
       return getSortedVideos(state.videos.filter(video => {
         if (datasetIds && !datasetIds.has(video.videoId)) return false;
         if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
-        if (query && !video.searchText.includes(query)) return false;
+        if (query && !getVideoSearchText(video).includes(query)) return false;
         if (status !== "all" && getStatus(video.videoId) !== status) return false;
         if (channel !== "all" && video.channel !== channel) return false;
         if (channelQuery && !String(video.channel || "").toLowerCase().includes(channelQuery)) return false;
-        if (tag !== "all" && !video.suggestedTags.includes(tag)) return false;
+        if (tag !== "all" && !getVideoTags(video).includes(tag)) return false;
         return true;
       }));
+    }
+
+    function getVideoTags(video) {
+      return Array.from(new Set([
+        ...(video.suggestedTags || []),
+        ...(getDecision(video.videoId).tags || []),
+      ]));
+    }
+
+    function getVideoSearchText(video) {
+      const decision = getDecision(video.videoId);
+      return [video.searchText, ...(decision.tags || []), decision.note]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
     }
 
     function getSortedVideos(videos) {
@@ -1701,15 +1936,29 @@
         tags.appendChild(badge);
       }
       const decisionTags = getDecision(video.videoId).tags || [];
-      const allTags = Array.from(new Set([...video.suggestedTags, ...decisionTags]));
-      allTags.forEach(tag => {
+      video.suggestedTags.forEach(tag => {
         const chip = document.createElement("span");
         chip.className = "tag";
-        chip.textContent = tag;
+        chip.textContent = `Suggested: ${tag}`;
+        chip.title = "Suggested by a keyword rule";
+        tags.appendChild(chip);
+      });
+      decisionTags.forEach(tag => {
+        const chip = document.createElement("span");
+        chip.className = "tag manual-tag";
+        chip.textContent = `Manual: ${tag}`;
+        chip.title = "Added manually";
         tags.appendChild(chip);
       });
 
       content.append(title, meta, tags);
+      const note = getDecision(video.videoId).note;
+      if (note) {
+        const noteElement = document.createElement("p");
+        noteElement.className = "video-note";
+        noteElement.textContent = note;
+        content.appendChild(noteElement);
+      }
 
       const actions = document.createElement("div");
       actions.className = "status-actions";
@@ -1718,6 +1967,7 @@
         createStatusButton(video.videoId, "maybe", status),
         createStatusButton(video.videoId, "delete", status),
         createStatusButton(video.videoId, "unreviewed", status, "Reset"),
+        createEditVideoButton(video),
         createOpenButton(video),
       );
 
@@ -1762,9 +2012,73 @@
       return button;
     }
 
+    function createEditVideoButton(video) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Tags / note";
+      button.addEventListener("click", () => openVideoEditor(video.videoId));
+      return button;
+    }
+
+    function openVideoEditor(videoId) {
+      const video = state.videos.find(candidate => candidate.videoId === videoId);
+      if (!video) return;
+      const decision = getDecision(videoId);
+      state.editingVideoId = videoId;
+      state.currentId = videoId;
+      els.videoEditorTitle.textContent = `${video.title || "(untitled)"} · ${video.channel || "Unknown channel"}`;
+      els.videoTagsInput.value = (decision.tags || []).join(", ");
+      els.videoNoteInput.value = decision.note || "";
+      const suggested = (video.suggestedTags || []).map(tag => {
+        const chip = document.createElement("span");
+        chip.className = "tag";
+        chip.textContent = tag;
+        return chip;
+      });
+      if (!suggested.length) {
+        const empty = document.createElement("span");
+        empty.className = "scope-text";
+        empty.textContent = "No tags suggested by the current rules.";
+        suggested.push(empty);
+      }
+      els.videoEditorSuggested.replaceChildren(...suggested);
+      els.videoEditorDialog.showModal();
+      els.videoTagsInput.focus();
+    }
+
+    function saveVideoEditor(event) {
+      event.preventDefault();
+      const videoId = state.editingVideoId;
+      if (!videoId) return;
+      updateDecisionDetails(
+        state.decisions,
+        videoId,
+        splitInputValues(els.videoTagsInput.value),
+        els.videoNoteInput.value,
+      );
+      saveDecisions();
+      els.videoEditorDialog.close();
+      render();
+      showToast("Saved manual tags and note.");
+    }
+
+    function updateDecisionDetails(decisions, videoId, tags, note, updatedAt = new Date().toISOString()) {
+      const current = normalizeDecision(decisions[videoId] || {});
+      const next = {
+        ...current,
+        tags: normalizeTags(tags),
+        note: String(note || "").trim(),
+        updatedAt,
+      };
+      if (next.status === "unreviewed" && !next.tags.length && !next.note) delete decisions[videoId];
+      else decisions[videoId] = next;
+      return next;
+    }
+
     function renderSidebar() {
       renderChannelList();
       renderTagSummary();
+      renderRuleSummary();
     }
 
     function renderChannelList() {
@@ -1784,9 +2098,10 @@
     }
 
     function renderTagSummary() {
-      const counts = Object.keys(RULES).map(tag => ({
+      const countsByTag = getTagCounts();
+      const counts = Object.keys(countsByTag).map(tag => ({
         name: tag,
-        count: state.videos.filter(video => video.suggestedTags.includes(tag)).length,
+        count: countsByTag[tag],
       })).sort((a, b) => b.count - a.count);
 
       els.tagSummary.replaceChildren(...counts.map(item => {
@@ -1803,6 +2118,124 @@
         });
         return button;
       }));
+    }
+
+    function renderRuleSummary() {
+      const builtInCount = Object.keys(RULES).length;
+      const userCount = Object.keys(state.userRules).length;
+      els.ruleSummary.textContent = `${builtInCount} built-in rules · ${userCount} custom or overridden.`;
+    }
+
+    function openRulesDialog() {
+      renderRuleChannelOptions();
+      renderRuleList();
+      resetRuleEditor();
+      els.rulesDialog.showModal();
+    }
+
+    function renderRuleChannelOptions() {
+      els.ruleChannels.replaceChildren(...getAllChannelNames().map(channel => {
+        const option = document.createElement("option");
+        option.value = channel;
+        return option;
+      }));
+    }
+
+    function renderRuleList() {
+      const effectiveRules = getEffectiveRules();
+      const names = Object.keys(effectiveRules).sort((a, b) => a.localeCompare(b));
+      const items = names.map(name => {
+        const rule = effectiveRules[name];
+        const isBuiltIn = Object.prototype.hasOwnProperty.call(RULES, name);
+        const isOverride = Object.prototype.hasOwnProperty.call(state.userRules, name);
+        const item = document.createElement("div");
+        item.className = "rule-item";
+        const content = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = name;
+        const meta = document.createElement("div");
+        meta.className = "rule-item-meta";
+        const source = isOverride ? (isBuiltIn ? "built-in override" : "custom") : "built-in";
+        const channel = rule.channel ? ` · channel: ${rule.channel}` : " · all channels";
+        meta.textContent = `${source} · ${rule.positive.length} positive · ${rule.negative.length} negative${channel}`;
+        content.append(title, meta);
+        const actions = document.createElement("div");
+        actions.className = "rule-item-actions";
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => editRule(name));
+        actions.appendChild(edit);
+        if (isOverride || !isBuiltIn) {
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = isBuiltIn ? "Restore" : "Remove";
+          remove.addEventListener("click", () => removeUserRule(name, isBuiltIn));
+          actions.appendChild(remove);
+        }
+        item.append(content, actions);
+        return item;
+      });
+      els.ruleList.replaceChildren(...items);
+    }
+
+    function editRule(name) {
+      const rule = getEffectiveRules()[name];
+      if (!rule) return;
+      state.editingRuleName = name;
+      els.ruleNameInput.value = name;
+      els.ruleNameInput.readOnly = true;
+      els.rulePositiveInput.value = rule.positive.join("\n");
+      els.ruleNegativeInput.value = rule.negative.join("\n");
+      els.ruleChannelInput.value = rule.channel;
+      els.rulePositiveInput.focus();
+    }
+
+    function resetRuleEditor() {
+      state.editingRuleName = "";
+      els.ruleNameInput.readOnly = false;
+      els.ruleNameInput.value = "";
+      els.rulePositiveInput.value = "";
+      els.ruleNegativeInput.value = "";
+      els.ruleChannelInput.value = "";
+      if (els.rulesDialog.open) els.ruleNameInput.focus();
+    }
+
+    function saveRuleEditor(event) {
+      event.preventDefault();
+      const name = els.ruleNameInput.value.trim();
+      const positive = splitInputValues(els.rulePositiveInput.value);
+      if (!name || !positive.length) {
+        showToast("A rule needs a tag name and at least one positive keyword.");
+        return;
+      }
+      state.userRules[name] = normalizeRule({
+        positive,
+        negative: splitInputValues(els.ruleNegativeInput.value),
+        channel: els.ruleChannelInput.value,
+      });
+      saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+      refreshEnrichedVideos();
+      if (state.activeTag !== "all" && !getAllTagNames().includes(state.activeTag)) state.activeTag = "all";
+      renderRuleList();
+      renderTagFilters();
+      render();
+      resetRuleEditor();
+      showToast(`Saved rule for “${name}”.`);
+    }
+
+    function removeUserRule(name, restoresBuiltIn) {
+      const action = restoresBuiltIn ? "restore the built-in rule" : "remove this custom rule";
+      if (!confirm(`Remove “${name}” and ${action}?`)) return;
+      delete state.userRules[name];
+      saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+      refreshEnrichedVideos();
+      if (state.activeTag !== "all" && !getAllTagNames().includes(state.activeTag)) state.activeTag = "all";
+      renderRuleList();
+      renderTagFilters();
+      render();
+      resetRuleEditor();
+      showToast(restoresBuiltIn ? `Restored built-in rule “${name}”.` : `Removed rule “${name}”.`);
     }
 
     function groupCounts(items, getName) {
@@ -1935,7 +2368,7 @@
       const tagCounts = getTagCounts();
       const chips = [
         createTagChip("all", `All tags ${state.videos.length}`, state.videos.length),
-        ...Object.keys(RULES).map(tag => createTagChip(tag, `${tag} ${tagCounts[tag] || 0}`, tagCounts[tag] || 0)),
+        ...getAllTagNames().map(tag => createTagChip(tag, `${tag} ${tagCounts[tag] || 0}`, tagCounts[tag] || 0)),
       ];
       els.tagFilter.replaceChildren(...chips);
     }
@@ -1958,13 +2391,21 @@
 
     function getTagCounts() {
       const counts = {};
-      for (const tag of Object.keys(RULES)) counts[tag] = 0;
+      for (const tag of getAllTagNames()) counts[tag] = 0;
       for (const video of state.videos) {
-        for (const tag of video.suggestedTags || []) {
+        for (const tag of getVideoTags(video)) {
           counts[tag] = (counts[tag] || 0) + 1;
         }
       }
       return counts;
+    }
+
+    function getAllTagNames() {
+      const names = new Set(Object.keys(getEffectiveRules()));
+      for (const decision of Object.values(state.decisions)) {
+        for (const tag of decision?.tags || []) names.add(tag);
+      }
+      return Array.from(names).sort((a, b) => a.localeCompare(b));
     }
 
     function exportKeepMaybe() {
@@ -2285,12 +2726,30 @@
     function normalizeUserRules(rules) {
       if (!rules || typeof rules !== "object" || Array.isArray(rules)) return {};
       const normalized = {};
-      for (const [name, keywords] of Object.entries(rules)) {
+      for (const [name, rule] of Object.entries(rules)) {
         const cleanName = String(name || "").trim();
-        if (!cleanName || !Array.isArray(keywords)) continue;
-        normalized[cleanName] = normalizeTags(keywords);
+        if (!cleanName || (!Array.isArray(rule) && (!rule || typeof rule !== "object"))) continue;
+        const cleanRule = normalizeRule(rule);
+        if (!cleanRule.positive.length) continue;
+        normalized[cleanName] = cleanRule;
       }
       return normalized;
+    }
+
+    function normalizeRule(rule) {
+      if (Array.isArray(rule)) {
+        return { positive: normalizeTags(rule), negative: [], channel: "" };
+      }
+      const source = rule && typeof rule === "object" && !Array.isArray(rule) ? rule : {};
+      return {
+        positive: normalizeTags(source.positive || source.keywords),
+        negative: normalizeTags(source.negative),
+        channel: typeof source.channel === "string" ? source.channel.trim() : "",
+      };
+    }
+
+    function splitInputValues(value) {
+      return normalizeTags(String(value || "").split(/[,\n]+/));
     }
 
     function normalizeSavedViews(views) {
@@ -2408,7 +2867,7 @@
       for (const [videoId, decision] of Object.entries(decisions || {})) {
         if (!videoId || !decision || typeof decision !== "object") continue;
         const normalized = normalizeDecision(decision);
-        if (normalized.status === "unreviewed") continue;
+        if (normalized.status === "unreviewed" && !normalized.tags.length && !normalized.note.trim()) continue;
         portable[videoId] = normalized;
       }
       return portable;
@@ -2442,10 +2901,15 @@
     }
 
     function toExportVideo(video, decision) {
+      const suggestedTags = normalizeTags(video.suggestedTags);
+      const manualTags = normalizeTags(decision.tags);
       return {
         videoId: video.videoId,
         status: decision.status || "unreviewed",
-        tags: Array.from(new Set([...(video.suggestedTags || []), ...(decision.tags || [])])),
+        tags: Array.from(new Set([...suggestedTags, ...manualTags])),
+        suggestedTags,
+        manualTags,
+        note: decision.note || "",
         title: video.title || "",
         channel: video.channel || "",
         cleanUrl: video.cleanUrl || video.url || "",

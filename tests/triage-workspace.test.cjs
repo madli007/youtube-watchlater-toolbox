@@ -9,7 +9,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, updateDecisionDetails, getPortableDecisions };",
 );
 
 const elementStub = {
@@ -44,7 +44,11 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     one: { status: "keep", tags: ["manual", "manual"], note: "Later", updatedAt: exportedAt },
     ignored: { status: "unreviewed", tags: [], note: "", updatedAt: "" },
   },
-  userRules: { custom: ["alpha", "alpha", "beta"], invalid: "nope" },
+  userRules: {
+    custom: { positive: ["alpha", "alpha", "beta"], negative: ["skip"], channel: "Channel" },
+    legacy: ["old format"],
+    invalid: "nope",
+  },
   savedViews: [{ name: "Keep" }],
   lastImport: { fileName: "watchlater.json", importedAt: exportedAt },
   importComparison: {
@@ -65,7 +69,10 @@ assert.equal(workspace.exportedAt, exportedAt);
 assert.equal(workspace.workspace.videos.length, 1);
 assert.equal(Object.keys(workspace.workspace.decisions).length, 1);
 assert.deepEqual([...workspace.workspace.decisions.one.tags], ["manual"]);
-assert.deepEqual([...workspace.workspace.userRules.custom], ["alpha", "beta"]);
+assert.deepEqual([...workspace.workspace.userRules.custom.positive], ["alpha", "beta"]);
+assert.deepEqual([...workspace.workspace.userRules.custom.negative], ["skip"]);
+assert.equal(workspace.workspace.userRules.custom.channel, "Channel");
+assert.deepEqual([...workspace.workspace.userRules.legacy.positive], ["old format"]);
 assert.equal(workspace.workspace.userRules.invalid, undefined);
 assert.equal(workspace.workspace.importComparison.baselineAvailable, true);
 assert.deepEqual([...workspace.workspace.importComparison.newIds], ["one"]);
@@ -77,6 +84,7 @@ assert.equal(parsed.ui.status, "keep");
 assert.equal(parsed.ui.datasetView, "inbox");
 assert.equal(parsed.importComparison.removedVideos[0].videoId, "gone");
 assert.deepEqual([...parsed.ui.selectedIds], ["one"]);
+assert.deepEqual([...parsed.userRules.custom.positive], ["alpha", "beta"]);
 assert.throws(
   () => sandbox.testApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
   /workspace snapshot/i,
@@ -150,5 +158,19 @@ const baseline = sandbox.testApi.createDatasetBaseline(currentVideos, { fileName
 assert.equal(baseline.schemaVersion, 1);
 assert.equal(baseline.videos.length, 2);
 assert.equal(baseline.videos[0].views, undefined);
+
+const channelRule = { positive: ["documentary"], negative: ["trailer"], channel: "Channel" };
+assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", channel: "Channel" }, channelRule), true);
+assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Documentary trailer", channel: "Channel" }, channelRule), false);
+assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", channel: "Elsewhere" }, channelRule), false);
+
+const detailDecisions = {};
+sandbox.testApi.updateDecisionDetails(detailDecisions, "one", ["manual", "manual"], "Watch later", exportedAt);
+assert.equal(detailDecisions.one.status, "unreviewed");
+assert.deepEqual([...detailDecisions.one.tags], ["manual"]);
+assert.equal(detailDecisions.one.note, "Watch later");
+assert.equal(Object.keys(sandbox.testApi.getPortableDecisions(detailDecisions)).length, 1);
+sandbox.testApi.updateDecisionDetails(detailDecisions, "one", [], "", exportedAt);
+assert.equal(detailDecisions.one, undefined);
 
 console.log("triage workspace test passed");

@@ -92,7 +92,7 @@ Obstoječi decision-only JSON naj ostane lahek format za sync, workspace snapsho
 ## P1: hitrejši ponavljajoči se triage
 
 - [x] 4. Inkrementalni import in primerjava izvozov
-- [ ] 5. Urejanje tagov, pravil in opomb
+- [x] 5. Urejanje tagov, pravil in opomb
 - [ ] 6. Napredni filtri in shranjeni pogledi
 - [ ] 7. Pravila na nivoju kanala
 
