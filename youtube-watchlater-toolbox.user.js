@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.6.0
-// @description  Load and export YouTube Watch Later videos from a compact toolbox.
+// @version      0.7.0
+// @description  Export, preview, and safely execute Watch Later cleanup plans.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
 // @grant        none
@@ -19,6 +19,10 @@
     settleDelayMs: 900,
     toolboxId: "yt-watchlater-toolbox",
     stylesId: "yt-watchlater-toolbox-styles",
+    executionStorageKey: "ytwlt-delete-execution-v1",
+    defaultDeleteDelayMs: 2500,
+    deleteActionTimeoutMs: 10000,
+    menuOpenTimeoutMs: 5000,
   };
 
   const SELECTORS = {
@@ -41,6 +45,10 @@
     all: "\u21F2",
     import: "\u21E7",
     report: "\u2637",
+    delete: "\u232B",
+    pause: "\u2016",
+    resume: "\u25B6",
+    stop: "\u25A0",
     clear: "\u00D7",
     done: "\u2713",
     loading: "\u2026",
@@ -58,6 +66,13 @@
     scopedStatuses: new Map(),
     importedAt: "",
     lastSummary: null,
+  };
+
+  const executionState = {
+    run: loadStoredExecutionRun(),
+    workerActive: false,
+    pauseRequested: false,
+    stopRequested: false,
   };
 
   function isWatchLaterPage() {
@@ -510,8 +525,29 @@
   }
 
   function parsePreviewPayload(payload) {
+    if (payload?.mode === "delete-execution-report") return parseExecutionReportPayload(payload);
     if (payload?.mode === "scoped-videos") return parseScopedPayload(payload);
     return parseKeepMaybePayload(payload);
+  }
+
+  function parseExecutionReportPayload(payload) {
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.failures)) {
+      throw new Error("Invalid delete execution report.");
+    }
+
+    const scopedIds = new Set(payload.failures.map(readVideoId).filter(Boolean));
+    if (!scopedIds.size) {
+      throw new Error("The execution report has no failed video IDs to retry.");
+    }
+
+    return {
+      mode: "retry-failures",
+      scope: `retry ${cleanText(payload.runId || "failures")}`,
+      keepIds: new Set(),
+      maybeIds: new Set(),
+      scopedIds,
+      scopedStatuses: new Map([...scopedIds].map(videoId => [videoId, "delete"])),
+    };
   }
 
   function parseKeepMaybePayload(payload) {
@@ -573,7 +609,7 @@
   }
 
   function runImportedPreview() {
-    if (previewState.mode === "scoped") return runScopedPreview();
+    if (previewState.mode === "scoped" || previewState.mode === "retry-failures") return runScopedPreview();
     return runKeepMaybeDryRun();
   }
 
@@ -637,7 +673,7 @@
     const scopedStatuses = previewState.scopedStatuses;
     const loadedIds = new Set();
     const summary = {
-      mode: "scoped",
+      mode: previewState.mode,
       scope: previewState.scope || "videos",
       loaded: items.length,
       imported: scopedIds.size,
@@ -694,7 +730,7 @@
   }
 
   function formatPreviewSummary(summary) {
-    if (summary.mode === "scoped") return formatScopedSummary(summary);
+    if (summary.mode === "scoped" || summary.mode === "retry-failures") return formatScopedSummary(summary);
     return formatKeepMaybeSummary(summary);
   }
 
@@ -711,7 +747,7 @@
 
   function formatScopedSummary(summary) {
     return [
-      `${ICONS.done} Scoped import preview (${summary.scope})`,
+      `${ICONS.done} ${summary.mode === "retry-failures" ? "Retry failures" : "Scoped import"} preview (${summary.scope})`,
       `Loaded: ${summary.loaded}`,
       `Imported scoped videos: ${summary.imported}`,
       `Matched loaded: ${summary.matched}`,
@@ -752,7 +788,7 @@
   }
 
   function buildDryRunReport() {
-    if (previewState.mode === "scoped") return buildScopedReport();
+    if (previewState.mode === "scoped" || previewState.mode === "retry-failures") return buildScopedReport();
 
     const items = getLoadedVideoItems();
     const keepIds = previewState.keepIds;
@@ -841,7 +877,7 @@
     return {
       schemaVersion: 1,
       source: "youtube-watchlater-toolbox",
-      mode: "scoped-preview",
+      mode: previewState.mode === "retry-failures" ? "retry-failures-preview" : "scoped-preview",
       scope: previewState.scope || "videos",
       exportedAt: new Date().toISOString(),
       importedAt: previewState.importedAt,
@@ -860,6 +896,619 @@
       },
       missingImportedIds,
     };
+  }
+
+  function loadStoredExecutionRun() {
+    try {
+      const raw = window.localStorage.getItem(CONFIG.executionStorageKey);
+      if (!raw) return null;
+      const run = JSON.parse(raw);
+      if (!run || !Array.isArray(run.targetVideoIds) || !run.runId) return null;
+      return run;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function saveExecutionRun() {
+    if (!executionState.run) return;
+    executionState.run.updatedAt = new Date().toISOString();
+    try {
+      window.localStorage.setItem(CONFIG.executionStorageKey, JSON.stringify(executionState.run));
+    } catch (error) {
+      throw new Error(`Could not save delete progress: ${error.message || "localStorage failed"}`);
+    }
+  }
+
+  function clearStoredExecutionRun() {
+    if (executionState.workerActive) {
+      setStatus(`${ICONS.warning} Stop the active delete run before clearing it.`);
+      return;
+    }
+    if (executionState.run && !window.confirm("Clear the saved delete run and its local progress log?")) return;
+    executionState.run = null;
+    window.localStorage.removeItem(CONFIG.executionStorageKey);
+    updateExecutionControls();
+    setStatus("Saved delete run cleared.");
+  }
+
+  function getExecutionMode() {
+    if (previewState.mode === "scoped") return "delete-explicit";
+    if (previewState.mode === "keep-maybe") return "delete-not-protected";
+    if (previewState.mode === "retry-failures") return "retry-failures-only";
+    return "";
+  }
+
+  function isExplicitDeleteTarget(videoId) {
+    if (previewState.mode === "keep-maybe") {
+      return !previewState.keepIds.has(videoId) && !previewState.maybeIds.has(videoId);
+    }
+    return previewState.scopedIds.has(videoId) && previewState.scopedStatuses.get(videoId) === "delete";
+  }
+
+  function toExecutionVideo(video) {
+    return {
+      videoId: video.videoId,
+      title: video.title,
+      channel: video.channel,
+      url: video.cleanUrl || video.url,
+      playlistIndex: video.playlistIndex,
+      isUnavailable: video.isUnavailable,
+    };
+  }
+
+  function buildExecutionPreparation() {
+    const mode = getExecutionMode();
+    if (!mode) throw new Error("Import and review a triage JSON before deleting.");
+
+    const items = getLoadedVideoItems();
+    const loadedIds = new Set(items.map(item => item.data.videoId).filter(Boolean));
+    const targets = [];
+    const excluded = [];
+    const seenIds = new Set();
+
+    for (let index = items.length - 1; index >= 0; index--) {
+      const video = items[index].data;
+      if (!video.videoId) {
+        if (mode === "delete-not-protected") excluded.push({ reason: "unknown-video-id", video: toExecutionVideo(video) });
+        continue;
+      }
+      if (!isExplicitDeleteTarget(video.videoId) || seenIds.has(video.videoId)) continue;
+      seenIds.add(video.videoId);
+
+      if (video.isUnavailable) {
+        excluded.push({ videoId: video.videoId, reason: "unavailable-video", video: toExecutionVideo(video) });
+        continue;
+      }
+      targets.push(toExecutionVideo(video));
+    }
+
+    if (mode !== "delete-not-protected") {
+      for (const videoId of previewState.scopedIds) {
+        if (previewState.scopedStatuses.get(videoId) === "delete" && !loadedIds.has(videoId)) {
+          excluded.push({ videoId, reason: "not-found-after-load" });
+        }
+      }
+    }
+
+    return {
+      mode,
+      loadedVideos: items.map(item => item.data),
+      targets,
+      excluded,
+    };
+  }
+
+  function getTimestampForFilename() {
+    return new Date().toISOString().replace(/[:.]/g, "-");
+  }
+
+  function readExecutionSettings() {
+    const delayInput = document.querySelector(`#${CONFIG.toolboxId} [data-delete-delay]`);
+    const pauseEveryInput = document.querySelector(`#${CONFIG.toolboxId} [data-pause-every]`);
+    const delaySeconds = Number(delayInput?.value);
+    const pauseEvery = Number.parseInt(pauseEveryInput?.value || "0", 10);
+
+    return {
+      delayMs: Number.isFinite(delaySeconds)
+        ? Math.max(1000, Math.round(delaySeconds * 1000))
+        : CONFIG.defaultDeleteDelayMs,
+      pauseEvery: Number.isFinite(pauseEvery) ? Math.max(0, pauseEvery) : 0,
+    };
+  }
+
+  function exportBackupAndPlan(preparation, settings) {
+    const timestamp = getTimestampForFilename();
+    const exportedAt = new Date().toISOString();
+    const backup = {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "pre-delete-backup",
+      exportedAt,
+      videos: preparation.loadedVideos,
+    };
+    const plan = {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "delete-execution-plan",
+      executionMode: preparation.mode,
+      exportedAt,
+      importedAt: previewState.importedAt,
+      scope: previewState.scope,
+      settings,
+      counts: {
+        loaded: preparation.loadedVideos.length,
+        targets: preparation.targets.length,
+        excluded: preparation.excluded.length,
+      },
+      targets: preparation.targets,
+      excluded: preparation.excluded,
+    };
+
+    downloadText(
+      `watchlater_pre_delete_backup_${timestamp}.json`,
+      JSON.stringify(backup, null, 2),
+      "application/json;charset=utf-8",
+    );
+    downloadText(
+      `watchlater_execution_plan_${timestamp}.json`,
+      JSON.stringify(plan, null, 2),
+      "application/json;charset=utf-8",
+    );
+    return plan;
+  }
+
+  async function prepareAndStartDeleteExecution() {
+    if (executionState.workerActive) return;
+    if (!previewState.lastSummary) {
+      setStatus(`${ICONS.warning} Import and review a triage JSON first.`);
+      return;
+    }
+    if (executionState.run) {
+      setStatus(`${ICONS.warning} Export if needed, then clear the saved delete run before starting a new one.`);
+      return;
+    }
+
+    setBusy(true);
+    setStatus(`${ICONS.loading} Loading the full playlist before preparing deletion...`);
+
+    try {
+      await loadAllVideos(({ loadedCount, isLoading }) => {
+        setCount();
+        setStatus(`${ICONS.loading} Loading all videos... ${loadedCount} found${isLoading ? ", still fetching" : ""}`);
+      });
+      const summary = runImportedPreview();
+      setCount(summary.loaded);
+
+      const preparation = buildExecutionPreparation();
+      const settings = readExecutionSettings();
+      if (!preparation.targets.length) {
+        setStatus(`${ICONS.warning} No safe, loaded delete targets were found. ${preparation.excluded.length} item(s) were excluded.`);
+        return;
+      }
+
+      const plan = exportBackupAndPlan(preparation, settings);
+      const expected = `DELETE ${preparation.targets.length}`;
+      const typed = window.prompt([
+        `Backup and execution plan downloads were started.`,
+        `Mode: ${preparation.mode}`,
+        `Loaded videos: ${preparation.loadedVideos.length}`,
+        `Delete targets: ${preparation.targets.length}`,
+        `Safely excluded: ${preparation.excluded.length}`,
+        `Type ${expected} to begin.`,
+      ].join("\n"));
+
+      if (typed !== expected) {
+        setStatus(`${ICONS.warning} Delete cancelled. The required text did not match exactly.`);
+        return;
+      }
+
+      const now = new Date().toISOString();
+      executionState.run = {
+        schemaVersion: 1,
+        source: "youtube-watchlater-toolbox",
+        mode: preparation.mode,
+        runId: now,
+        status: "running",
+        targetVideoIds: preparation.targets.map(video => video.videoId),
+        targets: preparation.targets,
+        successes: [],
+        failures: [],
+        skipped: preparation.excluded,
+        settings,
+        importedAt: previewState.importedAt,
+        scope: previewState.scope,
+        planExportedAt: plan.exportedAt,
+        startedAt: now,
+        updatedAt: now,
+        finishedAt: "",
+      };
+      saveExecutionRun();
+      executionState.pauseRequested = false;
+      executionState.stopRequested = false;
+    } catch (error) {
+      setStatus(`${ICONS.warning} ${error.message || "Could not prepare delete execution."}`);
+      return;
+    } finally {
+      setBusy(false);
+      updateExecutionControls();
+    }
+
+    await runDeleteWorker();
+  }
+
+  function getProcessedVideoIds(run) {
+    return new Set([
+      ...run.successes.map(readVideoId),
+      ...run.failures.map(readVideoId),
+      ...run.skipped.map(readVideoId),
+    ].filter(Boolean));
+  }
+
+  function findLoadedVideoItem(videoId) {
+    return getLoadedVideoItems().find(item => item.data.videoId === videoId) || null;
+  }
+
+  function isVisible(element) {
+    if (!element || !element.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+  }
+
+  async function waitForValue(readValue, timeoutMs, errorMessage) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      const value = readValue();
+      if (value) return value;
+      await wait(100);
+    }
+    throw new Error(errorMessage);
+  }
+
+  function findVideoMenuButton(videoElement) {
+    const selectors = [
+      "#menu ytd-menu-renderer yt-icon-button button",
+      "#menu yt-icon-button button",
+      "ytd-menu-renderer yt-icon-button button",
+      "button[aria-label='Action menu']",
+      "button[aria-label='Meni z dejanji']",
+    ];
+    for (const selector of selectors) {
+      const button = Array.from(videoElement.querySelectorAll(selector)).find(isVisible);
+      if (button) return button;
+    }
+    return null;
+  }
+
+  function getMenuItemLabel(item) {
+    const labelElement = item.querySelector("yt-formatted-string, .yt-core-attributed-string, #label");
+    return cleanText(labelElement?.textContent || item.textContent).toLowerCase();
+  }
+
+  function isRemoveFromWatchLaterLabel(label) {
+    return [
+      /^remove from watch later$/,
+      /^remove from playlist$/,
+      /^odstrani iz (?:[»„\"]?poznejši ogled[«“\"]?|[»„\"]?poznejšega ogleda[«“\"]?)$/,
+      /^odstrani (?:iz|s) seznama (?:za )?[»„\"]?poznejš(?:i ogled|ega ogleda)[«“\"]?$/,
+      /^odstrani (?:iz|s) seznama predvajanja$/,
+    ].some(pattern => pattern.test(label));
+  }
+
+  function findExplicitRemoveMenuItem() {
+    const selectors = [
+      "ytd-menu-popup-renderer ytd-menu-service-item-renderer",
+      "tp-yt-iron-dropdown ytd-menu-service-item-renderer",
+      "ytd-menu-popup-renderer yt-list-item-view-model",
+    ];
+    const items = Array.from(document.querySelectorAll(selectors.join(","))).filter(isVisible);
+    return items.find(item => isRemoveFromWatchLaterLabel(getMenuItemLabel(item))) || null;
+  }
+
+  function findVisibleYouTubeMenuPopup() {
+    return Array.from(document.querySelectorAll("ytd-menu-popup-renderer, tp-yt-iron-dropdown"))
+      .find(isVisible) || null;
+  }
+
+  async function closeOpenYouTubeMenu() {
+    if (!findVisibleYouTubeMenuPopup()) return;
+    const escapeEvent = new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true });
+    document.dispatchEvent(escapeEvent);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    await waitForValue(
+      () => !findVisibleYouTubeMenuPopup(),
+      1500,
+      "A previously open YouTube menu could not be closed safely.",
+    );
+  }
+
+  async function removeVideoThroughYouTubeMenu(item, expectedVideoId) {
+    const { element } = item;
+    element.scrollIntoView({ block: "center", behavior: "auto" });
+    await wait(250);
+
+    const freshId = extractVideoData(element, 0)?.videoId;
+    if (freshId !== expectedVideoId) {
+      throw new Error("The playlist row changed before the action could be verified.");
+    }
+
+    await closeOpenYouTubeMenu();
+    const menuButton = findVideoMenuButton(element);
+    if (!menuButton) throw new Error("Could not find this video's YouTube action menu.");
+    menuButton.click();
+
+    let removeItem;
+    try {
+      removeItem = await waitForValue(
+        findExplicitRemoveMenuItem,
+        CONFIG.menuOpenTimeoutMs,
+        "No explicitly recognized 'Remove from Watch later' menu action was found.",
+      );
+    } catch (error) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      throw error;
+    }
+
+    const verifiedId = extractVideoData(element, 0)?.videoId;
+    if (verifiedId !== expectedVideoId) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      throw new Error("The playlist row changed while its action menu was open.");
+    }
+
+    removeItem.click();
+    await waitForValue(
+      () => !element.isConnected || extractVideoData(element, 0)?.videoId !== expectedVideoId,
+      CONFIG.deleteActionTimeoutMs,
+      "YouTube did not confirm removal by updating the playlist row in time.",
+    );
+  }
+
+  function getRunProgress(run) {
+    const processedIds = getProcessedVideoIds(run);
+    const processedTargetIds = run.targetVideoIds.filter(videoId => processedIds.has(videoId));
+    return {
+      processed: processedTargetIds.length,
+      total: run.targetVideoIds.length,
+      remaining: run.targetVideoIds.filter(videoId => !processedIds.has(videoId)).length,
+    };
+  }
+
+  function formatExecutionProgress(run, prefix = `${ICONS.loading} Deleting`) {
+    const progress = getRunProgress(run);
+    return [
+      `${prefix}: ${progress.processed}/${progress.total} processed, ${progress.remaining} remaining`,
+      `${run.successes.length} removed, ${run.failures.length} failed, ${run.skipped.length} skipped`,
+    ].join("\n");
+  }
+
+  async function waitForExecutionDelay(delayMs) {
+    const endsAt = Date.now() + delayMs;
+    while (Date.now() < endsAt && !executionState.pauseRequested && !executionState.stopRequested) {
+      await wait(Math.min(250, endsAt - Date.now()));
+    }
+  }
+
+  async function runDeleteWorker() {
+    const run = executionState.run;
+    if (!run || executionState.workerActive) return;
+
+    executionState.workerActive = true;
+    run.status = "running";
+    saveExecutionRun();
+    updateExecutionControls();
+    let processedThisSession = 0;
+
+    try {
+      for (const videoId of run.targetVideoIds) {
+        if (getProcessedVideoIds(run).has(videoId)) continue;
+
+        if (!isWatchLaterPage()) {
+          pauseExecutionRun("Delete run paused because the Watch Later page is no longer open.");
+          return;
+        }
+
+        if (executionState.stopRequested) {
+          finalizeExecution("stopped");
+          return;
+        }
+        if (executionState.pauseRequested) {
+          pauseExecutionRun("Delete run paused.");
+          return;
+        }
+
+        setStatus(formatExecutionProgress(run, `${ICONS.loading} Removing ${videoId}`));
+        const attemptedAt = new Date().toISOString();
+        const item = findLoadedVideoItem(videoId);
+
+        if (!item) {
+          run.skipped.push({ videoId, reason: "not-found-during-execution", attemptedAt });
+        } else if (item.data.isUnavailable) {
+          run.skipped.push({ videoId, reason: "unavailable-video", attemptedAt });
+        } else {
+          try {
+            await removeVideoThroughYouTubeMenu(item, videoId);
+            run.successes.push({ videoId, removedAt: new Date().toISOString() });
+          } catch (error) {
+            item.element.classList.add("ytwlt-execution-failed");
+            run.failures.push({
+              videoId,
+              error: error.message || "Delete action failed.",
+              attemptedAt,
+            });
+          }
+        }
+
+        processedThisSession++;
+        saveExecutionRun();
+        setStatus(formatExecutionProgress(run));
+
+        if (run.settings.pauseEvery > 0 && processedThisSession % run.settings.pauseEvery === 0 && getRunProgress(run).remaining > 0) {
+          pauseExecutionRun(`Automatic pause after ${processedThisSession} item(s).`);
+          return;
+        }
+
+        if (executionState.stopRequested) {
+          finalizeExecution("stopped");
+          return;
+        }
+        if (executionState.pauseRequested) {
+          pauseExecutionRun("Delete run paused.");
+          return;
+        }
+        if (getRunProgress(run).remaining > 0) await waitForExecutionDelay(run.settings.delayMs);
+      }
+
+      finalizeExecution("completed");
+    } catch (error) {
+      run.status = "paused";
+      saveExecutionRun();
+      setStatus(`${ICONS.warning} Execution paused: ${error.message || "unexpected error"}`);
+    } finally {
+      executionState.workerActive = false;
+      executionState.pauseRequested = false;
+      executionState.stopRequested = false;
+      updateExecutionControls();
+    }
+  }
+
+  function pauseExecutionRun(message) {
+    if (!executionState.run) return;
+    executionState.run.status = "paused";
+    saveExecutionRun();
+    setStatus(`${ICONS.pause} ${message}\n${formatExecutionProgress(executionState.run, "Progress")}`);
+  }
+
+  function requestPauseExecution() {
+    if (!executionState.workerActive) return;
+    executionState.pauseRequested = true;
+    setStatus(`${ICONS.pause} Pause requested; the current YouTube action will finish first.`);
+    updateExecutionControls();
+  }
+
+  function requestStopExecution() {
+    if (!executionState.run || ["completed", "stopped"].includes(executionState.run.status)) return;
+    if (!window.confirm("Stop this delete run after the current YouTube action? Remaining targets will not be processed.")) return;
+    executionState.stopRequested = true;
+    if (!executionState.workerActive) finalizeExecution("stopped");
+    else setStatus(`${ICONS.stop} Stop requested; the current YouTube action will finish first.`);
+    updateExecutionControls();
+  }
+
+  async function resumeDeleteExecution() {
+    if (!executionState.run || executionState.workerActive) return;
+    if (!["paused", "running"].includes(executionState.run.status)) {
+      setStatus(`${ICONS.warning} There is no paused delete run to resume.`);
+      return;
+    }
+
+    setBusy(true);
+    setStatus(`${ICONS.loading} Reloading the full playlist before resuming...`);
+    try {
+      await loadAllVideos(({ loadedCount, isLoading }) => {
+        setCount();
+        setStatus(`${ICONS.loading} Loading all videos... ${loadedCount} found${isLoading ? ", still fetching" : ""}`);
+      });
+      executionState.pauseRequested = false;
+      executionState.stopRequested = false;
+    } catch (error) {
+      executionState.run.status = "paused";
+      saveExecutionRun();
+      setStatus(`${ICONS.warning} Could not resume: ${error.message || "loading failed"}`);
+      return;
+    } finally {
+      setBusy(false);
+      updateExecutionControls();
+    }
+    await runDeleteWorker();
+  }
+
+  function buildExecutionReport(run) {
+    const progress = getRunProgress(run);
+    return {
+      schemaVersion: 1,
+      source: "youtube-watchlater-toolbox",
+      mode: "delete-execution-report",
+      executionMode: run.mode,
+      runId: run.runId,
+      status: run.status,
+      startedAt: run.startedAt,
+      updatedAt: run.updatedAt,
+      finishedAt: run.finishedAt,
+      importedAt: run.importedAt,
+      scope: run.scope,
+      settings: run.settings,
+      summary: {
+        targets: run.targetVideoIds.length,
+        processed: progress.processed,
+        remaining: progress.remaining,
+        removed: run.successes.length,
+        failed: run.failures.length,
+        skipped: run.skipped.length,
+      },
+      targetVideoIds: run.targetVideoIds,
+      targets: run.targets,
+      successes: run.successes,
+      failures: run.failures,
+      skipped: run.skipped,
+      remainingVideoIds: run.targetVideoIds.filter(videoId => !getProcessedVideoIds(run).has(videoId)),
+    };
+  }
+
+  function exportExecutionReport({ automatic = false } = {}) {
+    const run = executionState.run;
+    if (!run) {
+      setStatus(`${ICONS.warning} No saved delete run to export.`);
+      return;
+    }
+    downloadText(
+      `watchlater_execution_report_${getTimestampForFilename()}.json`,
+      JSON.stringify(buildExecutionReport(run), null, 2),
+      "application/json;charset=utf-8",
+    );
+    if (!automatic) setStatus(`${ICONS.done} Exported delete execution report.`);
+  }
+
+  function finalizeExecution(status) {
+    const run = executionState.run;
+    if (!run) return;
+    run.status = status;
+    run.finishedAt = new Date().toISOString();
+    saveExecutionRun();
+    exportExecutionReport({ automatic: true });
+    const label = status === "completed" ? `${ICONS.done} Delete run completed` : `${ICONS.stop} Delete run stopped`;
+    setStatus(`${formatExecutionProgress(run, label)}\nExecution report download started.`);
+    updateExecutionControls();
+  }
+
+  function updateExecutionControls() {
+    const toolbox = document.getElementById(CONFIG.toolboxId);
+    if (!toolbox) return;
+    const run = executionState.run;
+    const active = executionState.workerActive;
+    const resumable = run && ["paused", "running"].includes(run.status) && !active;
+    const unfinished = run && !["completed", "stopped"].includes(run.status);
+
+    const executeButton = toolbox.querySelector("[data-execution-action='execute']");
+    const pauseButton = toolbox.querySelector("[data-execution-action='pause']");
+    const resumeButton = toolbox.querySelector("[data-execution-action='resume']");
+    const stopButton = toolbox.querySelector("[data-execution-action='stop']");
+    const reportButton = toolbox.querySelector("[data-execution-action='report']");
+    const clearButton = toolbox.querySelector("[data-execution-action='clear']");
+
+    toolbox.querySelectorAll(".ytwlt-button:not([data-execution-action])").forEach(button => {
+      button.disabled = active;
+    });
+    toolbox.querySelectorAll(".ytwlt-execution-settings input").forEach(input => {
+      input.disabled = active;
+    });
+
+    if (executeButton) executeButton.disabled = active || Boolean(run);
+    if (pauseButton) pauseButton.disabled = !active || executionState.pauseRequested;
+    if (resumeButton) resumeButton.disabled = !resumable;
+    if (stopButton) stopButton.disabled = !unfinished;
+    if (reportButton) reportButton.disabled = !run;
+    if (clearButton) clearButton.disabled = active || !run;
   }
 
   function clearPreviewClasses() {
@@ -891,6 +1540,7 @@
       .forEach(button => {
         button.disabled = isBusy;
       });
+    if (!isBusy) updateExecutionControls();
   }
 
   function createButton(icon, label, onClick) {
@@ -922,6 +1572,7 @@
     const collapseButton = document.createElement("button");
     const body = document.createElement("div");
     const actions = document.createElement("div");
+    const executionSettings = document.createElement("div");
     const status = document.createElement("div");
 
     toolbox.id = CONFIG.toolboxId;
@@ -935,6 +1586,7 @@
     collapseButton.className = "ytwlt-collapse";
     body.className = "ytwlt-body";
     actions.className = "ytwlt-actions";
+    executionSettings.className = "ytwlt-execution-settings";
     status.className = "ytwlt-status";
     status.setAttribute("data-toolbox-status", "");
 
@@ -944,7 +1596,9 @@
     subtitle.append(count, " loaded videos");
     collapseButton.textContent = ICONS.expand;
     collapseButton.title = "Expand toolbox";
-    status.textContent = "Ready.";
+    status.textContent = executionState.run
+      ? `Saved delete run: ${executionState.run.status}.`
+      : "Ready.";
 
     const loadButton = createButton(ICONS.load, "Load all", async () => {
       setBusy(true);
@@ -972,6 +1626,42 @@
     const importPreviewButton = createButton(ICONS.import, "Import triage JSON", importPreviewJson);
     const exportReportButton = createButton(ICONS.report, "Export preview report", exportDryRunReport);
     const clearPreviewButton = createButton(ICONS.clear, "Clear preview", clearPreview);
+    const executeDeleteButton = createButton(ICONS.delete, "Execute delete candidates", prepareAndStartDeleteExecution);
+    const pauseDeleteButton = createButton(ICONS.pause, "Pause deletion", requestPauseExecution);
+    const resumeDeleteButton = createButton(ICONS.resume, "Resume saved run", resumeDeleteExecution);
+    const stopDeleteButton = createButton(ICONS.stop, "Stop deletion", requestStopExecution);
+    const executionReportButton = createButton(ICONS.report, "Export execution report", exportExecutionReport);
+    const clearExecutionButton = createButton(ICONS.clear, "Clear saved run", clearStoredExecutionRun);
+    const delayLabel = document.createElement("label");
+    const delayText = document.createElement("span");
+    const delayInput = document.createElement("input");
+    const pauseEveryLabel = document.createElement("label");
+    const pauseEveryText = document.createElement("span");
+    const pauseEveryInput = document.createElement("input");
+
+    executeDeleteButton.setAttribute("data-execution-action", "execute");
+    pauseDeleteButton.setAttribute("data-execution-action", "pause");
+    resumeDeleteButton.setAttribute("data-execution-action", "resume");
+    stopDeleteButton.setAttribute("data-execution-action", "stop");
+    executionReportButton.setAttribute("data-execution-action", "report");
+    clearExecutionButton.setAttribute("data-execution-action", "clear");
+
+    delayText.textContent = "Delay (seconds)";
+    delayInput.type = "number";
+    delayInput.min = "1";
+    delayInput.step = "0.5";
+    delayInput.value = String(CONFIG.defaultDeleteDelayMs / 1000);
+    delayInput.setAttribute("data-delete-delay", "");
+    delayLabel.append(delayText, delayInput);
+
+    pauseEveryText.textContent = "Pause every N (0 = off)";
+    pauseEveryInput.type = "number";
+    pauseEveryInput.min = "0";
+    pauseEveryInput.step = "1";
+    pauseEveryInput.value = "0";
+    pauseEveryInput.setAttribute("data-pause-every", "");
+    pauseEveryLabel.append(pauseEveryText, pauseEveryInput);
+    executionSettings.append(delayLabel, pauseEveryLabel);
 
     actions.append(
       loadButton,
@@ -982,6 +1672,13 @@
       importPreviewButton,
       exportReportButton,
       clearPreviewButton,
+      executionSettings,
+      executeDeleteButton,
+      pauseDeleteButton,
+      resumeDeleteButton,
+      stopDeleteButton,
+      executionReportButton,
+      clearExecutionButton,
     );
     titleWrap.append(title, subtitle);
     header.append(titleWrap, collapseButton);
@@ -996,6 +1693,7 @@
 
     document.body.appendChild(toolbox);
     setCount();
+    updateExecutionControls();
   }
 
   function injectStyles() {
@@ -1065,6 +1763,8 @@
 
       #${CONFIG.toolboxId} .ytwlt-body {
         padding: 12px;
+        max-height: min(76vh, 720px);
+        overflow-y: auto;
       }
 
       #${CONFIG.toolboxId}.is-collapsed .ytwlt-body {
@@ -1118,6 +1818,33 @@
         font-weight: 800;
       }
 
+      #${CONFIG.toolboxId} .ytwlt-execution-settings {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 4px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      #${CONFIG.toolboxId} .ytwlt-execution-settings label {
+        display: grid;
+        gap: 4px;
+        color: rgba(248, 250, 252, 0.72);
+        font-size: 11px;
+        line-height: 15px;
+      }
+
+      #${CONFIG.toolboxId} .ytwlt-execution-settings input {
+        width: 100%;
+        min-height: 34px;
+        padding: 6px 8px;
+        color: #f8fafc;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 7px;
+      }
+
       #${CONFIG.toolboxId} .ytwlt-status {
         min-height: 18px;
         margin-top: 10px;
@@ -1159,6 +1886,11 @@
         outline: 2px solid rgba(110, 198, 255, 0.85);
         outline-offset: 2px;
         background: rgba(110, 198, 255, 0.09);
+      }
+
+      ytd-playlist-video-renderer.ytwlt-execution-failed {
+        outline: 3px dashed rgba(239, 107, 115, 0.95);
+        outline-offset: 2px;
       }
     `;
 

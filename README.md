@@ -15,6 +15,8 @@ The triage page:
 - exports and imports decision-only JSON for manual sync between devices;
 - exports `keep/maybe`, delete candidates, and tagged reports.
 
+The userscript can safely execute an imported cleanup plan on the Watch Later page. It loads the full playlist, exports a mandatory pre-delete backup and execution plan, requires a typed `DELETE <count>` confirmation, and removes videos from bottom to top through YouTube's explicitly matched menu action. Delete runs support pause, resume after refresh, stop, configurable delays, automatic periodic pauses, and JSON execution reports. A report with failures can be imported again to retry only those items.
+
 No backend, npm install, database, or API service is required.
 
 ## Privacy
@@ -28,6 +30,9 @@ Do not commit personal Watch Later exports. They are ignored by `.gitignore`:
 - `watchlater_tagged_all*.json`
 - `watchlater_decisions*.json`
 - `watchlater_dry_run_report*.json`
+- `watchlater_pre_delete_backup*.json`
+- `watchlater_execution_plan*.json`
+- `watchlater_execution_report*.json`
 - `delete-urls*.txt`
 
 The public `index.html` file does not contain exported video data. It does contain generic and project-specific tag keywords.
