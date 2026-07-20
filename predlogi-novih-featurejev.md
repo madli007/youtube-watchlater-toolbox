@@ -156,8 +156,8 @@ Pravila naj bodo transparentna in reverzibilna: aplikacija naj pokaže, koliko v
 
 ## P2: organizacija in odločanje
 
-- [ ] 8. Premik ali kopiranje v tematske playliste
-- [ ] 9. Časovni proračun in statistika
+- [x] ~~8. Premik ali kopiranje v tematske playliste~~ — **izpuščeno po odločitvi**
+- [x] 9. Časovni proračun in statistika
 - [ ] 10. Gručenje serij in podobnih videov
 
 ### 8. Premik ali kopiranje v tematske playliste

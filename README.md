@@ -16,6 +16,8 @@ The triage page:
 - suggests tags from built-in and user-editable keyword rules with positive keywords, negative keywords, and optional channel scope;
 - stores channel-level defaults for keep/review status and manual tags, previews their impact before applying, and warns when bulk delete touches a protected channel;
 - keeps suggested tags visually separate from manual tags and lets each video store editable manual tags and a note;
+- calculates total watch time and time by status, channel, and tag; shows post-cleanup time, review progress, and weeks remaining for a saved weekly budget;
+- suggests a status-prioritized, shortest-first weekly shortlist from the currently visible non-delete videos and can select it for export or bulk actions;
 - stores decisions in browser `localStorage`;
 - exports and imports decision-only JSON for manual sync between devices;
 - exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;

@@ -14,7 +14,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration };",
 );
 
 const elementStub = {
@@ -68,6 +68,7 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     orphanedDecisionIds: ["ignored"],
   },
   history: [],
+  timeBudgetHours: 3.5,
   ui: {
     status: "keep",
     datasetView: "inbox",
@@ -95,6 +96,7 @@ assert.deepEqual([...workspace.workspace.userRules.legacy.positive], ["old forma
 assert.equal(workspace.workspace.userRules.invalid, undefined);
 assert.equal(workspace.workspace.importComparison.baselineAvailable, true);
 assert.deepEqual([...workspace.workspace.importComparison.newIds], ["one"]);
+assert.equal(workspace.workspace.timeBudgetHours, 3.5);
 
 const parsed = sandbox.testApi.parseWorkspacePayload(workspace);
 assert.equal(parsed.videos[0].videoId, "one");
@@ -113,6 +115,7 @@ assert.equal(parsed.channelRules[0].mode, "default-keep");
 assert.equal(parsed.savedViews[0].id, "keep-view");
 assert.equal(parsed.savedViews[0].filters.status, "keep");
 assert.equal(parsed.savedViews[0].filters.minDurationMinutes, "10");
+assert.equal(parsed.timeBudgetHours, 3.5);
 assert.throws(
   () => sandbox.testApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
   /workspace snapshot/i,
@@ -324,5 +327,42 @@ const normalizedViews = sandbox.testApi.normalizeSavedViews([
 assert.equal(normalizedViews.length, 2);
 assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.minDurationMinutes, "30");
 assert.deepEqual([...normalizedViews.find(view => view.id === "podcasts").filters.tags], ["podcast"]);
+
+assert.equal(sandbox.testApi.normalizeTimeBudgetHours("2.6"), 2.5);
+assert.equal(sandbox.testApi.normalizeTimeBudgetHours(0), 2);
+assert.equal(sandbox.testApi.normalizeTimeBudgetHours(999), 168);
+assert.equal(sandbox.testApi.formatDuration(90 * 60), "1h 30m");
+
+const durationVideos = [
+  { videoId: "keep-short", title: "Keep short", channel: "A", durationSeconds: 20 * 60, suggestedTags: ["dev"] },
+  { videoId: "keep-long", title: "Keep long", channel: "A", durationSeconds: 50 * 60, suggestedTags: ["dev"] },
+  { videoId: "maybe", title: "Maybe", channel: "B", durationSeconds: 30 * 60, suggestedTags: ["music"] },
+  { videoId: "unreviewed", title: "Unreviewed", channel: "B", durationSeconds: 10 * 60 },
+  { videoId: "delete", title: "Delete", channel: "C", durationSeconds: 5 * 60 },
+  { videoId: "unavailable", title: "Unavailable", channel: "C", durationSeconds: 5 * 60, isUnavailable: true },
+  { videoId: "unknown", title: "Unknown", channel: "C", durationSeconds: null },
+];
+const durationDecisions = {
+  "keep-short": { status: "keep", tags: ["manual"] },
+  "keep-long": { status: "keep" },
+  maybe: { status: "maybe" },
+  delete: { status: "delete" },
+};
+const durationStats = sandbox.testApi.calculateDurationStats(durationVideos, durationDecisions);
+assert.equal(durationStats.totalCount, 7);
+assert.equal(durationStats.knownCount, 6);
+assert.equal(durationStats.unknownCount, 1);
+assert.equal(durationStats.totalSeconds, 120 * 60);
+assert.equal(durationStats.protectedSeconds, 100 * 60);
+assert.equal(durationStats.decidedSeconds, 105 * 60);
+assert.equal(durationStats.byChannel.A.seconds, 70 * 60);
+assert.equal(durationStats.byTag.dev.seconds, 70 * 60);
+assert.equal(durationStats.byTag.manual.seconds, 20 * 60);
+
+const shortlist = sandbox.testApi.buildTimeBudgetShortlist(durationVideos, durationDecisions, 60 * 60);
+assert.deepEqual([...shortlist.videos].map(video => video.videoId), ["keep-short", "maybe", "unreviewed"]);
+assert.equal(shortlist.totalSeconds, 60 * 60);
+assert.equal([...shortlist.videos].some(video => video.videoId === "delete"), false);
+assert.equal([...shortlist.videos].some(video => video.videoId === "unavailable"), false);
 
 console.log("triage workspace test passed");

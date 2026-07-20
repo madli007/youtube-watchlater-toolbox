@@ -424,6 +424,108 @@
       font-size: 12px;
     }
 
+    .time-dashboard {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .time-dashboard-header,
+    .time-budget-controls,
+    .time-shortlist-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .time-dashboard h2,
+    .time-dashboard h3 {
+      margin: 0;
+    }
+
+    .time-budget-controls label {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .time-budget-controls input {
+      width: 86px;
+    }
+
+    .time-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .time-progress {
+      height: 7px;
+      margin-top: 7px;
+      overflow: hidden;
+      background: #0b0d10;
+      border-radius: 99px;
+    }
+
+    .time-progress > span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .time-breakdowns {
+      margin-top: 10px;
+    }
+
+    .time-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .time-breakdown-list {
+      display: grid;
+      gap: 5px;
+      margin-top: 7px;
+    }
+
+    .time-breakdown-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .time-breakdown-row span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .time-shortlist {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .time-shortlist-items {
+      display: grid;
+      gap: 4px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .bulkbar {
       display: flex;
       flex-wrap: wrap;
@@ -888,6 +990,11 @@
       .stats {
         grid-template-columns: repeat(2, minmax(90px, 1fr));
       }
+
+      .time-metrics,
+      .time-breakdown-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 680px) {
@@ -906,6 +1013,11 @@
 
       .advanced-filter-grid,
       .saved-view-bar {
+        grid-template-columns: 1fr;
+      }
+
+      .time-metrics,
+      .time-breakdown-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1080,6 +1192,44 @@
           <div class="stat"><strong id="deleteCount">0</strong><span>Delete candidates</span></div>
         </section>
 
+        <section class="time-dashboard" aria-labelledby="timeDashboardTitle">
+          <div class="time-dashboard-header">
+            <div>
+              <h2 id="timeDashboardTitle">Time budget &amp; statistics</h2>
+              <div id="timeCoverage" class="scope-text">Import videos to calculate watch time.</div>
+            </div>
+            <div class="time-budget-controls">
+              <label>
+                Weekly budget
+                <input id="timeBudgetHours" type="number" min="0.25" max="168" step="0.25" value="2" inputmode="decimal">
+                hours
+              </label>
+              <button id="selectTimeShortlist" type="button">Select shortlist</button>
+            </div>
+          </div>
+          <div class="time-metrics">
+            <div class="stat"><strong id="totalDuration">0m</strong><span>All videos</span></div>
+            <div class="stat"><strong id="protectedDuration">0m</strong><span>After planned cleanup</span></div>
+            <div class="stat"><strong id="reviewProgress">0%</strong><span id="reviewProgressLabel">Reviewed</span><div class="time-progress"><span id="reviewProgressBar" style="width: 0%"></span></div></div>
+            <div class="stat"><strong id="budgetCoverage">0</strong><span>Weeks after cleanup</span></div>
+          </div>
+          <details class="time-breakdowns">
+            <summary>Time by status, channel and tag</summary>
+            <div class="time-breakdown-grid">
+              <div><strong>Statuses</strong><div id="timeByStatus" class="time-breakdown-list"></div></div>
+              <div><strong>Top channels</strong><div id="timeByChannel" class="time-breakdown-list"></div></div>
+              <div><strong>Top tags</strong><div id="timeByTag" class="time-breakdown-list"></div></div>
+            </div>
+          </details>
+          <div class="time-shortlist">
+            <div class="time-shortlist-header">
+              <h3>This week's shortlist</h3>
+              <span id="timeShortlistSummary" class="scope-text">No videos available.</span>
+            </div>
+            <div id="timeShortlistItems" class="time-shortlist-items"></div>
+          </div>
+        </section>
+
         <section class="bulkbar" aria-label="Bulk actions">
           <div>
             <strong id="scopeLabel">No videos loaded</strong>
@@ -1249,6 +1399,7 @@
     const CHANNEL_RULES_STORAGE_KEY = "watchlater-triage-channel-rules-v1";
     const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
     const DATASET_BASELINE_STORAGE_KEY = "watchlater-triage-dataset-baseline-v1";
+    const TIME_BUDGET_STORAGE_KEY = "watchlater-triage-time-budget-hours-v1";
     const PAGE_SIZE = 220;
     const BULK_CONFIRM_THRESHOLD = 100;
     const MAX_HISTORY_ENTRIES = 20;
@@ -1290,6 +1441,7 @@
       editingVideoId: "",
       editingRuleName: "",
       editingChannelRuleId: "",
+      timeBudgetHours: normalizeTimeBudgetHours(localStorage.getItem(TIME_BUDGET_STORAGE_KEY)),
     };
 
     const els = {
@@ -1334,6 +1486,20 @@
       maybeCount: document.getElementById("maybeCount"),
       protectedCount: document.getElementById("protectedCount"),
       deleteCount: document.getElementById("deleteCount"),
+      timeCoverage: document.getElementById("timeCoverage"),
+      timeBudgetHours: document.getElementById("timeBudgetHours"),
+      selectTimeShortlist: document.getElementById("selectTimeShortlist"),
+      totalDuration: document.getElementById("totalDuration"),
+      protectedDuration: document.getElementById("protectedDuration"),
+      reviewProgress: document.getElementById("reviewProgress"),
+      reviewProgressLabel: document.getElementById("reviewProgressLabel"),
+      reviewProgressBar: document.getElementById("reviewProgressBar"),
+      budgetCoverage: document.getElementById("budgetCoverage"),
+      timeByStatus: document.getElementById("timeByStatus"),
+      timeByChannel: document.getElementById("timeByChannel"),
+      timeByTag: document.getElementById("timeByTag"),
+      timeShortlistSummary: document.getElementById("timeShortlistSummary"),
+      timeShortlistItems: document.getElementById("timeShortlistItems"),
       scopeLabel: document.getElementById("scopeLabel"),
       scopeHint: document.getElementById("scopeHint"),
       activeFilters: document.getElementById("activeFilters"),
@@ -1391,6 +1557,7 @@
     init();
 
     function init() {
+      els.timeBudgetHours.value = state.timeBudgetHours;
       renderBadgeOptions();
       renderTagFilters();
       renderSavedViews();
@@ -1448,6 +1615,9 @@
       els.saveView.addEventListener("click", saveCurrentView);
       els.deleteView.addEventListener("click", deleteCurrentView);
       els.clearFilters.addEventListener("click", clearFilters);
+      els.timeBudgetHours.addEventListener("input", handleTimeBudgetInput);
+      els.timeBudgetHours.addEventListener("change", updateTimeBudget);
+      els.selectTimeShortlist.addEventListener("click", selectSuggestedShortlist);
       els.datasetViews.addEventListener("click", event => {
         const button = event.target.closest("[data-dataset-view]");
         if (!button || button.disabled) return;
@@ -1934,6 +2104,7 @@
     function render(options = {}) {
       ensureCurrentVisible();
       renderStats();
+      renderTimeDashboard();
       renderVideoList();
       renderSidebar();
       renderHistory();
@@ -1990,6 +2161,199 @@
       const counts = { unreviewed: 0, keep: 0, maybe: 0, delete: 0 };
       for (const video of videos) counts[getStatus(video.videoId)]++;
       return counts;
+    }
+
+    function normalizeTimeBudgetHours(value) {
+      const hours = Number(value);
+      if (!Number.isFinite(hours) || hours <= 0) return 2;
+      return Math.min(168, Math.max(0.25, Math.round(hours * 4) / 4));
+    }
+
+    function getMappedDecision(decisions, videoId) {
+      return normalizeDecision(decisions?.[videoId] || {});
+    }
+
+    function calculateDurationStats(videos, decisions) {
+      const summary = {
+        totalCount: 0,
+        knownCount: 0,
+        unknownCount: 0,
+        totalSeconds: 0,
+        decidedCount: 0,
+        decidedSeconds: 0,
+        protectedSeconds: 0,
+        byStatus: {},
+        byChannel: {},
+        byTag: {},
+      };
+
+      for (const video of Array.isArray(videos) ? videos : []) {
+        if (!video?.videoId) continue;
+        summary.totalCount++;
+        const decision = getMappedDecision(decisions, video.videoId);
+        const status = decision.status;
+        const seconds = finiteNumberOrNull(video.durationSeconds);
+        if (status !== "unreviewed") summary.decidedCount++;
+        if (seconds === null || seconds < 0) {
+          summary.unknownCount++;
+          continue;
+        }
+
+        summary.knownCount++;
+        summary.totalSeconds += seconds;
+        if (status !== "unreviewed") summary.decidedSeconds += seconds;
+        if (status === "keep" || status === "maybe") summary.protectedSeconds += seconds;
+        addDurationGroup(summary.byStatus, status, seconds);
+        addDurationGroup(summary.byChannel, String(video.channel || "(unknown)"), seconds);
+        const tags = Array.from(new Set([
+          ...normalizeTags(video.suggestedTags),
+          ...normalizeTags(decision.tags),
+        ]));
+        tags.forEach(tag => addDurationGroup(summary.byTag, tag, seconds));
+      }
+
+      return summary;
+    }
+
+    function addDurationGroup(groups, name, seconds) {
+      if (!groups[name]) groups[name] = { count: 0, seconds: 0 };
+      groups[name].count++;
+      groups[name].seconds += seconds;
+    }
+
+    function getSortedDurationGroups(groups) {
+      return Object.entries(groups || {})
+        .map(([name, value]) => ({ name, count: value.count, seconds: value.seconds }))
+        .sort((a, b) => b.seconds - a.seconds || b.count - a.count || a.name.localeCompare(b.name));
+    }
+
+    function buildTimeBudgetShortlist(videos, decisions, budgetSeconds) {
+      const budget = Math.max(0, Number(budgetSeconds) || 0);
+      const priorities = { keep: 0, maybe: 1, unreviewed: 2 };
+      const candidates = (Array.isArray(videos) ? videos : [])
+        .map((video, order) => ({
+          video,
+          order,
+          status: getMappedDecision(decisions, video?.videoId).status,
+          seconds: finiteNumberOrNull(video?.durationSeconds),
+        }))
+        .filter(item => item.video?.videoId
+          && item.seconds !== null
+          && item.seconds > 0
+          && !item.video.isUnavailable
+          && item.status !== "delete")
+        .sort((a, b) => (priorities[a.status] ?? 3) - (priorities[b.status] ?? 3)
+          || a.seconds - b.seconds
+          || a.order - b.order);
+      const selected = [];
+      let totalSeconds = 0;
+      for (const candidate of candidates) {
+        if (totalSeconds + candidate.seconds > budget) continue;
+        selected.push(candidate.video);
+        totalSeconds += candidate.seconds;
+      }
+      return { videos: selected, totalSeconds, budgetSeconds: budget };
+    }
+
+    function formatDuration(seconds) {
+      const totalMinutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
+      const days = Math.floor(totalMinutes / 1440);
+      const hours = Math.floor((totalMinutes % 1440) / 60);
+      const minutes = totalMinutes % 60;
+      if (days) return `${days}d ${hours}h`;
+      if (hours) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+
+    function updateTimeBudget() {
+      state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
+      els.timeBudgetHours.value = state.timeBudgetHours;
+      localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+      renderTimeDashboard();
+    }
+
+    function handleTimeBudgetInput() {
+      const hours = Number(els.timeBudgetHours.value);
+      if (!Number.isFinite(hours) || hours <= 0) return;
+      state.timeBudgetHours = Math.min(168, hours);
+      localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+      renderTimeDashboard();
+    }
+
+    function getCurrentTimeShortlist() {
+      return buildTimeBudgetShortlist(
+        getFilteredVideos(),
+        state.decisions,
+        state.timeBudgetHours * 3600,
+      );
+    }
+
+    function selectSuggestedShortlist() {
+      const shortlist = getCurrentTimeShortlist();
+      if (!shortlist.videos.length) {
+        showToast("No visible non-delete videos fit the weekly time budget.");
+        return;
+      }
+      state.selectedIds = new Set(shortlist.videos.map(video => video.videoId));
+      state.currentId = shortlist.videos[0].videoId;
+      render();
+      showToast(`Selected ${shortlist.videos.length} videos (${formatDuration(shortlist.totalSeconds)}).`);
+    }
+
+    function renderTimeDashboard() {
+      const stats = calculateDurationStats(state.videos, state.decisions);
+      const reviewPercent = stats.totalCount ? Math.round(stats.decidedCount / stats.totalCount * 100) : 0;
+      const weeklySeconds = state.timeBudgetHours * 3600;
+      const weeks = weeklySeconds ? stats.protectedSeconds / weeklySeconds : 0;
+      const shortlist = getCurrentTimeShortlist();
+
+      els.totalDuration.textContent = formatDuration(stats.totalSeconds);
+      els.protectedDuration.textContent = formatDuration(stats.protectedSeconds);
+      els.reviewProgress.textContent = `${reviewPercent}%`;
+      els.reviewProgressLabel.textContent = `Reviewed · ${formatDuration(stats.decidedSeconds)} of ${formatDuration(stats.totalSeconds)} decided`;
+      els.reviewProgressBar.style.width = `${reviewPercent}%`;
+      els.budgetCoverage.textContent = weeks < 0.1 ? "0" : weeks.toFixed(weeks >= 10 ? 0 : 1);
+      els.timeCoverage.textContent = state.videos.length
+        ? `Duration available for ${stats.knownCount} of ${stats.totalCount} videos${stats.unknownCount ? `; ${stats.unknownCount} unknown.` : "."}`
+        : "Import videos to calculate watch time.";
+      els.timeBudgetHours.value = state.timeBudgetHours;
+      els.selectTimeShortlist.disabled = !shortlist.videos.length;
+      els.timeShortlistSummary.textContent = shortlist.videos.length
+        ? `${shortlist.videos.length} visible non-delete videos · ${formatDuration(shortlist.totalSeconds)} of ${formatDuration(shortlist.budgetSeconds)}`
+        : "No visible non-delete videos fit the budget.";
+
+      const preview = shortlist.videos.slice(0, 5).map(video => {
+        const item = document.createElement("div");
+        item.textContent = `${video.title || "(untitled)"} · ${formatDuration(video.durationSeconds)}`;
+        return item;
+      });
+      if (shortlist.videos.length > preview.length) {
+        const more = document.createElement("div");
+        more.textContent = `…and ${shortlist.videos.length - preview.length} more.`;
+        preview.push(more);
+      }
+      els.timeShortlistItems.replaceChildren(...preview);
+
+      renderDurationGroups(els.timeByStatus, ["keep", "maybe", "delete", "unreviewed"].map(name => ({
+        name,
+        ...(stats.byStatus[name] || { count: 0, seconds: 0 }),
+      })));
+      renderDurationGroups(els.timeByChannel, getSortedDurationGroups(stats.byChannel).slice(0, 10));
+      renderDurationGroups(els.timeByTag, getSortedDurationGroups(stats.byTag).slice(0, 10));
+    }
+
+    function renderDurationGroups(container, groups) {
+      const rows = groups.length ? groups.map(group => {
+        const row = document.createElement("div");
+        row.className = "time-breakdown-row";
+        const name = document.createElement("span");
+        name.textContent = `${group.name} (${group.count})`;
+        const duration = document.createElement("strong");
+        duration.textContent = formatDuration(group.seconds);
+        row.append(name, duration);
+        return row;
+      }) : [Object.assign(document.createElement("div"), { className: "scope-text", textContent: "No data." })];
+      container.replaceChildren(...rows);
     }
 
     function updateBulkLabels() {
@@ -3438,6 +3802,7 @@
         lastImport: state.lastImport,
         importComparison: state.importComparison,
         history: state.history,
+        timeBudgetHours: state.timeBudgetHours,
         ui: getWorkspaceUiState(),
       });
       downloadJson(`watchlater_workspace_${getDateStamp()}.json`, payload);
@@ -3458,6 +3823,7 @@
           lastImport: normalizePlainObject(workspace.lastImport),
           importComparison: normalizeImportComparison(workspace.importComparison),
           history: normalizeHistory(workspace.history),
+          timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
           ui: normalizeWorkspaceUi(workspace.ui),
         },
       };
@@ -3488,6 +3854,7 @@
         lastImport: normalizePlainObject(workspace.lastImport),
         importComparison: normalizeImportComparison(workspace.importComparison),
         history: normalizeHistory(workspace.history),
+        timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
         ui: normalizeWorkspaceUi(workspace.ui),
       };
     }
@@ -3532,6 +3899,7 @@
         state.savedViews = incoming.savedViews;
         state.lastImport = incoming.lastImport;
         state.importComparison = incoming.importComparison;
+        state.timeBudgetHours = incoming.timeBudgetHours;
         state.decisions = incoming.decisions;
         state.videos = dedupeVideos(incoming.videos)
           .map(video => enrichVideo(video))
@@ -3548,6 +3916,7 @@
         saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
         saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
         saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+        localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
         saveHistory();
         applyWorkspaceUi(incoming.ui);
         populateChannels();
