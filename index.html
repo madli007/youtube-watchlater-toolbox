@@ -748,6 +748,28 @@
       gap: 10px;
     }
 
+    .rule-preview {
+      padding: 10px;
+      color: var(--muted);
+      background: #13161b;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 12px;
+    }
+
+    .checkbox-label {
+      display: flex !important;
+      grid-column: 1 / -1;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox-label input {
+      width: auto;
+      min-height: auto;
+      margin: 0;
+    }
+
     .channel-button {
       display: flex;
       align-items: center;
@@ -1094,13 +1116,20 @@
           <div id="ruleSummary" class="scope-text"></div>
         </section>
         <section class="panel">
+          <h2>Channel rules</h2>
+          <div class="workspace-actions">
+            <button id="manageChannelRules" type="button">Manage channel rules</button>
+          </div>
+          <div id="channelRuleSummary" class="scope-text"></div>
+        </section>
+        <section class="panel">
           <h2>State</h2>
           <div id="stateSummary" class="scope-text">Decisions are saved locally by video ID.</div>
         </section>
         <section class="panel">
           <h2>Workspace history</h2>
           <div class="workspace-actions">
-            <button id="undoBulk" type="button">Undo last bulk change</button>
+            <button id="undoBulk" type="button">Undo last bulk/rule change</button>
           </div>
           <div id="historyList" class="history-list"></div>
         </section>
@@ -1162,12 +1191,55 @@
       </div>
     </form>
   </dialog>
+  <dialog id="channelRulesDialog">
+    <form id="channelRuleEditorForm" class="dialog-form">
+      <div>
+        <h2>Channel rules</h2>
+        <p class="scope-text">Defaults preserve existing decisions. “Always” modes may replace an existing status, but every application creates an undo snapshot.</p>
+      </div>
+      <div id="channelRuleList" class="rule-list"></div>
+      <div class="rule-fields">
+        <label>
+          Channel (exact match)
+          <input id="channelRuleChannelInput" type="text" list="channelRuleChannels" placeholder="Channel name" required>
+          <datalist id="channelRuleChannels"></datalist>
+        </label>
+        <label>
+          Status behavior
+          <select id="channelRuleModeSelect">
+            <option value="none">No status default</option>
+            <option value="default-keep">Keep new/unreviewed</option>
+            <option value="default-review">Send new/unreviewed to review</option>
+            <option value="always-keep">Always keep</option>
+            <option value="always-review">Always send to review</option>
+          </select>
+        </label>
+        <label>
+          Default tag (optional)
+          <input id="channelRuleTagInput" type="text" placeholder="podcast">
+        </label>
+        <label class="checkbox-label">
+          <input id="channelRuleProtectedInput" type="checkbox">
+          Warn before bulk delete touches this channel
+        </label>
+      </div>
+      <div id="channelRulePreview" class="rule-preview">Choose a channel to preview this rule.</div>
+      <div class="dialog-actions">
+        <button id="newChannelRule" type="button">New rule</button>
+        <button id="applyAllChannelRules" type="button">Apply all pending</button>
+        <button id="applyChannelRule" type="button">Save &amp; apply this rule</button>
+        <button id="closeChannelRules" type="button">Close</button>
+        <button class="keep-button" type="submit">Save rule</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
     const STORAGE_KEY = "watchlater-triage-decisions-v1";
     const HISTORY_STORAGE_KEY = "watchlater-triage-history-v1";
     const USER_RULES_STORAGE_KEY = "watchlater-triage-user-rules-v1";
+    const CHANNEL_RULES_STORAGE_KEY = "watchlater-triage-channel-rules-v1";
     const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
     const DATASET_BASELINE_STORAGE_KEY = "watchlater-triage-dataset-baseline-v1";
     const PAGE_SIZE = 220;
@@ -1201,6 +1273,7 @@
       currentId: "",
       history: loadHistory(),
       userRules: normalizeUserRules(loadStoredObject(USER_RULES_STORAGE_KEY)),
+      channelRules: normalizeChannelRules(loadStoredArray(CHANNEL_RULES_STORAGE_KEY)),
       savedViews: normalizeSavedViews(loadStoredArray(SAVED_VIEWS_STORAGE_KEY)),
       activeSavedViewId: "",
       lastImport: null,
@@ -1209,6 +1282,7 @@
       datasetBaseline: loadDatasetBaseline(),
       editingVideoId: "",
       editingRuleName: "",
+      editingChannelRuleId: "",
     };
 
     const els = {
@@ -1268,6 +1342,8 @@
       tagSummary: document.getElementById("tagSummary"),
       manageRules: document.getElementById("manageRules"),
       ruleSummary: document.getElementById("ruleSummary"),
+      manageChannelRules: document.getElementById("manageChannelRules"),
+      channelRuleSummary: document.getElementById("channelRuleSummary"),
       stateSummary: document.getElementById("stateSummary"),
       undoBulk: document.getElementById("undoBulk"),
       historyList: document.getElementById("historyList"),
@@ -1288,6 +1364,19 @@
       ruleNegativeInput: document.getElementById("ruleNegativeInput"),
       newRule: document.getElementById("newRule"),
       closeRules: document.getElementById("closeRules"),
+      channelRulesDialog: document.getElementById("channelRulesDialog"),
+      channelRuleEditorForm: document.getElementById("channelRuleEditorForm"),
+      channelRuleList: document.getElementById("channelRuleList"),
+      channelRuleChannelInput: document.getElementById("channelRuleChannelInput"),
+      channelRuleChannels: document.getElementById("channelRuleChannels"),
+      channelRuleModeSelect: document.getElementById("channelRuleModeSelect"),
+      channelRuleTagInput: document.getElementById("channelRuleTagInput"),
+      channelRuleProtectedInput: document.getElementById("channelRuleProtectedInput"),
+      channelRulePreview: document.getElementById("channelRulePreview"),
+      newChannelRule: document.getElementById("newChannelRule"),
+      applyAllChannelRules: document.getElementById("applyAllChannelRules"),
+      applyChannelRule: document.getElementById("applyChannelRule"),
+      closeChannelRules: document.getElementById("closeChannelRules"),
       toast: document.getElementById("toast"),
     };
 
@@ -1313,7 +1402,8 @@
         openChannelMenu();
       });
       els.channelSearch.addEventListener("input", () => {
-        openChannelMenu();
+        handleFilterChange();
+        els.channelCombo.classList.add("is-open");
       });
       els.channelSearch.addEventListener("keydown", event => {
         if (event.key === "Escape") {
@@ -1381,6 +1471,14 @@
       els.ruleEditorForm.addEventListener("submit", saveRuleEditor);
       els.newRule.addEventListener("click", resetRuleEditor);
       els.closeRules.addEventListener("click", () => els.rulesDialog.close());
+      els.manageChannelRules.addEventListener("click", openChannelRulesDialog);
+      els.channelRuleEditorForm.addEventListener("submit", saveChannelRuleEditor);
+      [els.channelRuleChannelInput, els.channelRuleModeSelect, els.channelRuleTagInput, els.channelRuleProtectedInput]
+        .forEach(input => input.addEventListener("input", renderChannelRulePreview));
+      els.newChannelRule.addEventListener("click", resetChannelRuleEditor);
+      els.applyChannelRule.addEventListener("click", applyCurrentChannelRule);
+      els.applyAllChannelRules.addEventListener("click", applyAllPendingChannelRules);
+      els.closeChannelRules.addEventListener("click", () => els.channelRulesDialog.close());
       document.addEventListener("keydown", handleShortcuts);
       window.addEventListener("scroll", maybeRenderMore);
     }
@@ -1578,9 +1676,16 @@
       const ids = getScopeIds();
       if (!ids.length) return;
       const scopeName = state.selectedIds.size ? "selected" : "visible";
-      if (ids.length > BULK_CONFIRM_THRESHOLD) {
+      const protectedMatches = status === "delete"
+        ? getProtectedChannelMatches(state.videos, ids, state.channelRules)
+        : [];
+      if (protectedMatches.length || ids.length > BULK_CONFIRM_THRESHOLD) {
         const label = status === "unreviewed" ? "reset" : status;
-        const ok = confirm(`Apply "${label}" to ${ids.length} ${scopeName} videos?`);
+        const protectedChannels = Array.from(new Set(protectedMatches.map(match => match.channel)));
+        const warning = protectedMatches.length
+          ? `\n\nWarning: ${protectedMatches.length} videos belong to protected channels: ${protectedChannels.join(", ")}.`
+          : "";
+        const ok = confirm(`Apply "${label}" to ${ids.length} ${scopeName} videos?${warning}`);
         if (!ok) return;
       }
       const label = status === "unreviewed" ? "unreviewed" : status;
@@ -1669,6 +1774,7 @@
       if (query && !searchText.includes(query)) return false;
       if (filters.status !== "all" && normalizeDecision(decision || {}).status !== filters.status) return false;
       if (filters.channels.length && !filters.channels.includes(String(video?.channel || "(unknown)"))) return false;
+      if (filters.channelQuery && !channelMatchesQuery(video?.channel || "(unknown)", filters.channelQuery)) return false;
       if (filters.tags.length) {
         const matches = filters.tags.map(tag => allTags.includes(tag));
         if (filters.tagMode === "and" ? matches.some(match => !match) : !matches.some(Boolean)) return false;
@@ -1886,8 +1992,8 @@
       els.exportSelected.disabled = !state.selectedIds.size;
       els.exportVisible.disabled = !visible;
       els.exportDecisions.disabled = !Object.keys(state.decisions).length;
-      els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length;
-      els.undoBulk.disabled = !state.history.some(entry => entry.action === "bulk-status");
+      els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length;
+      els.undoBulk.disabled = !state.history.some(entry => ["bulk-status", "channel-rule"].includes(entry.action));
     }
 
     function getDatasetViewIds(view) {
@@ -2092,6 +2198,7 @@
         search: typeof source.search === "string" ? source.search : "",
         status: ["all", "unreviewed", "keep", "maybe", "delete"].includes(source.status) ? source.status : "all",
         channels: normalizeTags(source.channels || (source.channel && source.channel !== "all" ? [source.channel] : [])),
+        channelQuery: typeof source.channelQuery === "string" ? source.channelQuery.trim() : "",
         tags: normalizeTags(source.tags || (source.tag && source.tag !== "all" ? [source.tag] : [])),
         tagMode: source.tagMode === "and" ? "and" : "or",
         sort: ["index", "index-desc", "channel", "duration-desc", "views-desc", "title"].includes(source.sort) ? source.sort : "index",
@@ -2115,6 +2222,7 @@
         search: els.searchInput.value,
         status: els.statusFilter.value,
         channels: Array.from(state.activeChannels),
+        channelQuery: els.channelSearch.value,
         tags: Array.from(state.activeTags),
         tagMode: els.tagModeSelect.value,
         sort: els.sortSelect.value,
@@ -2137,7 +2245,7 @@
       els.statusFilter.value = filters.status;
       state.activeChannels = new Set(filters.channels);
       state.activeTags = new Set(filters.tags);
-      els.channelSearch.value = "";
+      els.channelSearch.value = filters.channelQuery;
       els.tagModeSelect.value = filters.tagMode;
       els.sortSelect.value = filters.sort;
       state.datasetView = filters.datasetView !== "all" && !state.importComparison.baselineAvailable
@@ -2267,6 +2375,7 @@
       if (query) filters.push(`search="${query}"`);
       if (current.status !== "all") filters.push(`status=${current.status}`);
       if (current.channels.length) filters.push(`channels=${current.channels.join(" OR ")}`);
+      if (current.channelQuery) filters.push(`channel contains="${current.channelQuery}"`);
       if (current.tags.length) filters.push(`tags=${current.tags.join(current.tagMode === "and" ? " AND " : " OR ")}`);
       if (current.minDurationMinutes !== "") filters.push(`duration>=${current.minDurationMinutes}m`);
       if (current.maxDurationMinutes !== "") filters.push(`duration<=${current.maxDurationMinutes}m`);
@@ -2531,6 +2640,7 @@
       renderChannelList();
       renderTagSummary();
       renderRuleSummary();
+      renderChannelRuleSummary();
     }
 
     function renderChannelList() {
@@ -2583,6 +2693,12 @@
       renderRuleList();
       resetRuleEditor();
       els.rulesDialog.showModal();
+    }
+
+    function renderChannelRuleSummary() {
+      const protectedCount = state.channelRules.filter(rule => rule.protected).length;
+      const pending = getCombinedChannelRuleImpact(state.videos, state.decisions, state.channelRules);
+      els.channelRuleSummary.textContent = `${state.channelRules.length} rules · ${protectedCount} protected channels · ${pending.affectedIds.length} videos with pending defaults.`;
     }
 
     function renderRuleChannelOptions() {
@@ -2690,6 +2806,222 @@
       showToast(restoresBuiltIn ? `Restored built-in rule “${name}”.` : `Removed rule “${name}”.`);
     }
 
+    function openChannelRulesDialog() {
+      els.channelRuleChannels.replaceChildren(...getAllChannelNames().map(channel => {
+        const option = document.createElement("option");
+        option.value = channel;
+        return option;
+      }));
+      renderChannelRuleList();
+      resetChannelRuleEditor();
+      els.channelRulesDialog.showModal();
+    }
+
+    function renderChannelRuleList() {
+      const items = state.channelRules.map(rule => {
+        const impact = getChannelRuleImpact(state.videos, state.decisions, rule);
+        const item = document.createElement("div");
+        item.className = "rule-item";
+        const content = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = rule.channel;
+        const meta = document.createElement("div");
+        meta.className = "rule-item-meta";
+        const tag = rule.tag ? ` · tag: ${rule.tag}` : "";
+        const protection = rule.protected ? " · protected" : "";
+        meta.textContent = `${formatChannelRuleMode(rule.mode)}${tag}${protection} · ${impact.matchCount} matches · ${impact.affectedIds.length} pending`;
+        content.append(title, meta);
+        const actions = document.createElement("div");
+        actions.className = "rule-item-actions";
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => editChannelRule(rule.id));
+        const apply = document.createElement("button");
+        apply.type = "button";
+        apply.textContent = "Apply";
+        apply.disabled = !impact.affectedIds.length;
+        apply.addEventListener("click", () => applyChannelRules([rule], `channel rule for ${rule.channel}`));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => removeChannelRule(rule.id));
+        actions.append(edit, apply, remove);
+        item.append(content, actions);
+        return item;
+      });
+
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "scope-text";
+        empty.textContent = "No channel rules yet.";
+        items.push(empty);
+      }
+      els.channelRuleList.replaceChildren(...items);
+      els.applyAllChannelRules.disabled = !getCombinedChannelRuleImpact(state.videos, state.decisions, state.channelRules).affectedIds.length;
+    }
+
+    function getChannelRuleDraft() {
+      return normalizeChannelRule({
+        id: state.editingChannelRuleId,
+        channel: els.channelRuleChannelInput.value,
+        mode: els.channelRuleModeSelect.value,
+        tag: els.channelRuleTagInput.value,
+        protected: els.channelRuleProtectedInput.checked,
+      });
+    }
+
+    function renderChannelRulePreview() {
+      const alwaysKeep = els.channelRuleModeSelect.value === "always-keep";
+      if (alwaysKeep) els.channelRuleProtectedInput.checked = true;
+      els.channelRuleProtectedInput.disabled = alwaysKeep;
+      const rule = getChannelRuleDraft();
+      if (!rule) {
+        els.channelRulePreview.textContent = "Choose a channel to preview this rule.";
+        els.applyChannelRule.disabled = true;
+        return;
+      }
+      const impact = getChannelRuleImpact(state.videos, state.decisions, rule);
+      const protection = rule.protected
+        ? ` ${impact.matchCount} matching videos will trigger protected-channel delete warnings.`
+        : "";
+      els.channelRulePreview.textContent = `${impact.matchCount} matching videos. Applying now would change ${impact.statusChangeCount} statuses and add ${impact.tagAdditionCount} tags across ${impact.affectedIds.length} videos.${protection}`;
+      els.applyChannelRule.disabled = !impact.affectedIds.length;
+    }
+
+    function editChannelRule(ruleId) {
+      const rule = state.channelRules.find(candidate => candidate.id === ruleId);
+      if (!rule) return;
+      state.editingChannelRuleId = rule.id;
+      els.channelRuleChannelInput.value = rule.channel;
+      els.channelRuleModeSelect.value = rule.mode;
+      els.channelRuleTagInput.value = rule.tag;
+      els.channelRuleProtectedInput.checked = rule.protected;
+      renderChannelRulePreview();
+      els.channelRuleChannelInput.focus();
+    }
+
+    function resetChannelRuleEditor() {
+      state.editingChannelRuleId = "";
+      els.channelRuleChannelInput.value = "";
+      els.channelRuleModeSelect.value = "none";
+      els.channelRuleTagInput.value = "";
+      els.channelRuleProtectedInput.checked = false;
+      renderChannelRulePreview();
+      if (els.channelRulesDialog.open) els.channelRuleChannelInput.focus();
+    }
+
+    function saveChannelRuleEditor(event) {
+      event.preventDefault();
+      const rule = getChannelRuleDraft();
+      if (!rule) {
+        showToast("A channel rule needs a channel name.");
+        return;
+      }
+      const savedRule = storeChannelRule(rule);
+      renderChannelRuleList();
+      renderChannelRuleSummary();
+      renderChannelRulePreview();
+      showToast(`Saved channel rule for “${savedRule.channel}”. Review the preview before applying it.`);
+    }
+
+    function storeChannelRule(rule) {
+      const existingIndex = state.channelRules.findIndex(candidate =>
+        candidate.id === rule.id || candidate.channel.toLowerCase() === rule.channel.toLowerCase()
+      );
+      if (existingIndex >= 0) {
+        rule.id = state.channelRules[existingIndex].id;
+        state.channelRules.splice(existingIndex, 1, rule);
+      } else {
+        rule.id = createSnapshotId();
+        state.channelRules.push(rule);
+      }
+      state.channelRules = normalizeChannelRules(state.channelRules);
+      state.editingChannelRuleId = rule.id;
+      saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
+      return state.channelRules.find(candidate => candidate.id === rule.id) || rule;
+    }
+
+    function removeChannelRule(ruleId) {
+      const rule = state.channelRules.find(candidate => candidate.id === ruleId);
+      if (!rule || !confirm(`Remove the channel rule for “${rule.channel}”? Applied decisions will not be changed.`)) return;
+      state.channelRules = state.channelRules.filter(candidate => candidate.id !== ruleId);
+      saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
+      renderChannelRuleList();
+      renderChannelRuleSummary();
+      resetChannelRuleEditor();
+      showToast(`Removed channel rule for “${rule.channel}”.`);
+    }
+
+    function applyCurrentChannelRule() {
+      const rule = getChannelRuleDraft();
+      if (!rule) {
+        showToast("Choose a channel before applying a rule.");
+        return;
+      }
+      const savedRule = storeChannelRule(rule);
+      renderChannelRuleList();
+      renderChannelRuleSummary();
+      applyChannelRules([savedRule], `channel rule for ${savedRule.channel}`);
+    }
+
+    function applyAllPendingChannelRules() {
+      applyChannelRules(state.channelRules, `${state.channelRules.length} channel rules`);
+    }
+
+    function applyChannelRules(rules, label) {
+      const normalizedRules = normalizeChannelRules(rules);
+      const impact = getCombinedChannelRuleImpact(state.videos, state.decisions, normalizedRules);
+      if (!impact.affectedIds.length) {
+        showToast("These channel rules have no pending changes.");
+        return;
+      }
+      const ok = confirm([
+        `Apply ${label}?`,
+        "",
+        `Matching videos: ${impact.matchCount}`,
+        `Status changes: ${impact.statusChangeCount}`,
+        `Tags added: ${impact.tagAdditionCount}`,
+        `Affected videos: ${impact.affectedIds.length}`,
+        "",
+        "Existing statuses are preserved by default modes. An undo snapshot will be created.",
+      ].join("\n"));
+      if (!ok) return;
+      if (!addHistoryEntry(`Applied ${label} to ${impact.affectedIds.length} videos`, "channel-rule", impact.affectedIds)) {
+        showToast("Channel rule application cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
+
+      const updatedAt = new Date().toISOString();
+      for (const rule of normalizedRules) {
+        for (const video of state.videos) {
+          if (String(video.channel || "").trim().toLowerCase() !== rule.channel.toLowerCase()) continue;
+          const current = getDecision(video.videoId);
+          const next = getChannelRuleDecision(current, rule, updatedAt);
+          if (!areDecisionsEqual(current, next)) state.decisions[video.videoId] = next;
+        }
+      }
+      saveDecisions();
+      state.selectedIds.clear();
+      renderTagFilters();
+      render();
+      if (els.channelRulesDialog.open) {
+        renderChannelRuleList();
+        renderChannelRulePreview();
+      }
+      showToast(`Applied channel rules to ${impact.affectedIds.length} videos. You can restore the safety snapshot from history.`);
+    }
+
+    function formatChannelRuleMode(mode) {
+      return ({
+        none: "No status default",
+        "default-keep": "Keep new/unreviewed",
+        "default-review": "Review new/unreviewed",
+        "always-keep": "Always keep",
+        "always-review": "Always review",
+      })[mode] || "No status default";
+    }
+
     function groupCounts(items, getName) {
       const counts = new Map();
       for (const item of items) {
@@ -2712,10 +3044,27 @@
     }
 
     function getChannelOptions() {
-      const query = els.channelSearch.value.trim().toLowerCase();
       const channels = groupCounts(state.videos, video => video.channel || "(unknown)");
-      if (!query) return channels;
-      return channels.filter(item => item.name.toLowerCase().includes(query));
+      return filterChannelOptions(channels, els.channelSearch.value);
+    }
+
+    function filterChannelOptions(channels, query) {
+      if (!String(query || "").trim()) return channels;
+      return channels.filter(item => channelMatchesQuery(item.name, query));
+    }
+
+    function channelMatchesQuery(channel, query) {
+      const normalizedChannel = normalizeSearchText(channel);
+      const tokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+      return tokens.every(token => normalizedChannel.includes(token));
+    }
+
+    function normalizeSearchText(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
     }
 
     function openChannelMenu() {
@@ -2990,7 +3339,7 @@
     }
 
     function exportWorkspace() {
-      if (!state.videos.length && !Object.keys(state.decisions).length) {
+      if (!state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length) {
         showToast("Nothing to export yet.");
         return;
       }
@@ -2999,6 +3348,7 @@
         videos: state.videos.map(toWorkspaceVideo),
         decisions: state.decisions,
         userRules: state.userRules,
+        channelRules: state.channelRules,
         savedViews: state.savedViews,
         lastImport: state.lastImport,
         importComparison: state.importComparison,
@@ -3018,6 +3368,7 @@
           videos: Array.isArray(workspace.videos) ? workspace.videos : [],
           decisions: getPortableDecisions(workspace.decisions),
           userRules: normalizeUserRules(workspace.userRules),
+          channelRules: normalizeChannelRules(workspace.channelRules),
           savedViews: normalizeSavedViews(workspace.savedViews),
           lastImport: normalizePlainObject(workspace.lastImport),
           importComparison: normalizeImportComparison(workspace.importComparison),
@@ -3047,6 +3398,7 @@
         videos: workspace.videos.filter(video => video && typeof video === "object"),
         decisions: getPortableDecisions(workspace.decisions),
         userRules: normalizeUserRules(workspace.userRules),
+        channelRules: normalizeChannelRules(workspace.channelRules),
         savedViews: normalizeSavedViews(workspace.savedViews),
         lastImport: normalizePlainObject(workspace.lastImport),
         importComparison: normalizeImportComparison(workspace.importComparison),
@@ -3069,6 +3421,7 @@
           "",
           `Videos: ${incomingIds.size}`,
           `Decisions: ${decisionCount}`,
+          `Channel rules: ${incoming.channelRules.length}`,
           `History entries: ${incoming.history.length}`,
           "",
           "This replaces the current dataset, decisions, rules, saved views, and filters.",
@@ -3090,6 +3443,7 @@
         const importBackup = state.history[0]?.action === "workspace-import" ? state.history[0] : null;
 
         state.userRules = incoming.userRules;
+        state.channelRules = incoming.channelRules;
         state.savedViews = incoming.savedViews;
         state.lastImport = incoming.lastImport;
         state.importComparison = incoming.importComparison;
@@ -3107,6 +3461,7 @@
 
         saveDecisions();
         saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+        saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
         saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
         saveHistory();
         applyWorkspaceUi(incoming.ui);
@@ -3183,6 +3538,104 @@
         negative: normalizeTags(source.negative),
         channel: typeof source.channel === "string" ? source.channel.trim() : "",
       };
+    }
+
+    function normalizeChannelRules(rules) {
+      const source = Array.isArray(rules)
+        ? rules
+        : (rules && typeof rules === "object" ? Object.values(rules) : []);
+      const byChannel = new Map();
+      source.forEach((rule, index) => {
+        const normalized = normalizeChannelRule(rule, index);
+        if (normalized) byChannel.set(normalized.channel.toLowerCase(), normalized);
+      });
+      return Array.from(byChannel.values()).sort((a, b) => a.channel.localeCompare(b.channel));
+    }
+
+    function normalizeChannelRule(rule, index = 0) {
+      if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
+      const channel = String(rule.channel || "").trim();
+      if (!channel) return null;
+      const validModes = new Set(["none", "default-keep", "default-review", "always-keep", "always-review"]);
+      const mode = validModes.has(rule.mode) ? rule.mode : "none";
+      const tag = normalizeTags([rule.tag || rule.defaultTag])[0] || "";
+      return {
+        id: String(rule.id || `channel-rule-${index}-${channel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "channel"}`),
+        channel,
+        mode,
+        tag,
+        protected: Boolean(rule.protected || mode === "always-keep"),
+      };
+    }
+
+    function getChannelRuleDecision(decision, rule, updatedAt = new Date().toISOString()) {
+      const current = normalizeDecision(decision || {});
+      const normalizedRule = normalizeChannelRule(rule);
+      if (!normalizedRule) return current;
+      let status = current.status;
+      if (normalizedRule.mode === "always-keep") status = "keep";
+      if (normalizedRule.mode === "always-review") status = "maybe";
+      if (normalizedRule.mode === "default-keep" && current.status === "unreviewed") status = "keep";
+      if (normalizedRule.mode === "default-review" && current.status === "unreviewed") status = "maybe";
+      const tags = normalizedRule.tag && !current.tags.includes(normalizedRule.tag)
+        ? [...current.tags, normalizedRule.tag]
+        : current.tags;
+      if (status === current.status && tags === current.tags) return current;
+      return { ...current, status, tags, updatedAt };
+    }
+
+    function getChannelRuleImpact(videos, decisions, rule) {
+      const normalizedRule = normalizeChannelRule(rule);
+      const impact = {
+        matchCount: 0,
+        statusChangeCount: 0,
+        tagAdditionCount: 0,
+        affectedIds: [],
+      };
+      if (!normalizedRule || !Array.isArray(videos)) return impact;
+      const channel = normalizedRule.channel.toLowerCase();
+      for (const video of videos) {
+        if (!video?.videoId || String(video.channel || "").trim().toLowerCase() !== channel) continue;
+        impact.matchCount++;
+        const current = normalizeDecision(decisions?.[video.videoId] || {});
+        const next = getChannelRuleDecision(current, normalizedRule, "preview");
+        const statusChanged = current.status !== next.status;
+        const tagAdded = next.tags.length > current.tags.length;
+        if (statusChanged) impact.statusChangeCount++;
+        if (tagAdded) impact.tagAdditionCount++;
+        if (statusChanged || tagAdded) impact.affectedIds.push(video.videoId);
+      }
+      return impact;
+    }
+
+    function getCombinedChannelRuleImpact(videos, decisions, rules) {
+      const combined = {
+        matchCount: 0,
+        statusChangeCount: 0,
+        tagAdditionCount: 0,
+        affectedIds: [],
+      };
+      const affectedIds = new Set();
+      for (const rule of normalizeChannelRules(rules)) {
+        const impact = getChannelRuleImpact(videos, decisions, rule);
+        combined.matchCount += impact.matchCount;
+        combined.statusChangeCount += impact.statusChangeCount;
+        combined.tagAdditionCount += impact.tagAdditionCount;
+        impact.affectedIds.forEach(videoId => affectedIds.add(videoId));
+      }
+      combined.affectedIds = Array.from(affectedIds);
+      return combined;
+    }
+
+    function getProtectedChannelMatches(videos, videoIds, rules) {
+      const protectedChannels = new Set(normalizeChannelRules(rules)
+        .filter(rule => rule.protected)
+        .map(rule => rule.channel.toLowerCase()));
+      if (!protectedChannels.size) return [];
+      const scopedIds = new Set(videoIds || []);
+      return (Array.isArray(videos) ? videos : [])
+        .filter(video => scopedIds.has(video.videoId) && protectedChannels.has(String(video.channel || "").trim().toLowerCase()))
+        .map(video => ({ videoId: video.videoId, channel: String(video.channel || "").trim() }));
     }
 
     function splitInputValues(value) {
@@ -3485,9 +3938,9 @@
     }
 
     function undoLastBulkChange() {
-      const entry = state.history.find(candidate => candidate.action === "bulk-status");
+      const entry = state.history.find(candidate => ["bulk-status", "channel-rule"].includes(candidate.action));
       if (!entry) {
-        showToast("No bulk change is available to undo.");
+        showToast("No bulk or channel-rule change is available to undo.");
         return;
       }
       restoreHistoryEntry(entry, { removeOriginal: true, label: "Undo" });
@@ -3519,7 +3972,7 @@
       if (!state.history.length) {
         const empty = document.createElement("div");
         empty.className = "scope-text";
-        empty.textContent = "Bulk safety snapshots will appear here.";
+        empty.textContent = "Workspace safety snapshots will appear here.";
         els.historyList.appendChild(empty);
         return;
       }

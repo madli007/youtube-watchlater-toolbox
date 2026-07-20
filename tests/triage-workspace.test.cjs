@@ -4,12 +4,17 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const idMatches = Array.from(html.matchAll(/\bid="([^"]+)"/g), match => match[1]);
+const declaredIds = new Set(idMatches);
+assert.equal(declaredIds.size, idMatches.length, "DOM IDs must be unique");
+const referencedIds = Array.from(html.matchAll(/document\.getElementById\("([^"]+)"\)/g), match => match[1]);
+assert.deepEqual(referencedIds.filter(id => !declaredIds.has(id)), [], "all referenced DOM IDs must exist");
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
 );
 
 const elementStub = {
@@ -49,6 +54,9 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     legacy: ["old format"],
     invalid: "nope",
   },
+  channelRules: [
+    { id: "channel-a", channel: "Channel A", mode: "default-keep", tag: "favorite", protected: true },
+  ],
   savedViews: [{ id: "keep-view", name: "Keep", filters: { status: "keep", minDurationMinutes: 10 } }],
   lastImport: { fileName: "watchlater.json", importedAt: exportedAt },
   importComparison: {
@@ -64,6 +72,7 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     status: "keep",
     datasetView: "inbox",
     channels: ["Channel"],
+    channelQuery: "chan",
     tags: ["dev", "manual"],
     tagMode: "and",
     minDurationMinutes: 10,
@@ -81,6 +90,8 @@ assert.deepEqual([...workspace.workspace.decisions.one.tags], ["manual"]);
 assert.deepEqual([...workspace.workspace.userRules.custom.positive], ["alpha", "beta"]);
 assert.deepEqual([...workspace.workspace.userRules.custom.negative], ["skip"]);
 assert.equal(workspace.workspace.userRules.custom.channel, "Channel");
+assert.equal(workspace.workspace.channelRules[0].channel, "Channel A");
+assert.equal(workspace.workspace.channelRules[0].protected, true);
 assert.deepEqual([...workspace.workspace.userRules.legacy.positive], ["old format"]);
 assert.equal(workspace.workspace.userRules.invalid, undefined);
 assert.equal(workspace.workspace.importComparison.baselineAvailable, true);
@@ -92,6 +103,7 @@ assert.equal(parsed.decisions.one.status, "keep");
 assert.equal(parsed.ui.status, "keep");
 assert.equal(parsed.ui.datasetView, "inbox");
 assert.deepEqual([...parsed.ui.channels], ["Channel"]);
+assert.equal(parsed.ui.channelQuery, "chan");
 assert.deepEqual([...parsed.ui.tags], ["dev", "manual"]);
 assert.equal(parsed.ui.tagMode, "and");
 assert.equal(parsed.ui.minDurationMinutes, "10");
@@ -99,6 +111,7 @@ assert.equal(parsed.ui.availability, "available");
 assert.equal(parsed.importComparison.removedVideos[0].videoId, "gone");
 assert.deepEqual([...parsed.ui.selectedIds], ["one"]);
 assert.deepEqual([...parsed.userRules.custom.positive], ["alpha", "beta"]);
+assert.equal(parsed.channelRules[0].mode, "default-keep");
 assert.equal(parsed.savedViews[0].id, "keep-view");
 assert.equal(parsed.savedViews[0].filters.status, "keep");
 assert.equal(parsed.savedViews[0].filters.minDurationMinutes, "10");
@@ -181,6 +194,48 @@ assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", chan
 assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Documentary trailer", channel: "Channel" }, channelRule), false);
 assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", channel: "Elsewhere" }, channelRule), false);
 
+const normalizedChannelRules = sandbox.testApi.normalizeChannelRules([
+  { channel: "Channel A", mode: "default-keep", tag: "favorite", protected: true },
+  { channel: "channel a", mode: "always-review" },
+  { channel: "", mode: "always-keep" },
+]);
+assert.equal(normalizedChannelRules.length, 1);
+assert.equal(normalizedChannelRules[0].mode, "always-review");
+assert.equal(sandbox.testApi.normalizeChannelRule({ channel: "Always", mode: "always-keep" }).protected, true);
+
+const channelVideos = [
+  { videoId: "new", channel: "Channel A" },
+  { videoId: "decided", channel: "Channel A" },
+  { videoId: "other", channel: "Channel B" },
+];
+const channelDecisions = {
+  decided: { status: "delete", tags: [], note: "", updatedAt: exportedAt },
+};
+const defaultRuleImpact = sandbox.testApi.getChannelRuleImpact(channelVideos, channelDecisions, {
+  channel: "channel a",
+  mode: "default-keep",
+  tag: "favorite",
+  protected: true,
+});
+assert.equal(defaultRuleImpact.matchCount, 2);
+assert.equal(defaultRuleImpact.statusChangeCount, 1);
+assert.equal(defaultRuleImpact.tagAdditionCount, 2);
+assert.deepEqual([...defaultRuleImpact.affectedIds], ["new", "decided"]);
+const defaultExisting = sandbox.testApi.getChannelRuleDecision(channelDecisions.decided, {
+  channel: "Channel A",
+  mode: "default-keep",
+}, exportedAt);
+assert.equal(defaultExisting.status, "delete");
+const alwaysReview = sandbox.testApi.getChannelRuleDecision(channelDecisions.decided, {
+  channel: "Channel A",
+  mode: "always-review",
+}, exportedAt);
+assert.equal(alwaysReview.status, "maybe");
+const protectedMatches = sandbox.testApi.getProtectedChannelMatches(channelVideos, ["new", "other"], [
+  { channel: "Channel A", protected: true },
+]);
+assert.deepEqual([...protectedMatches].map(match => match.videoId), ["new"]);
+
 const detailDecisions = {};
 sandbox.testApi.updateDecisionDetails(detailDecisions, "one", ["manual", "manual"], "Watch later", exportedAt);
 assert.equal(detailDecisions.one.status, "unreviewed");
@@ -192,11 +247,13 @@ assert.equal(detailDecisions.one, undefined);
 
 const legacyFilters = sandbox.testApi.normalizeFilterState({
   channel: "Channel A",
+  channelQuery: "channel",
   tag: "dev",
   minViews: "1000",
   availability: "unavailable",
 });
 assert.deepEqual([...legacyFilters.channels], ["Channel A"]);
+assert.equal(legacyFilters.channelQuery, "channel");
 assert.deepEqual([...legacyFilters.tags], ["dev"]);
 assert.equal(legacyFilters.minViews, "1000");
 assert.equal(legacyFilters.availability, "unavailable");
@@ -233,6 +290,20 @@ assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
   note: "yes",
 }), true);
 assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  channelQuery: "chan a",
+}), true);
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+  channelQuery: "Channel B",
+}), false);
+assert.equal(sandbox.testApi.channelMatchesQuery("Čudežni Kanal", "cude kanal"), true);
+assert.deepEqual(
+  [...sandbox.testApi.filterChannelOptions([
+    { name: "Linus Tech Tips", count: 2 },
+    { name: "TechAltar", count: 1 },
+  ], "lin tech")].map(item => item.name),
+  ["Linus Tech Tips"],
+);
+assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
   tags: ["dev", "missing"],
   tagMode: "and",
 }), false);
@@ -245,11 +316,12 @@ assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
 }), false);
 
 const normalizedViews = sandbox.testApi.normalizeSavedViews([
-  { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"] } },
+  { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"], channelQuery: "talk" } },
   { name: "Legacy" },
 ]);
 assert.equal(normalizedViews.length, 2);
 assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.minDurationMinutes, "30");
 assert.deepEqual([...normalizedViews.find(view => view.id === "podcasts").filters.tags], ["podcast"]);
+assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.channelQuery, "talk");
 
 console.log("triage workspace test passed");
