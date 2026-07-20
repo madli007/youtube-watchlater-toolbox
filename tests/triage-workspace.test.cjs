@@ -14,7 +14,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters };",
 );
 
 const elementStub = {
@@ -72,7 +72,6 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
     status: "keep",
     datasetView: "inbox",
     channels: ["Channel"],
-    channelQuery: "chan",
     tags: ["dev", "manual"],
     tagMode: "and",
     minDurationMinutes: 10,
@@ -103,7 +102,6 @@ assert.equal(parsed.decisions.one.status, "keep");
 assert.equal(parsed.ui.status, "keep");
 assert.equal(parsed.ui.datasetView, "inbox");
 assert.deepEqual([...parsed.ui.channels], ["Channel"]);
-assert.equal(parsed.ui.channelQuery, "chan");
 assert.deepEqual([...parsed.ui.tags], ["dev", "manual"]);
 assert.equal(parsed.ui.tagMode, "and");
 assert.equal(parsed.ui.minDurationMinutes, "10");
@@ -247,13 +245,11 @@ assert.equal(detailDecisions.one, undefined);
 
 const legacyFilters = sandbox.testApi.normalizeFilterState({
   channel: "Channel A",
-  channelQuery: "channel",
   tag: "dev",
   minViews: "1000",
   availability: "unavailable",
 });
 assert.deepEqual([...legacyFilters.channels], ["Channel A"]);
-assert.equal(legacyFilters.channelQuery, "channel");
 assert.deepEqual([...legacyFilters.tags], ["dev"]);
 assert.equal(legacyFilters.minViews, "1000");
 assert.equal(legacyFilters.availability, "unavailable");
@@ -289,12 +285,6 @@ assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
   suggestedTag: "yes",
   note: "yes",
 }), true);
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
-  channelQuery: "chan a",
-}), true);
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
-  channelQuery: "Channel B",
-}), false);
 assert.equal(sandbox.testApi.channelMatchesQuery("Čudežni Kanal", "cude kanal"), true);
 assert.deepEqual(
   [...sandbox.testApi.filterChannelOptions([
@@ -303,6 +293,18 @@ assert.deepEqual(
   ], "lin tech")].map(item => item.name),
   ["Linus Tech Tips"],
 );
+const channelOptionPage = sandbox.testApi.getChannelOptionPage(
+  Array.from({ length: 100 }, (_, index) => ({ name: `Channel ${index}`, count: 100 - index })),
+  "channel",
+  24,
+);
+assert.equal(channelOptionPage.totalCount, 100);
+assert.equal(channelOptionPage.options.length, 24);
+const exactChannelFirst = sandbox.testApi.filterChannelOptions([
+  { name: "Channel Extra", count: 100 },
+  { name: "Channel", count: 1 },
+], "channel");
+assert.equal(exactChannelFirst[0].name, "Channel");
 assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
   tags: ["dev", "missing"],
   tagMode: "and",
@@ -316,12 +318,11 @@ assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
 }), false);
 
 const normalizedViews = sandbox.testApi.normalizeSavedViews([
-  { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"], channelQuery: "talk" } },
+  { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"] } },
   { name: "Legacy" },
 ]);
 assert.equal(normalizedViews.length, 2);
 assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.minDurationMinutes, "30");
 assert.deepEqual([...normalizedViews.find(view => view.id === "podcasts").filters.tags], ["podcast"]);
-assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.channelQuery, "talk");
 
 console.log("triage workspace test passed");

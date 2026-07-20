@@ -300,6 +300,10 @@
       gap: 4px;
     }
 
+    .channel-rule-channel-menu {
+      max-height: 240px;
+    }
+
     .channel-option {
       display: flex;
       align-items: center;
@@ -693,7 +697,8 @@
       margin: 0;
     }
 
-    .dialog-form label {
+    .dialog-form label,
+    .dialog-form .field-label {
       display: grid;
       gap: 6px;
       color: var(--muted);
@@ -1199,11 +1204,13 @@
       </div>
       <div id="channelRuleList" class="rule-list"></div>
       <div class="rule-fields">
-        <label>
+        <div class="field-label">
           Channel (exact match)
-          <input id="channelRuleChannelInput" type="text" list="channelRuleChannels" placeholder="Channel name" required>
-          <datalist id="channelRuleChannels"></datalist>
-        </label>
+          <div id="channelRuleChannelCombo" class="channel-combo">
+            <input id="channelRuleChannelInput" type="search" placeholder="Type to search channels..." autocomplete="off" aria-label="Search and choose a channel for this rule" required>
+            <div id="channelRuleChannelMenu" class="channel-menu channel-rule-channel-menu"></div>
+          </div>
+        </div>
         <label>
           Status behavior
           <select id="channelRuleModeSelect">
@@ -1367,8 +1374,9 @@
       channelRulesDialog: document.getElementById("channelRulesDialog"),
       channelRuleEditorForm: document.getElementById("channelRuleEditorForm"),
       channelRuleList: document.getElementById("channelRuleList"),
+      channelRuleChannelCombo: document.getElementById("channelRuleChannelCombo"),
       channelRuleChannelInput: document.getElementById("channelRuleChannelInput"),
-      channelRuleChannels: document.getElementById("channelRuleChannels"),
+      channelRuleChannelMenu: document.getElementById("channelRuleChannelMenu"),
       channelRuleModeSelect: document.getElementById("channelRuleModeSelect"),
       channelRuleTagInput: document.getElementById("channelRuleTagInput"),
       channelRuleProtectedInput: document.getElementById("channelRuleProtectedInput"),
@@ -1402,8 +1410,7 @@
         openChannelMenu();
       });
       els.channelSearch.addEventListener("input", () => {
-        handleFilterChange();
-        els.channelCombo.classList.add("is-open");
+        openChannelMenu();
       });
       els.channelSearch.addEventListener("keydown", event => {
         if (event.key === "Escape") {
@@ -1420,6 +1427,7 @@
       });
       document.addEventListener("click", event => {
         if (!event.target.closest("#channelCombo")) closeChannelMenu();
+        if (!event.target.closest("#channelRuleChannelCombo")) closeChannelRuleChannelMenu();
       });
       els.sortSelect.addEventListener("change", handleFilterChange);
       [
@@ -1473,7 +1481,24 @@
       els.closeRules.addEventListener("click", () => els.rulesDialog.close());
       els.manageChannelRules.addEventListener("click", openChannelRulesDialog);
       els.channelRuleEditorForm.addEventListener("submit", saveChannelRuleEditor);
-      [els.channelRuleChannelInput, els.channelRuleModeSelect, els.channelRuleTagInput, els.channelRuleProtectedInput]
+      els.channelRuleChannelInput.addEventListener("focus", openChannelRuleChannelMenu);
+      els.channelRuleChannelInput.addEventListener("input", () => {
+        renderChannelRulePreview();
+        openChannelRuleChannelMenu();
+      });
+      els.channelRuleChannelInput.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          closeChannelRuleChannelMenu();
+          return;
+        }
+        if (event.key === "Enter") {
+          const first = getChannelRuleChannelOptions()[0];
+          if (!first) return;
+          event.preventDefault();
+          selectChannelRuleChannel(first.name);
+        }
+      });
+      [els.channelRuleModeSelect, els.channelRuleTagInput, els.channelRuleProtectedInput]
         .forEach(input => input.addEventListener("input", renderChannelRulePreview));
       els.newChannelRule.addEventListener("click", resetChannelRuleEditor);
       els.applyChannelRule.addEventListener("click", applyCurrentChannelRule);
@@ -1774,7 +1799,6 @@
       if (query && !searchText.includes(query)) return false;
       if (filters.status !== "all" && normalizeDecision(decision || {}).status !== filters.status) return false;
       if (filters.channels.length && !filters.channels.includes(String(video?.channel || "(unknown)"))) return false;
-      if (filters.channelQuery && !channelMatchesQuery(video?.channel || "(unknown)", filters.channelQuery)) return false;
       if (filters.tags.length) {
         const matches = filters.tags.map(tag => allTags.includes(tag));
         if (filters.tagMode === "and" ? matches.some(match => !match) : !matches.some(Boolean)) return false;
@@ -2198,7 +2222,6 @@
         search: typeof source.search === "string" ? source.search : "",
         status: ["all", "unreviewed", "keep", "maybe", "delete"].includes(source.status) ? source.status : "all",
         channels: normalizeTags(source.channels || (source.channel && source.channel !== "all" ? [source.channel] : [])),
-        channelQuery: typeof source.channelQuery === "string" ? source.channelQuery.trim() : "",
         tags: normalizeTags(source.tags || (source.tag && source.tag !== "all" ? [source.tag] : [])),
         tagMode: source.tagMode === "and" ? "and" : "or",
         sort: ["index", "index-desc", "channel", "duration-desc", "views-desc", "title"].includes(source.sort) ? source.sort : "index",
@@ -2222,7 +2245,6 @@
         search: els.searchInput.value,
         status: els.statusFilter.value,
         channels: Array.from(state.activeChannels),
-        channelQuery: els.channelSearch.value,
         tags: Array.from(state.activeTags),
         tagMode: els.tagModeSelect.value,
         sort: els.sortSelect.value,
@@ -2245,7 +2267,7 @@
       els.statusFilter.value = filters.status;
       state.activeChannels = new Set(filters.channels);
       state.activeTags = new Set(filters.tags);
-      els.channelSearch.value = filters.channelQuery;
+      els.channelSearch.value = "";
       els.tagModeSelect.value = filters.tagMode;
       els.sortSelect.value = filters.sort;
       state.datasetView = filters.datasetView !== "all" && !state.importComparison.baselineAvailable
@@ -2375,7 +2397,6 @@
       if (query) filters.push(`search="${query}"`);
       if (current.status !== "all") filters.push(`status=${current.status}`);
       if (current.channels.length) filters.push(`channels=${current.channels.join(" OR ")}`);
-      if (current.channelQuery) filters.push(`channel contains="${current.channelQuery}"`);
       if (current.tags.length) filters.push(`tags=${current.tags.join(current.tagMode === "and" ? " AND " : " OR ")}`);
       if (current.minDurationMinutes !== "") filters.push(`duration>=${current.minDurationMinutes}m`);
       if (current.maxDurationMinutes !== "") filters.push(`duration<=${current.maxDurationMinutes}m`);
@@ -2807,14 +2828,62 @@
     }
 
     function openChannelRulesDialog() {
-      els.channelRuleChannels.replaceChildren(...getAllChannelNames().map(channel => {
-        const option = document.createElement("option");
-        option.value = channel;
-        return option;
-      }));
       renderChannelRuleList();
       resetChannelRuleEditor();
       els.channelRulesDialog.showModal();
+    }
+
+    function getChannelRuleChannelOptions() {
+      const channels = groupCounts(state.videos, video => video.channel || "(unknown)");
+      return filterChannelOptions(channels, els.channelRuleChannelInput.value);
+    }
+
+    function openChannelRuleChannelMenu() {
+      renderChannelRuleChannelMenu();
+      els.channelRuleChannelCombo.classList.add("is-open");
+    }
+
+    function closeChannelRuleChannelMenu() {
+      els.channelRuleChannelCombo.classList.remove("is-open");
+    }
+
+    function selectChannelRuleChannel(channel) {
+      els.channelRuleChannelInput.value = channel;
+      closeChannelRuleChannelMenu();
+      renderChannelRulePreview();
+    }
+
+    function renderChannelRuleChannelMenu() {
+      const page = getChannelOptionPage(
+        groupCounts(state.videos, video => video.channel || "(unknown)"),
+        els.channelRuleChannelInput.value,
+        24,
+      );
+      const visibleMatches = page.options;
+      const summary = document.createElement("div");
+      summary.className = "scope-text";
+      summary.textContent = page.totalCount > visibleMatches.length
+        ? `Showing first ${visibleMatches.length} of ${page.totalCount} matches. Keep typing to narrow the list.`
+        : `${page.totalCount} matching ${page.totalCount === 1 ? "channel" : "channels"}.`;
+
+      const options = visibleMatches.map(item => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "channel-option";
+        button.title = item.name;
+        button.append(createChannelName(item.name), createCount(item.count));
+        button.addEventListener("click", () => selectChannelRuleChannel(item.name));
+        return button;
+      });
+
+      if (!options.length) {
+        const empty = document.createElement("div");
+        empty.className = "scope-text";
+        empty.textContent = "No matching channels. You can still use the typed channel name.";
+        els.channelRuleChannelMenu.replaceChildren(summary, empty);
+        return;
+      }
+      els.channelRuleChannelMenu.replaceChildren(summary, ...options);
     }
 
     function renderChannelRuleList() {
@@ -3050,7 +3119,23 @@
 
     function filterChannelOptions(channels, query) {
       if (!String(query || "").trim()) return channels;
-      return channels.filter(item => channelMatchesQuery(item.name, query));
+      const normalizedQuery = normalizeSearchText(query);
+      return channels
+        .filter(item => channelMatchesQuery(item.name, query))
+        .sort((a, b) => {
+          const exactDifference = Number(normalizeSearchText(b.name) === normalizedQuery)
+            - Number(normalizeSearchText(a.name) === normalizedQuery);
+          return exactDifference || b.count - a.count || a.name.localeCompare(b.name);
+        });
+    }
+
+    function getChannelOptionPage(channels, query, limit = 24) {
+      const matches = filterChannelOptions(channels, query);
+      const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 24;
+      return {
+        totalCount: matches.length,
+        options: matches.slice(0, safeLimit),
+      };
     }
 
     function channelMatchesQuery(channel, query) {

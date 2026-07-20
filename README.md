@@ -11,7 +11,7 @@ The triage page:
 - imports a Watch Later JSON export;
 - compares each import with the previous local dataset and shows new, removed, already-decided, metadata-changed, and orphaned items;
 - provides an Inbox view containing only new videos that are still unreviewed;
-- searches and filters videos locally by status, live partial channel-name search, multiple selected channels, duration, approximate upload age, views, availability, YouTube badges, suggested tags, notes, and multiple tags with AND/OR logic;
+- searches and filters videos locally by status, multiple channels, duration, approximate upload age, views, availability, YouTube badges, suggested tags, notes, and multiple tags with AND/OR logic;
 - saves, reapplies, replaces, and deletes named filter views, which are also included in workspace snapshots;
 - suggests tags from built-in and user-editable keyword rules with positive keywords, negative keywords, and optional channel scope;
 - stores channel-level defaults for keep/review status and manual tags, previews their impact before applying, and warns when bulk delete touches a protected channel;
