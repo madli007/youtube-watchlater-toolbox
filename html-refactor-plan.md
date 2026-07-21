@@ -1,0 +1,412 @@
+# Načrt strukturnega refaktorja spletne strani
+
+## Namen dokumenta
+
+Ta dokument je izvedbeni načrt za varen strukturni refaktor trenutne spletne aplikacije. V tej nalogi se ne spreminja produkcijska koda; checkboxi spodaj so namerno še vsi prazni.
+
+Fokus je izključno na trenutnem `index.html` in na datotekah, ki bodo nastale iz njega. Userscript `youtube-watchlater-toolbox.user.js`, `trenutni-userscript-primer.js` in funkcionalni razvoj toolboxa niso del tega refaktorja.
+
+Glavni cilj je zmanjšati velikost in število odgovornosti ene datoteke, ne da bi hkrati uvedli framework, bundler, backend ali spremembe uporabniškega obnašanja.
+
+## Trenutno stanje
+
+Pregled dne 2026-07-21:
+
+- `index.html`: 5.672 vrstic in približno 216 KB;
+- vgrajeni CSS: približno 1.279 vrstic oziroma 25 KB;
+- dejanski HTML markup: približno 405 vrstic oziroma 19 KB;
+- vgrajeni JavaScript: približno 3.975 vrstic oziroma 170 KB;
+- JavaScript vsebuje približno 234 poimenovanih funkcij;
+- HTML vsebuje približno 125 elementov z `id`;
+- vsa aplikacijska stanja, DOM reference, dogodki, renderiranje, poslovna pravila, import/export in `localStorage` so trenutno v enem globalnem skriptu;
+- ni `package.json`, build koraka ali zunanjih runtime odvisnosti;
+- stran je namenoma uporabna neposredno prek lokalnega `index.html` in prek GitHub Pages;
+- `tests/triage-workspace.test.cjs` neposredno bere korenski `index.html`, z regexom izloči inline `<script>`, zamenja klic `init()` in kodo izvede v `vm` sandboxu;
+- oba trenutna testa sta ob pregledu uspešna:
+  - `node tests/triage-workspace.test.cjs`
+  - `node tests/userscript-reconciliation.test.cjs`
+
+### Glavne strukturne odgovornosti v sedanjem JavaScriptu
+
+Sedanji skript že ima prepoznavne sklope, čeprav niso ločeni v datoteke:
+
+1. konstante, vgrajena tag pravila in storage ključi;
+2. globalno stanje aplikacije in predpomnilniki;
+3. register DOM elementov in vezava dogodkov;
+4. uvoz, obogatitev in primerjava datasetov;
+5. odločitve, bulk akcije, zgodovina in undo;
+6. filtri, saved views, kanali in tagi;
+7. časovna statistika in tedenski shortlist;
+8. serije, podobni videi in podvojitve;
+9. renderiranje seznama, dashboardov in stranske vrstice;
+10. video preview in časovnik;
+11. urejevalniki videa, tag pravil in channel pravil;
+12. workspace/decision import-export in browser storage;
+13. keyboard shortcuts, obvestila in bootstrap.
+
+To so naravne meje za postopno ekstrakcijo. Ne smemo jih vseh ločiti v enem koraku.
+
+## Priporočena ciljna struktura
+
+```text
+docs/
+  .nojekyll
+  index.html
+  assets/
+    css/
+      app.css
+    js/
+      config.js
+      state.js
+      storage.js
+      domain/
+        decisions.js
+        filters.js
+        import-comparison.js
+        grouping.js
+        time-budget.js
+        workspace.js
+      ui/
+        dom.js
+        video-list.js
+        dashboards.js
+        dialogs.js
+      app.js
+tests/
+  helpers/
+    load-triage-app.cjs
+  fixtures/
+    watchlater-minimal.json
+  triage-workspace.test.cjs
+```
+
+To je ciljna smer, ne zahteva, da vse datoteke nastanejo takoj. Če se med ekstrakcijo pokaže, da sta dva predlagana modula močno sklopljena, naj začasno ostaneta skupaj. Cilj ni maksimalno število datotek, ampak jasne odgovornosti in stabilne odvisnosti.
+
+`docs/index.html` naj ostane ena HTML datoteka. Po odstranitvi vgrajenega CSS in JavaScripta bo njen markup velik približno 400 vrstic, kar je še obvladljivo. Razbijanje HTML-ja na fragmente bi brez templating/build sistema zahtevalo runtime nalaganje fragmentov in bi po nepotrebnem povečalo tveganje.
+
+### Zakaj `docs/` in ne `web/` ali `site/`
+
+Pri GitHub Pages objavi neposredno iz veje sta podprta samo source folderja `/(root)` in `/docs`. Zato je `docs/` najmanj tvegan način, da je spletna stran fizično ločena od userscripta in ostalih datotek repozitorija brez novega deployment workflowa.
+
+Poljubna mapa, na primer `site/`, je tehnično možna, vendar bi zahtevala GitHub Actions workflow, ki mapo zapakira kot Pages artifact. To za statično stran brez build procesa trenutno nima dovolj koristi.
+
+Uradna dokumentacija:
+
+- [Configuring a publishing source for your GitHub Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+- [Creating a GitHub Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)
+
+## Temeljna pravila izvedbe
+
+- En commit oziroma en majhen PR naj rešuje samo eno vrsto spremembe.
+- Premik datotek, mehanska ekstrakcija in dejansko preoblikovanje kode ne smejo biti v istem commitu.
+- Po vsakem koraku morajo biti uspešni obstoječi testi in ročni smoke test.
+- Ne spreminjamo storage ključev ali JSON shem med strukturnim refaktorjem.
+- Ne preimenujemo DOM `id`-jev med ekstrakcijo.
+- CSS se najprej prenese nespremenjen; reorganizacija selektorjev pride šele pozneje, če je sploh potrebna.
+- JavaScript se najprej prenese v en zunanji `app.js` brez preurejanja funkcij.
+- Posamezen modul se izloči samo, ko ima jasen vhod, izhod in testni rob.
+- Funkcionalni popravki, spremembe besedila in vizualne izboljšave se vodijo ločeno od tega refaktorja.
+- Userscripta se ne ureja. Njegov test se vseeno požene kot varovalo pred nenamernimi spremembami repozitorija.
+
+## Združljivostna odločitev za JavaScript
+
+V prvih fazah naj se uporabljajo navadni zunanji skripti, naloženi v določenem vrstnem redu na koncu `<body>`. Ne uvajamo še `type="module"`.
+
+Razlog: ES moduli so dobra dolgoročna možnost, vendar pri neposrednem odpiranju prek `file://` pogosto naletijo na browser CORS omejitve. Prehod na module bi zato hkrati spremenil lokalni način zagona in zahteval lokalni HTTP strežnik. To ni potrebno za prvi varen strukturni refaktor.
+
+Pri razbijanju enega `app.js` naj novi skripti uporabljajo en ekspliciten namespace, na primer `window.WatchLaterApp`, in IIFE oziroma podoben file-local scope. Tako ne dodajamo množice novih globalnih imen. Testni helper lahko skripte še naprej izvede v skupnem `vm` kontekstu v enakem vrstnem redu kot browser.
+
+Prehod na ES module in lokalni strežnik se lahko oceni kot ločen prihodnji projekt, ko je trenutna delitev stabilna in dobro testirana.
+
+## Faza 0 — Zamrznitev obsega in baseline
+
+**Namen:** določiti, kaj mora po refaktorju ostati nespremenjeno.
+
+- [ ] Zapisati referenčni commit in potrditi čist oziroma razumljen `git status`.
+- [ ] Pognati `node tests/triage-workspace.test.cjs`.
+- [ ] Pognati `node tests/userscript-reconciliation.test.cjs`.
+- [ ] Narediti sintetični, neosebni minimalni JSON fixture za smoke teste.
+- [ ] Pred kakršnimkoli premikom lokalne strani ročno izvoziti workspace backup iz obstoječe aplikacije.
+- [ ] Zabeležiti kratek ročni acceptance checklist: import JSON, filtriranje, sprememba statusa, bulk undo, workspace export/import, preview, refresh in ohranitev podatkov.
+- [ ] Potrditi, da se deployment in refaktor nanašata samo na stran, ne na userscript.
+
+**Izhodni kriterij:** obstaja ponovljiv baseline in varnostna kopija lokalnih podatkov.
+
+**Tveganje:** zelo nizko; ni produkcijskih sprememb.
+
+## Faza 1 — Odklop testov od monolitne lokacije
+
+**Namen:** odstraniti trenutno največjo tehnično oviro pred premikom in ekstrakcijo skripta.
+
+- [ ] Dodati en testni helper, ki pozna trenutno vstopno HTML datoteko in iz nje pridobi povezane skripte.
+- [ ] Helper naj začasno podpira inline skript in pozneje zunanje skripte, da sprememba ni big-bang.
+- [ ] Prestaviti logiko za unikatne DOM `id`-je in preverjanje `getElementById` referenc v ta helper.
+- [ ] Odstraniti neposredno odvisnost testa od `path.join(__dirname, "..", "index.html")`.
+- [ ] Nadomestiti krhko string zamenjavo `init()` z eksplicitnim testnim bootstrap guardom ali javnim testnim API robom.
+- [ ] Ohraniti vse obstoječe assertions brez spreminjanja pričakovanega obnašanja.
+- [ ] Dodati test, ki jasno odpove, če HTML kaže na manjkajoč CSS ali JavaScript asset.
+- [ ] Pognati oba obstoječa testa.
+
+**Izhodni kriterij:** test ne predpostavlja več, da je aplikacijski JavaScript inline ali da je `index.html` nujno v korenu.
+
+**Tveganje:** nizko do srednje, ker se spreminja način nalaganja kode v testu, ne produkcijska koda.
+
+**Rollback:** povrnitev samo testnega helperja; aplikacija ostane nedotaknjena.
+
+## Faza 2 — Premik objavljive strani v `docs/`
+
+**Namen:** fizično ločiti spletno stran od userscripta in projektne dokumentacije, preden nastanejo asseti.
+
+Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris korenskega entrypointa:
+
+- [ ] Ustvariti `docs/` in vanj najprej kopirati trenutni `index.html` brez vsebinskih sprememb.
+- [ ] Dodati `docs/.nojekyll`, ker stran ne potrebuje Jekyll obdelave.
+- [ ] Testni entrypoint preusmeriti na `docs/index.html`.
+- [ ] Posodobiti README navodilo za lokalno odpiranje.
+- [ ] Pognati teste in lokalno odpreti `docs/index.html`.
+- [ ] Commitati prehodno stanje, v katerem obstajata oba identična entrypointa.
+- [ ] V GitHubu spremeniti Pages source na `main` + `/docs`.
+- [ ] Počakati na uspešen Pages deployment in preveriti produkcijski URL, import ter refresh.
+- [ ] Šele po uspešni objavi odstraniti korenski `index.html`.
+- [ ] Ponovno pognati teste in preveriti, da repozitorij nima dveh različic aplikacije.
+
+**Zakaj prehodna kopija:** trenutna Pages nastavitev je po README `main` + `/(root)`. Če bi korenski `index.html` izginil pred spremembo nastavitve, bi lahko nastalo kratko obdobje z nedelujočo stranjo.
+
+**Podatki v `localStorage`:** pri GitHub Pages bo javni URL ostal na istem originu in isti project-site poti, zato sama zamenjava source folderja praviloma ne spremeni browser storage prostora. Pri neposrednem `file://` odpiranju je obnašanje `localStorage` med browserji in potmi manj zanesljivo; zato je workspace export v Fazi 0 obvezen varnostni korak.
+
+**Izhodni kriterij:** edini dejanski source strani je `docs/index.html`, javna stran pa deluje z istega URL-ja kot prej.
+
+**Tveganje:** srednje zaradi ročne Pages nastavitve in lokalnega `file://` storage obnašanja; koda aplikacije se še ne spreminja.
+
+## Faza 3 — Ekstrakcija CSS v eno datoteko
+
+**Namen:** odstraniti približno 1.279 vrstic CSS iz HTML-ja z minimalnim tveganjem za cascade.
+
+- [ ] Ustvariti `docs/assets/css/app.css`.
+- [ ] Vsebino trenutnega `<style>` prenesti nespremenjeno in v enakem vrstnem redu.
+- [ ] `<style>` nadomestiti z relativno povezavo `./assets/css/app.css`.
+- [ ] Ne preimenovati razredov, ne združevati selektorjev in ne spreminjati media queries.
+- [ ] Dodati statični test, da HTML nima več aplikacijskega inline `<style>` in da CSS datoteka obstaja.
+- [ ] Primerjati desktop, 980 px in 680 px responsive postavitev.
+- [ ] Preveriti dialoge, video vrstice, status barve, sticky/sidebar obnašanje in focus stanja.
+- [ ] Pognati oba testa in preveriti GitHub Pages asset URL.
+
+**Izhodni kriterij:** HTML vsebuje samo `<link>` do enega CSS asseta, vizualni rezultat pa je nespremenjen.
+
+**Tveganje:** nizko, če je prenos res mehanski.
+
+**Opomba:** `app.css` je pri približno 25 KB še vedno obvladljiva datoteka. Delitev na `base.css`, `layout.css`, `components.css` in `responsive.css` naj ne bo del iste faze, ker vrstni red selektorjev vpliva na cascade. To se lahko izvede kasneje samo, če prinese jasno korist.
+
+## Faza 4 — Ekstrakcija JavaScripta v en `app.js`
+
+**Namen:** odstraniti približno 3.975 vrstic JavaScripta iz HTML-ja, vendar še ne spreminjati njegove notranje zgradbe.
+
+- [ ] Ustvariti `docs/assets/js/app.js`.
+- [ ] Inline skript prenesti mehansko, brez preimenovanj, prestavljanja funkcij ali sprememb logike.
+- [ ] Na istem mestu ob koncu `<body>` uporabiti relativni `<script src="./assets/js/app.js"></script>`.
+- [ ] Ne dodati `type="module"`, `async` ali drugega načina izvajanja.
+- [ ] Testni helper preusmeriti na zunanji skript.
+- [ ] Dodati statični test, da produkcijski HTML nima več aplikacijskega inline skripta in da script asset obstaja.
+- [ ] Pognati vse assertions iz `triage-workspace.test.cjs` nad zunanjo datoteko.
+- [ ] Izvesti celoten ročni acceptance checklist iz Faze 0.
+- [ ] Preveriti neposredno lokalno odpiranje in GitHub Pages.
+
+**Izhodni kriterij:** `docs/index.html` je pretežno semantični markup, vedenje pa je enako kot pred ekstrakcijo.
+
+**Tveganje:** nizko do srednje; glavna nevarnost sta čas nalaganja skripta in napačna relativna pot.
+
+**Pomembna kontrolna točka:** po tej fazi je že dosežen večji del začetnega cilja. Če ni časa ali potrebe za globlji refaktor, je varno začasno ustaviti delo tukaj.
+
+## Faza 5 — Ekstrakcija čistih domenskih modulov
+
+**Namen:** najprej ločiti funkcije brez DOM-a in browser I/O, ker imajo najbolj jasne pogodbe in že največ testnega pokritja.
+
+Vsak spodnji sklop naj bo samostojen commit; po vsakem se poženejo testi:
+
+- [ ] `config.js`: velikostne meje, grouping stop words, vgrajena tag pravila in nespremenljivi ključi.
+- [ ] `domain/decisions.js`: normalizacija odločitev in tagov, statusne transformacije ter portable decisions.
+- [ ] `domain/import-comparison.js`: snapshoti, baseline, primerjava datasetov in normalizacija comparison rezultata.
+- [ ] `domain/filters.js`: normalizacija filtrov/saved views, parse age/views in čista filter predikata.
+- [ ] `domain/time-budget.js`: duration statistika, grouping statistike, shortlist in formatiranje časa.
+- [ ] `domain/grouping.js`: normalizacija naslovov, similarity, series/duplicate/similar groups in izbira zmagovalca.
+- [ ] `domain/workspace.js`: sestavljanje in validacija workspace payloadov brez file input/output dela.
+- [ ] Vsak modul izpostaviti prek enega kontroliranega `window.WatchLaterApp` namespacea, ne prek množice naključnih globalov.
+- [ ] Teste preusmeriti na eksplicitne module/API-je namesto na globalno zbirko funkcij iz monolita.
+- [ ] Za vsak modul dodati vsaj test normalnega primera in mejnega/invalid primera.
+
+**Priporočen vrstni red:** config/normalizacija → decisions → import comparison → filters → time budget → grouping → workspace. Poznejši moduli uporabljajo več skupnih normalizacijskih funkcij, zato se s tem zmanjša krožno odvisnost.
+
+**Izhodni kriterij:** poslovna pravila je mogoče testirati brez DOM stubov; `app.js` ostane orkestrator in začasni dom za še neizločeno UI kodo.
+
+**Tveganje:** srednje. To je prvi pravi refaktor funkcijskih meja, zato ne sme biti združen z vizualnimi ali deployment spremembami.
+
+## Faza 6 — Ločitev stanja, persistence in browser I/O
+
+**Namen:** ločiti podatke od prikaza, ne da bi spremenili storage sheme.
+
+- [ ] `state.js`: centralna inicializacija state objekta in dokumentirana oblika njegovih polj.
+- [ ] `storage.js`: varni read/write wrapperji za `localStorage`, dataset baseline, history in preview progress.
+- [ ] Ohraniti vse trenutne storage ključe dobesedno enake.
+- [ ] Ohraniti workspace `schemaVersion` in decision export format nespremenjena.
+- [ ] Ločiti serializacijo podatkov od browser akcij `FileReader`, `Blob`, object URL in download linka.
+- [ ] Dodati teste za pokvarjen JSON, prazen storage, starejše normalizirane oblike in neuspel write.
+- [ ] Dodati round-trip test: workspace export → parse/import → semantično enako stanje.
+- [ ] Preveriti, da refresh po odločitvi še vedno obnovi podatke.
+- [ ] Preveriti undo/history in preview timestamp persistence.
+
+**Izhodni kriterij:** domenska logika ne bere neposredno iz `localStorage`, I/O robovi pa so zbrani in zamenljivi v testih.
+
+**Tveganje:** srednje do visoko zaradi lokalnih uporabniških podatkov. Faza zahteva posebej previdne smoke teste in se ne kombinira z novo storage migracijo.
+
+## Faza 7 — Postopna delitev UI kode
+
+**Namen:** zmanjšati preostali `app.js` po funkcionalnih vertikalah, pri čemer vsak korak ohrani obstoječi DOM contract.
+
+Predlagan vrstni red od manj centralnih do bolj centralnih delov:
+
+- [ ] `ui/dom.js`: enoten lookup/register vseh 125 DOM elementov ter zgodnja jasna napaka, če obvezen element manjka.
+- [ ] `ui/dialogs.js`: video editor, tag rules, channel rules in quick preview.
+- [ ] `ui/dashboards.js`: stats, time dashboard, import comparison, groups in sidebar summaries.
+- [ ] `ui/video-list.js`: render liste, posamezne vrstice, status gumbi in incremental rendering.
+- [ ] Iz `app.js` odstraniti UI funkcije šele po tem, ko novi modul deluje in je priklopljen.
+- [ ] Po vsakem modulu preveriti event handlerje in keyboard shortcuts.
+- [ ] Ne preimenovati obstoječih `id`, `data-*` atributov ali CSS razredov.
+- [ ] Za dinamično ustvarjene elemente dodati ciljne teste tam, kjer je mogoče testirati rezultat brez polnega browserja.
+- [ ] Ročno preveriti vse štiri dialoge, bulk akcije, kanalski meni in neskončno/inkrementalno prikazovanje.
+
+**Izhodni kriterij:** renderiranje in uporabniška interakcija sta ločena od domenskih izračunov, HTML pa še vedno določa isti DOM contract.
+
+**Tveganje:** srednje do visoko, ker je obstoječa UI koda močno povezana z globalnim `state` in `els`. Zato se deli po vertikalah, ne po vseh render funkcijah naenkrat.
+
+## Faza 8 — Minimalen bootstrap in čiščenje odvisnosti
+
+**Namen:** dokončati strukturo šele, ko so vsi večji sklopi že stabilni.
+
+- [ ] V `app.js` pustiti samo sestavo odvisnosti, inicializacijo, vezavo globalnih dogodkov in zagon prvega renderja.
+- [ ] Dokumentirati vrstni red nalaganja skriptov v `docs/index.html`.
+- [ ] Preveriti, da med moduli ni krožnih odvisnosti.
+- [ ] Odstraniti začasne compatibility exporte, ki jih nič več ne uporablja.
+- [ ] Preveriti, da ni podvojenih helper funkcij ali neposrednih storage dostopov iz domenskih/UI modulov.
+- [ ] Izvesti statični pregled vseh relativnih asset poti.
+- [ ] Ponovno oceniti, ali prehod na ES module res prinaša korist; ne izvesti ga avtomatično v tej fazi.
+- [ ] Posodobiti README z dejansko strukturo, lokalnim zagonom, testi in GitHub Pages sourceom.
+
+**Izhodni kriterij:** entrypoint je kratek in razumljiv, odvisnosti tečejo od app/UI sloja proti domain/storage sloju, ne obratno.
+
+**Tveganje:** srednje, vendar je obseg posamezne spremembe po prejšnjih fazah majhen.
+
+## Faza 9 — Stabilizacija in zaključek
+
+**Namen:** potrditi, da je šlo za strukturni refaktor brez funkcionalnih regresij.
+
+- [ ] Pognati celoten testni sklop na čistem checkoutu.
+- [ ] Izvesti ročni acceptance checklist s sintetičnim fixturejem.
+- [ ] Uvoziti varnostni workspace in potrditi stanje po refreshu.
+- [ ] Preveriti desktop in oba obstoječa responsive breakpointa.
+- [ ] Preveriti neposredno lokalno odpiranje `docs/index.html`.
+- [ ] Preveriti produkcijski GitHub Pages URL in vse asset requeste brez 404.
+- [ ] Preveriti, da v spremembah ni userscripta ali osebnih exportov.
+- [ ] Primerjati exportane JSON sheme pred/po refaktorju.
+- [ ] Dokumentirati morebitni preostali tehnični dolg kot ločene naloge, ne kot dodatek zadnjemu refaktorskemu commitu.
+
+**Končni kriterij:** uporabnik ne opazi spremembe vedenja, razvijalec pa dobi ločen HTML, CSS, domensko logiko, persistence, UI in bootstrap.
+
+## GitHub Pages: zahtevane nastavitve
+
+Ko `docs/index.html` obstaja na `main`, je priporočena nastavitev:
+
+1. odpreti repository **Settings**;
+2. izbrati **Pages**;
+3. pod **Build and deployment** kot **Source** izbrati **Deploy from a branch**;
+4. izbrati branch **main**;
+5. kot folder izbrati **/docs**;
+6. shraniti in počakati na uspešen deployment.
+
+Pomembne posledice:
+
+- v `docs/` mora biti `index.html` neposredno na vrhu source folderja;
+- reference naj bodo relativne, npr. `./assets/css/app.css`, ne `/assets/css/app.css`, ker gre za project Pages URL pod `/youtube-watchlater-toolbox/`;
+- javni URL se zaradi premika iz korena v `/docs` ne bi smel spremeniti; spremeni se samo source folder;
+- če bi se pozneje izbrala mapa, ki ni `/docs`, bi bilo treba Pages **Source** preklopiti na **GitHub Actions** in dodati workflow za upload/deploy Pages artifacta;
+- če obstaja custom domain, mora biti njegov `CNAME` v objavljivem source folderju oziroma pravilno nastavljen v Pages nastavitvah; v trenutnem tracked drevesu `CNAME` ni prisoten;
+- odstranitev `/docs` po nastavitvi Pages na ta folder povzroči build napako, zato naj se mapa ne preimenuje brez usklajene spremembe nastavitev.
+
+## Preverjanje po vsaki fazi
+
+### Avtomatsko
+
+```powershell
+node tests\triage-workspace.test.cjs
+node tests\userscript-reconciliation.test.cjs
+```
+
+Ko se doda testni helper oziroma test runner, naj obstaja še en dokumentiran ukaz za vse teste, vendar uvedba npm odvisnosti ni potrebna samo zaradi tega refaktorja.
+
+### Ročni smoke test
+
+- [ ] Stran se naloži brez console napak in brez manjkajočih assetov.
+- [ ] Minimalni JSON se uvozi in prikaže pričakovano število videov.
+- [ ] Search, status, channel, tag in advanced filtri delujejo.
+- [ ] Keep/maybe/delete/reset in bulk akcije delujejo.
+- [ ] Undo povrne stanje.
+- [ ] Time dashboard in grouping vrneta pričakovane rezultate.
+- [ ] Quick preview se odpre, zapre in shrani timestamp.
+- [ ] Video editor, tag rules in channel rules se odprejo in shranijo.
+- [ ] Decision in workspace export/import delujeta.
+- [ ] Refresh ohrani odločitve, pravila, views, history in časovni budget.
+- [ ] Mobilna postavitev nima očitnih regresij.
+
+## Glavna tveganja in varovala
+
+| Tveganje | Zakaj je pomembno | Varovalo |
+|---|---|---|
+| Test bere inline skript iz točne poti | Ekstrakcija ali premik bi test takoj zlomila | Najprej Faza 1: nevtralen loader/helper |
+| Pages pozna samo root ali `/docs` pri branch deployu | Poljubna mapa ne bo delovala brez workflowa | Uporabiti `docs/` in spremeniti Pages folder |
+| Relativne poti na project Pages | Absolutni `/assets/...` kažejo na domenin root | Vedno uporabljati `./assets/...` in testirati 404 |
+| CSS cascade | Razdelitev ali preureditev spremeni prioritete | Najprej en nespremenjen `app.css` |
+| Čas izvajanja JavaScripta | `async`, `module` ali premik v `<head>` lahko sproži init pred DOM-om | Navaden script na koncu `<body>` |
+| Globalne odvisnosti med 234 funkcijami | Big-bang split hitro ustvari skrite napake | Ekstrakcija po čistih modulih, en commit na sklop |
+| `localStorage` vsebuje uporabniške podatke | Napačna migracija ali drugačen `file://` kontekst lahko deluje kot izguba podatkov | Predhodni workspace export; storage ključi ostanejo enaki |
+| JSON compatibility | Workspace in decision datoteke so uporabniški backup | Schema version in payload ostaneta enaka; round-trip testi |
+| Userscript je v istem repozitoriju | Široke spremembe lahko zajamejo napačno datoteko | Userscript je izven scopea; preveriti diff in njegov test |
+
+## Česa v tem refaktorju ne delamo
+
+- ne uvajamo Reacta, Vue, Svelte ali drugega frameworka;
+- ne uvajamo TypeScripta, bundlerja ali npm runtime odvisnosti;
+- ne spreminjamo vizualnega dizajna;
+- ne spreminjamo uporabniških besedil ali funkcionalnosti;
+- ne spreminjamo storage ključev ali JSON shem;
+- ne popravljamo oziroma razširjamo userscripta;
+- ne delimo HTML-ja na runtime naložene fragmente;
+- ne preklopimo na GitHub Actions, dokler statični `/docs` branch deployment zadostuje;
+- ne združujemo refaktorja z novimi featureji.
+
+## Priporočeni commit/PR rezi
+
+1. `test: decouple triage tests from inline root html`
+2. `chore: prepare docs pages source`
+3. `chore: switch pages source and remove root entrypoint`
+4. `refactor: extract triage styles`
+5. `refactor: extract triage application script`
+6. več majhnih `refactor: extract ... domain logic` commitov
+7. `refactor: isolate state and storage`
+8. več majhnih `refactor: extract ... ui` commitov
+9. `docs: document site structure and pages deployment`
+
+Vsak rez mora biti samostojno preverljiv in po možnosti povrnljiv brez povrnitve poznejših, nepovezanih sprememb.
+
+## Priporočilo za prvi izvedbeni cikel
+
+Prvi cikel naj se zavestno konča po Fazi 4. Takrat bo dosežena jasna, nizko tvegana struktura:
+
+```text
+docs/
+  .nojekyll
+  index.html
+  assets/
+    css/app.css
+    js/app.js
+```
+
+Šele ko je ta različica stabilna lokalno in na GitHub Pages, naj se začne notranja delitev `app.js`. To prepreči, da bi bilo ob regresiji hkrati treba raziskovati Pages nastavitev, asset poti, CSS cascade in nove JavaScript module.
