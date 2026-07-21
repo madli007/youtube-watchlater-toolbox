@@ -432,6 +432,24 @@
       border-radius: 8px;
     }
 
+    .dashboard-disclosure > summary {
+      width: fit-content;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .dashboard-disclosure > summary::marker {
+      color: var(--accent);
+    }
+
+    .dashboard-disclosure > summary h2 {
+      display: inline;
+    }
+
+    .dashboard-disclosure[open] > summary {
+      margin-bottom: 10px;
+    }
+
     .time-dashboard-header,
     .time-budget-controls,
     .time-shortlist-header {
@@ -1439,61 +1457,61 @@
         </section>
 
         <section class="time-dashboard" aria-labelledby="timeDashboardTitle">
-          <div class="time-dashboard-header">
-            <div>
-              <h2 id="timeDashboardTitle">Time budget &amp; statistics</h2>
+          <details class="dashboard-disclosure">
+            <summary><h2 id="timeDashboardTitle">Time budget &amp; statistics</h2></summary>
+            <div class="time-dashboard-header">
               <div id="timeCoverage" class="scope-text">Import videos to calculate watch time.</div>
+              <div class="time-budget-controls">
+                <label>
+                  Weekly budget
+                  <input id="timeBudgetHours" type="number" min="0.25" max="168" step="0.25" value="2" inputmode="decimal">
+                  hours
+                </label>
+                <button id="selectTimeShortlist" type="button">Select shortlist</button>
+              </div>
             </div>
-            <div class="time-budget-controls">
-              <label>
-                Weekly budget
-                <input id="timeBudgetHours" type="number" min="0.25" max="168" step="0.25" value="2" inputmode="decimal">
-                hours
-              </label>
-              <button id="selectTimeShortlist" type="button">Select shortlist</button>
+            <div class="time-metrics">
+              <div class="stat"><strong id="totalDuration">0m</strong><span>All videos</span></div>
+              <div class="stat"><strong id="protectedDuration">0m</strong><span>After planned cleanup</span></div>
+              <div class="stat"><strong id="reviewProgress">0%</strong><span id="reviewProgressLabel">Reviewed</span><div class="time-progress"><span id="reviewProgressBar" style="width: 0%"></span></div></div>
+              <div class="stat"><strong id="budgetCoverage">0</strong><span>Weeks after cleanup</span></div>
             </div>
-          </div>
-          <div class="time-metrics">
-            <div class="stat"><strong id="totalDuration">0m</strong><span>All videos</span></div>
-            <div class="stat"><strong id="protectedDuration">0m</strong><span>After planned cleanup</span></div>
-            <div class="stat"><strong id="reviewProgress">0%</strong><span id="reviewProgressLabel">Reviewed</span><div class="time-progress"><span id="reviewProgressBar" style="width: 0%"></span></div></div>
-            <div class="stat"><strong id="budgetCoverage">0</strong><span>Weeks after cleanup</span></div>
-          </div>
-          <details class="time-breakdowns">
-            <summary>Time by status, channel and tag</summary>
-            <div class="time-breakdown-grid">
-              <div><strong>Statuses</strong><div id="timeByStatus" class="time-breakdown-list"></div></div>
-              <div><strong>Top channels</strong><div id="timeByChannel" class="time-breakdown-list"></div></div>
-              <div><strong>Top tags</strong><div id="timeByTag" class="time-breakdown-list"></div></div>
+            <details class="time-breakdowns">
+              <summary>Time by status, channel and tag</summary>
+              <div class="time-breakdown-grid">
+                <div><strong>Statuses</strong><div id="timeByStatus" class="time-breakdown-list"></div></div>
+                <div><strong>Top channels</strong><div id="timeByChannel" class="time-breakdown-list"></div></div>
+                <div><strong>Top tags</strong><div id="timeByTag" class="time-breakdown-list"></div></div>
+              </div>
+            </details>
+            <div class="time-shortlist">
+              <div class="time-shortlist-header">
+                <h3>This week's shortlist</h3>
+                <span id="timeShortlistSummary" class="scope-text">No videos available.</span>
+              </div>
+              <div id="timeShortlistItems" class="time-shortlist-items"></div>
             </div>
           </details>
-          <div class="time-shortlist">
-            <div class="time-shortlist-header">
-              <h3>This week's shortlist</h3>
-              <span id="timeShortlistSummary" class="scope-text">No videos available.</span>
-            </div>
-            <div id="timeShortlistItems" class="time-shortlist-items"></div>
-          </div>
         </section>
 
         <section class="group-dashboard" aria-labelledby="groupDashboardTitle">
-          <div class="group-dashboard-header">
-            <div>
-              <h2 id="groupDashboardTitle">Series &amp; similar videos</h2>
+          <details class="dashboard-disclosure">
+            <summary><h2 id="groupDashboardTitle">Series &amp; similar videos</h2></summary>
+            <div class="group-dashboard-header">
               <div id="groupSummary" class="scope-text">Import videos to find local title patterns.</div>
+              <label class="group-dashboard-controls">
+                Group type
+                <select id="groupTypeFilter">
+                  <option value="all">All detected groups</option>
+                  <option value="series">Series / episodes</option>
+                  <option value="similar">Similar titles</option>
+                  <option value="duplicate">Probable duplicates</option>
+                </select>
+              </label>
             </div>
-            <label class="group-dashboard-controls">
-              Group type
-              <select id="groupTypeFilter">
-                <option value="all">All detected groups</option>
-                <option value="series">Series / episodes</option>
-                <option value="similar">Similar titles</option>
-                <option value="duplicate">Probable duplicates</option>
-              </select>
-            </label>
-          </div>
-          <div id="videoGroups" class="video-groups"></div>
-          <button id="showMoreGroups" class="show-more-groups" type="button" hidden>Show more groups</button>
+            <div id="videoGroups" class="video-groups"></div>
+            <button id="showMoreGroups" class="show-more-groups" type="button" hidden>Show more groups</button>
+          </details>
         </section>
 
         <section class="bulkbar" aria-label="Bulk actions">
