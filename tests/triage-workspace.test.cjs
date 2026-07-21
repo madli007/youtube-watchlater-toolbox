@@ -14,7 +14,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration, normalizeGroupingTitle, normalizeDuplicateTitle, getSeriesSignature, calculateTitleSimilarity, buildVideoGroups, chooseGroupWinner };",
 );
 
 const elementStub = {
@@ -364,5 +364,36 @@ assert.deepEqual([...shortlist.videos].map(video => video.videoId), ["keep-short
 assert.equal(shortlist.totalSeconds, 60 * 60);
 assert.equal([...shortlist.videos].some(video => video.videoId === "delete"), false);
 assert.equal([...shortlist.videos].some(video => video.videoId === "unavailable"), false);
+
+const groupedVideos = [
+  { videoId: "series-1", title: "Build Log - Episode 1", channel: "Maker", uploaded: "1 year ago", views: "10K views", index: 1 },
+  { videoId: "series-2", title: "Build Log - Episode 2", channel: "Maker", uploaded: "2 days ago", views: "25K views", index: 2 },
+  { videoId: "similar-1", title: "JavaScript Async Await Tutorial for Beginners", channel: "Code", index: 3 },
+  { videoId: "similar-2", title: "JavaScript Async Await Guide for Beginners", channel: "Code", index: 4 },
+  { videoId: "duplicate-1", title: "Great Song (Official Video) [4K]", channel: "Artist", index: 5 },
+  { videoId: "duplicate-2", title: "Great Song - Official Video", channel: "Archive", index: 6 },
+  { videoId: "unrelated", title: "Completely unrelated topic", channel: "Other", index: 7 },
+];
+const groups = sandbox.testApi.buildVideoGroups(groupedVideos);
+const seriesGroup = groups.find(group => group.type === "series"
+  && group.members.some(video => video.videoId === "series-1"));
+const similarGroup = groups.find(group => group.type === "similar"
+  && group.members.some(video => video.videoId === "similar-1"));
+const duplicateGroup = groups.find(group => group.type === "duplicate"
+  && group.members.some(video => video.videoId === "duplicate-1"));
+assert.ok(seriesGroup, "episode patterns should form a series group");
+assert.deepEqual([...seriesGroup.members].map(video => video.videoId), ["series-1", "series-2"]);
+assert.ok(similarGroup, "similar titles on the same channel should form a group");
+assert.ok(duplicateGroup, "normalized identical titles should form a probable duplicate group");
+assert.deepEqual([...duplicateGroup.members].map(video => video.videoId), ["duplicate-1", "duplicate-2"]);
+assert.equal(groups.some(group => group.members.some(video => video.videoId === "unrelated")), false);
+assert.ok(sandbox.testApi.calculateTitleSimilarity(
+  "JavaScript Async Await Tutorial for Beginners",
+  "JavaScript Async Await Guide for Beginners",
+) >= 0.74);
+assert.equal(sandbox.testApi.normalizeDuplicateTitle("Great Song (Official Video) [4K]"), "great song");
+assert.equal(sandbox.testApi.chooseGroupWinner(seriesGroup, "newest").videoId, "series-2");
+assert.equal(sandbox.testApi.chooseGroupWinner(seriesGroup, "most-viewed").videoId, "series-2");
+assert.equal(sandbox.testApi.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
 
 console.log("triage workspace test passed");

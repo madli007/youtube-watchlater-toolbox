@@ -158,7 +158,7 @@ Pravila naj bodo transparentna in reverzibilna: aplikacija naj pokaže, koliko v
 
 - [x] ~~8. Premik ali kopiranje v tematske playliste~~ — **izpuščeno po odločitvi**
 - [x] 9. Časovni proračun in statistika
-- [ ] 10. Gručenje serij in podobnih videov
+- [x] 10. Gručenje serij in podobnih videov
 
 ### 8. Premik ali kopiranje v tematske playliste
 

@@ -526,6 +526,117 @@
       font-size: 12px;
     }
 
+    .group-dashboard {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .group-dashboard-header,
+    .video-group-header,
+    .video-group-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .group-dashboard h2,
+    .video-group-card h3 {
+      margin: 0;
+    }
+
+    .group-dashboard-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .group-dashboard-controls select {
+      width: auto;
+      min-width: 160px;
+    }
+
+    .video-groups {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .video-group-card {
+      padding: 10px;
+      background: #14171c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .group-type-badge {
+      display: inline-flex;
+      margin-left: 7px;
+      border: 1px solid #2d6285;
+      border-radius: 999px;
+      padding: 2px 7px;
+      color: #bce4ff;
+      background: #172c3a;
+      font-size: 10px;
+      font-weight: 750;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+
+    .group-member-list {
+      display: grid;
+      gap: 5px;
+      margin: 9px 0;
+    }
+
+    .group-member {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      background: #0f1115;
+      border: 1px solid #2a3039;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .group-member-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .group-member-meta,
+    .group-member-status {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .video-group-actions {
+      justify-content: flex-start;
+      padding-top: 9px;
+      border-top: 1px solid var(--border);
+    }
+
+    .video-group-actions button {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .show-more-groups {
+      width: 100%;
+      margin-top: 10px;
+    }
+
     .bulkbar {
       display: flex;
       flex-wrap: wrap;
@@ -1230,6 +1341,26 @@
           </div>
         </section>
 
+        <section class="group-dashboard" aria-labelledby="groupDashboardTitle">
+          <div class="group-dashboard-header">
+            <div>
+              <h2 id="groupDashboardTitle">Series &amp; similar videos</h2>
+              <div id="groupSummary" class="scope-text">Import videos to find local title patterns.</div>
+            </div>
+            <label class="group-dashboard-controls">
+              Group type
+              <select id="groupTypeFilter">
+                <option value="all">All detected groups</option>
+                <option value="series">Series / episodes</option>
+                <option value="similar">Similar titles</option>
+                <option value="duplicate">Probable duplicates</option>
+              </select>
+            </label>
+          </div>
+          <div id="videoGroups" class="video-groups"></div>
+          <button id="showMoreGroups" class="show-more-groups" type="button" hidden>Show more groups</button>
+        </section>
+
         <section class="bulkbar" aria-label="Bulk actions">
           <div>
             <strong id="scopeLabel">No videos loaded</strong>
@@ -1284,7 +1415,7 @@
         <section class="panel">
           <h2>Workspace history</h2>
           <div class="workspace-actions">
-            <button id="undoBulk" type="button">Undo last bulk/rule change</button>
+            <button id="undoBulk" type="button">Undo last bulk/rule/group change</button>
           </div>
           <div id="historyList" class="history-list"></div>
         </section>
@@ -1403,6 +1534,11 @@
     const PAGE_SIZE = 220;
     const BULK_CONFIRM_THRESHOLD = 100;
     const MAX_HISTORY_ENTRIES = 20;
+    const GROUPING_STOP_WORDS = new Set([
+      "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "or", "the", "to", "vs", "with",
+      "del", "de", "der", "die", "das", "el", "la", "le", "les", "un", "una", "und", "y",
+      "official", "video", "audio", "hd", "uhd", "full",
+    ]);
     const RULES = {
       reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction", "episode reaction", "watching for the first time", "after show reacts", "#strugglenation", "blind wave", "reel rejects", "the normies", "holden & jen", "kat & sonny", "the 354 squad", "sean tanktop", "mary cherry", "just stef", "alyska"],
       marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "spider-man", "spiderman", "captain america", "black panther", "ant-man", "wakanda", "avengers", "loki", "thor", "wanda", "deadpool", "x-men", "fantastic four", "moon knight", "hawkeye", "she-hulk", "doctor strange", "iron man", "secret invasion"],
@@ -1442,6 +1578,10 @@
       editingRuleName: "",
       editingChannelRuleId: "",
       timeBudgetHours: normalizeTimeBudgetHours(localStorage.getItem(TIME_BUDGET_STORAGE_KEY)),
+      groupType: "all",
+      renderedGroupCount: 20,
+      groupCacheKey: "",
+      groupCache: [],
     };
 
     const els = {
@@ -1500,6 +1640,10 @@
       timeByTag: document.getElementById("timeByTag"),
       timeShortlistSummary: document.getElementById("timeShortlistSummary"),
       timeShortlistItems: document.getElementById("timeShortlistItems"),
+      groupSummary: document.getElementById("groupSummary"),
+      groupTypeFilter: document.getElementById("groupTypeFilter"),
+      videoGroups: document.getElementById("videoGroups"),
+      showMoreGroups: document.getElementById("showMoreGroups"),
       scopeLabel: document.getElementById("scopeLabel"),
       scopeHint: document.getElementById("scopeHint"),
       activeFilters: document.getElementById("activeFilters"),
@@ -1618,6 +1762,15 @@
       els.timeBudgetHours.addEventListener("input", handleTimeBudgetInput);
       els.timeBudgetHours.addEventListener("change", updateTimeBudget);
       els.selectTimeShortlist.addEventListener("click", selectSuggestedShortlist);
+      els.groupTypeFilter.addEventListener("change", () => {
+        state.groupType = els.groupTypeFilter.value;
+        state.renderedGroupCount = 20;
+        renderVideoGroups();
+      });
+      els.showMoreGroups.addEventListener("click", () => {
+        state.renderedGroupCount += 20;
+        renderVideoGroups();
+      });
       els.datasetViews.addEventListener("click", event => {
         const button = event.target.closest("[data-dataset-view]");
         if (!button || button.disabled) return;
@@ -1933,6 +2086,7 @@
     function handleFilterChange() {
       state.activeSavedViewId = "";
       state.renderedCount = PAGE_SIZE;
+      state.renderedGroupCount = 20;
       renderSavedViews();
       renderTagFilters();
       renderChannelMenu();
@@ -2063,6 +2217,460 @@
         .toLowerCase();
     }
 
+    function normalizeGroupingTitle(value) {
+      return String(value || "")
+        .normalize("NFKD")
+        .replace(/\p{M}+/gu, "")
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[^\p{L}\p{N}#]+/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function normalizeDuplicateTitle(value) {
+      return normalizeGroupingTitle(value)
+        .replace(/\b(?:official|music|lyric|lyrics|video|audio|hd|hq|uhd|4k|8k|1080p|720p|reupload|reuploaded|remaster|remastered)\b/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function getSeriesSignature(video) {
+      const title = normalizeGroupingTitle(video?.title);
+      if (!title) return null;
+      const patterns = [
+        { regex: /\bs(?:eason)?\s*0*(\d{1,3})\s*e(?:p(?:isode)?)?\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
+        { regex: /\b0*(\d{1,3})\s*x\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
+        { regex: /\bseason\s*0*(\d{1,3})\s*(?:episode|ep)\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
+        { regex: /\b(?:episode|ep|part|pt|chapter)\s*#?\s*0*(\d{1,4})\b/u, episode: 1 },
+        { regex: /(?:^|\s)#\s*0*(\d{1,4})\b/u, episode: 1 },
+      ];
+
+      let match = null;
+      let pattern = null;
+      for (const candidate of patterns) {
+        match = title.match(candidate.regex);
+        if (match) {
+          pattern = candidate;
+          break;
+        }
+      }
+
+      if (!match) {
+        const trailing = title.match(/\b0*(\d{1,3})\s*$/u);
+        const number = trailing ? Number(trailing[1]) : null;
+        if (!trailing || (number >= 1900 && number <= 2099)) return null;
+        match = trailing;
+        pattern = { regex: /\b0*(\d{1,3})\s*$/u, episode: 1 };
+      }
+
+      const base = title.replace(pattern.regex, " ").replace(/\s+/g, " ").trim();
+      const meaningful = getSimilarityTokens(base);
+      if (!base || !meaningful.length || base.length < 3) return null;
+      const channel = normalizeGroupingTitle(video?.channel) || "unknown channel";
+      return {
+        key: `${channel}|${base}`,
+        base,
+        season: pattern.season ? Number(match[pattern.season]) : 0,
+        episode: pattern.episode ? Number(match[pattern.episode]) : 0,
+      };
+    }
+
+    function getSimilarityTokens(value) {
+      return Array.from(new Set(normalizeDuplicateTitle(value)
+        .split(" ")
+        .filter(token => token.length >= 2 && !/^\d+$/u.test(token) && !GROUPING_STOP_WORDS.has(token))));
+    }
+
+    function calculateTitleSimilarity(left, right) {
+      const leftTokens = Array.isArray(left) ? left : getSimilarityTokens(left);
+      const rightTokens = Array.isArray(right) ? right : getSimilarityTokens(right);
+      if (!leftTokens.length || !rightTokens.length) return 0;
+      const rightSet = new Set(rightTokens);
+      const intersection = leftTokens.filter(token => rightSet.has(token)).length;
+      if (intersection < 2) return 0;
+      const dice = (2 * intersection) / (leftTokens.length + rightTokens.length);
+      const containment = intersection / Math.min(leftTokens.length, rightTokens.length);
+      const balance = Math.min(leftTokens.length, rightTokens.length) / Math.max(leftTokens.length, rightTokens.length);
+      return Math.max(dice, containment * (0.75 + 0.25 * balance));
+    }
+
+    function createGroupId(type, members) {
+      const source = `${type}:${members.map(video => video.videoId).sort().join("|")}`;
+      let hash = 2166136261;
+      for (let index = 0; index < source.length; index++) {
+        hash ^= source.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return `${type}-${(hash >>> 0).toString(36)}`;
+    }
+
+    function getRepresentativeTitle(members) {
+      return [...members]
+        .map(video => String(video.title || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => a.length - b.length || a.localeCompare(b))[0] || "Untitled group";
+    }
+
+    function formatGroupLabel(value) {
+      const text = String(value || "").trim();
+      return text ? text[0].toUpperCase() + text.slice(1) : "Untitled group";
+    }
+
+    function getCommonTitleWords(members) {
+      const tokenLists = members.map(video => getSimilarityTokens(video.title));
+      if (!tokenLists.length) return "";
+      const common = tokenLists[0].filter(token => tokenLists.every(tokens => tokens.includes(token)));
+      return common.slice(0, 8).join(" ");
+    }
+
+    function buildSeriesGroups(videos) {
+      const buckets = new Map();
+      for (const video of videos) {
+        const signature = getSeriesSignature(video);
+        if (!signature) continue;
+        if (!buckets.has(signature.key)) buckets.set(signature.key, []);
+        buckets.get(signature.key).push({ video, signature });
+      }
+      const groups = [];
+      for (const items of buckets.values()) {
+        if (items.length < 2) continue;
+        items.sort((a, b) => a.signature.season - b.signature.season
+          || a.signature.episode - b.signature.episode
+          || (a.video.index || 0) - (b.video.index || 0));
+        const members = items.map(item => item.video);
+        groups.push({
+          type: "series",
+          label: formatGroupLabel(items[0].signature.base),
+          reason: `Same channel and episode/title-number pattern`,
+          members,
+        });
+      }
+      return groups;
+    }
+
+    function buildDuplicateGroups(videos) {
+      const buckets = new Map();
+      for (const video of videos) {
+        const fingerprint = normalizeDuplicateTitle(video.title);
+        const tokens = fingerprint.split(" ").filter(Boolean);
+        if (fingerprint.length < 8 || tokens.length < 2) continue;
+        if (!buckets.has(fingerprint)) buckets.set(fingerprint, []);
+        buckets.get(fingerprint).push(video);
+      }
+      return Array.from(buckets.entries())
+        .filter(([, members]) => members.length >= 2)
+        .map(([, members]) => {
+          const channels = new Set(members.map(video => normalizeGroupingTitle(video.channel)).filter(Boolean));
+          return {
+            type: "duplicate",
+            label: getRepresentativeTitle(members),
+            reason: channels.size > 1
+              ? `Same normalized title across ${channels.size} channels; possible reupload`
+              : "Same normalized title; possible duplicate or reupload",
+            members: [...members].sort((a, b) => (a.index || 0) - (b.index || 0)),
+          };
+        });
+    }
+
+    function buildSimilarTitleGroups(videos) {
+      const channelBuckets = new Map();
+      for (const video of videos) {
+        const channel = normalizeGroupingTitle(video.channel) || "unknown channel";
+        const tokens = getSimilarityTokens(video.title);
+        if (tokens.length < 3) continue;
+        if (!channelBuckets.has(channel)) channelBuckets.set(channel, []);
+        channelBuckets.get(channel).push({ video, tokens });
+      }
+
+      const groups = [];
+      for (const items of channelBuckets.values()) {
+        if (items.length < 2) continue;
+        const parent = items.map((_, index) => index);
+        const find = index => {
+          let current = index;
+          while (parent[current] !== current) {
+            parent[current] = parent[parent[current]];
+            current = parent[current];
+          }
+          return current;
+        };
+        const union = (left, right) => {
+          const leftRoot = find(left);
+          const rightRoot = find(right);
+          if (leftRoot !== rightRoot) parent[rightRoot] = leftRoot;
+        };
+        const inverted = new Map();
+        items.forEach((item, index) => item.tokens.forEach(token => {
+          if (!inverted.has(token)) inverted.set(token, []);
+          inverted.get(token).push(index);
+        }));
+        const pairKeys = new Set();
+        for (const indexes of inverted.values()) {
+          if (indexes.length > Math.max(40, Math.ceil(items.length * 0.4))) continue;
+          for (let left = 0; left < indexes.length; left++) {
+            for (let right = left + 1; right < indexes.length; right++) {
+              pairKeys.add(`${indexes[left]}:${indexes[right]}`);
+            }
+          }
+        }
+        for (const key of pairKeys) {
+          const [left, right] = key.split(":").map(Number);
+          if (calculateTitleSimilarity(items[left].tokens, items[right].tokens) >= 0.74) union(left, right);
+        }
+        const components = new Map();
+        items.forEach((item, index) => {
+          const root = find(index);
+          if (!components.has(root)) components.set(root, []);
+          components.get(root).push(item.video);
+        });
+        for (const members of components.values()) {
+          if (members.length < 2) continue;
+          members.sort((a, b) => (a.index || 0) - (b.index || 0));
+          groups.push({
+            type: "similar",
+            label: formatGroupLabel(getCommonTitleWords(members) || getRepresentativeTitle(members)),
+            reason: "Strong title-word overlap within the same channel",
+            members,
+          });
+        }
+      }
+      return groups;
+    }
+
+    function buildVideoGroups(videos) {
+      const uniqueVideos = dedupeVideos(Array.isArray(videos) ? videos : []).filter(video => video?.videoId);
+      const candidates = [
+        ...buildDuplicateGroups(uniqueVideos),
+        ...buildSeriesGroups(uniqueVideos),
+        ...buildSimilarTitleGroups(uniqueVideos),
+      ];
+      const typePriority = { duplicate: 0, series: 1, similar: 2 };
+      const byMembers = new Map();
+      for (const candidate of candidates) {
+        const memberKey = candidate.members.map(video => video.videoId).sort().join("|");
+        const existing = byMembers.get(memberKey);
+        if (!existing || typePriority[candidate.type] < typePriority[existing.type]) byMembers.set(memberKey, candidate);
+      }
+      return Array.from(byMembers.values())
+        .map(group => ({ ...group, id: createGroupId(group.type, group.members) }))
+        .sort((a, b) => typePriority[a.type] - typePriority[b.type]
+          || b.members.length - a.members.length
+          || a.label.localeCompare(b.label));
+    }
+
+    function chooseGroupWinner(group, strategy) {
+      const members = Array.isArray(group?.members) ? group.members.filter(video => video?.videoId) : [];
+      if (!members.length) return null;
+      const ranked = members.map((video, order) => {
+        const value = strategy === "most-viewed"
+          ? (finiteNumberOrNull(video.viewCountApprox) ?? parseApproximateViewCount(video.views))
+          : parseApproximateAgeDays(video.uploaded);
+        return { video, order, value };
+      }).filter(item => item.value !== null && Number.isFinite(item.value));
+      if (!ranked.length) return null;
+      ranked.sort((a, b) => strategy === "most-viewed"
+        ? b.value - a.value || a.order - b.order
+        : a.value - b.value || a.order - b.order);
+      return ranked[0].video;
+    }
+
+    function getCurrentVideoGroups() {
+      const videos = getFilteredVideos();
+      const cacheKey = videos.map(video => `${video.videoId}\u001f${video.title || ""}\u001f${video.channel || ""}`).join("\u001e");
+      if (state.groupCacheKey !== cacheKey) {
+        state.groupCacheKey = cacheKey;
+        state.groupCache = buildVideoGroups(videos);
+      }
+      return state.groupCache;
+    }
+
+    function renderVideoGroups() {
+      const visibleVideos = getFilteredVideos();
+      const allGroups = getCurrentVideoGroups();
+      const groupedIds = new Set(allGroups.flatMap(group => group.members.map(video => video.videoId)));
+      const groups = state.groupType === "all"
+        ? allGroups
+        : allGroups.filter(group => group.type === state.groupType);
+      const typeCounts = allGroups.reduce((counts, group) => {
+        counts[group.type] = (counts[group.type] || 0) + 1;
+        return counts;
+      }, {});
+
+      els.groupTypeFilter.value = state.groupType;
+      els.groupSummary.textContent = visibleVideos.length
+        ? `${allGroups.length} groups covering ${groupedIds.size} of ${visibleVideos.length} visible videos · ${typeCounts.series || 0} series · ${typeCounts.similar || 0} similar · ${typeCounts.duplicate || 0} probable duplicates.`
+        : "Import videos or change filters to find local title patterns.";
+
+      if (!groups.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = visibleVideos.length
+          ? "No groups of this type were detected in the current visible scope."
+          : "No visible videos to group.";
+        els.videoGroups.replaceChildren(empty);
+        els.showMoreGroups.hidden = true;
+        return;
+      }
+
+      const rendered = groups.slice(0, state.renderedGroupCount).map(createVideoGroupCard);
+      els.videoGroups.replaceChildren(...rendered);
+      els.showMoreGroups.hidden = rendered.length >= groups.length;
+      els.showMoreGroups.textContent = `Show more groups (${rendered.length} / ${groups.length})`;
+    }
+
+    function createVideoGroupCard(group) {
+      const card = document.createElement("article");
+      card.className = "video-group-card";
+      card.dataset.groupType = group.type;
+
+      const header = document.createElement("div");
+      header.className = "video-group-header";
+      const heading = document.createElement("h3");
+      heading.textContent = group.label;
+      const typeBadge = document.createElement("span");
+      typeBadge.className = "group-type-badge";
+      typeBadge.textContent = ({ series: "Series", similar: "Similar", duplicate: "Probable duplicate" })[group.type] || group.type;
+      heading.appendChild(typeBadge);
+      const count = document.createElement("strong");
+      count.textContent = `${group.members.length} videos`;
+      header.append(heading, count);
+
+      const reason = document.createElement("div");
+      reason.className = "scope-text";
+      reason.textContent = `${group.reason}. Review every member below before applying a group action.`;
+
+      const members = document.createElement("div");
+      members.className = "group-member-list";
+      for (const video of group.members) {
+        const row = document.createElement("div");
+        row.className = "group-member";
+        const index = document.createElement("span");
+        index.className = "playlist-index";
+        index.textContent = `#${video.index || video.playlistIndex || "?"}`;
+        const title = document.createElement("a");
+        title.className = "group-member-title";
+        title.href = video.cleanUrl || video.url || "#";
+        title.target = "_blank";
+        title.rel = "noreferrer";
+        title.textContent = video.title || "(untitled)";
+        title.title = [video.channel, video.uploaded, video.views].filter(Boolean).join(" · ");
+        const status = document.createElement("span");
+        status.className = "group-member-status";
+        status.textContent = getStatus(video.videoId);
+        row.append(index, title, status);
+        members.appendChild(row);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "video-group-actions";
+      actions.append(
+        createGroupActionButton("Select group", () => selectVideoGroup(group)),
+        createGroupActionButton("Keep all", () => applyVideoGroupStatus(group, "keep"), "keep-button"),
+        createGroupActionButton("Maybe all", () => applyVideoGroupStatus(group, "maybe"), "maybe-button"),
+        createGroupActionButton("Delete all", () => applyVideoGroupStatus(group, "delete"), "danger"),
+        createGroupRecommendationButton(group, "newest", "Keep newest only"),
+        createGroupRecommendationButton(group, "most-viewed", "Keep most viewed only"),
+      );
+      card.append(header, reason, members, actions);
+      return card;
+    }
+
+    function createGroupActionButton(label, handler, className = "") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      if (className) button.className = className;
+      button.addEventListener("click", handler);
+      return button;
+    }
+
+    function createGroupRecommendationButton(group, strategy, label) {
+      const winner = chooseGroupWinner(group, strategy);
+      const button = createGroupActionButton(label, () => applyGroupWinner(group, strategy));
+      button.disabled = !winner;
+      button.title = winner
+        ? `Keep “${winner.title || winner.videoId}” and mark the other group members delete`
+        : `No ${strategy === "newest" ? "upload age" : "view count"} data is available for this group`;
+      return button;
+    }
+
+    function selectVideoGroup(group) {
+      state.selectedIds = new Set(group.members.map(video => video.videoId));
+      state.currentId = group.members[0]?.videoId || state.currentId;
+      render();
+      showToast(`Selected ${group.members.length} videos from “${group.label}”.`);
+    }
+
+    function applyVideoGroupStatus(group, status) {
+      const changedIds = group.members
+        .map(video => video.videoId)
+        .filter(videoId => getStatus(videoId) !== status);
+      if (!changedIds.length) {
+        showToast(`Every video in this group is already ${status}.`);
+        return;
+      }
+      const protectedMatches = status === "delete"
+        ? getProtectedChannelMatches(state.videos, changedIds, state.channelRules)
+        : [];
+      if (status === "delete") {
+        const protectedChannels = Array.from(new Set(protectedMatches.map(match => match.channel)));
+        const warning = protectedMatches.length
+          ? `\n\nWarning: ${protectedMatches.length} videos belong to protected channels: ${protectedChannels.join(", ")}.`
+          : "";
+        if (!confirm(`Mark all ${changedIds.length} pending members of “${group.label}” as delete?${warning}`)) return;
+      }
+      if (!addHistoryEntry(`${group.label}: ${changedIds.length} group members → ${status}`, "similarity-group", changedIds)) {
+        showToast("Group change cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
+      changedIds.forEach(videoId => setStatus(videoId, status, false));
+      saveDecisions();
+      state.selectedIds.clear();
+      render();
+      showToast(`Marked ${changedIds.length} group members as ${status}.`);
+    }
+
+    function applyGroupWinner(group, strategy) {
+      const winner = chooseGroupWinner(group, strategy);
+      if (!winner) {
+        showToast(`This group has no usable ${strategy === "newest" ? "upload age" : "view count"} data.`);
+        return;
+      }
+      const memberIds = group.members.map(video => video.videoId);
+      const loserIds = memberIds.filter(videoId => videoId !== winner.videoId);
+      const protectedMatches = getProtectedChannelMatches(state.videos, loserIds, state.channelRules);
+      const protectedChannels = Array.from(new Set(protectedMatches.map(match => match.channel)));
+      const warning = protectedMatches.length
+        ? `\n\nWarning: ${protectedMatches.length} videos that would be marked delete belong to protected channels: ${protectedChannels.join(", ")}.`
+        : "";
+      const strategyLabel = strategy === "newest" ? "newest" : "most viewed";
+      const ok = confirm([
+        `Keep only the ${strategyLabel} video in “${group.label}”?`,
+        "",
+        `Keep: ${winner.title || winner.videoId}`,
+        `Mark delete: ${loserIds.length} other group members.${warning}`,
+        "",
+        "A local undo snapshot will be created.",
+      ].join("\n"));
+      if (!ok) return;
+      const changedIds = memberIds.filter(videoId => getStatus(videoId) !== (videoId === winner.videoId ? "keep" : "delete"));
+      if (!changedIds.length) {
+        showToast("This recommendation is already applied.");
+        return;
+      }
+      if (!addHistoryEntry(`${group.label}: kept ${strategyLabel}, deleted ${loserIds.length}`, "similarity-group", changedIds)) {
+        showToast("Recommendation cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
+      changedIds.forEach(videoId => setStatus(videoId, videoId === winner.videoId ? "keep" : "delete", false));
+      saveDecisions();
+      state.selectedIds.clear();
+      state.currentId = winner.videoId;
+      render();
+      showToast(`Kept “${winner.title || winner.videoId}” and marked ${loserIds.length} group members delete.`);
+    }
+
     function getSortedVideos(videos) {
       const sort = els.sortSelect.value;
       const copy = [...videos];
@@ -2105,6 +2713,7 @@
       ensureCurrentVisible();
       renderStats();
       renderTimeDashboard();
+      renderVideoGroups();
       renderVideoList();
       renderSidebar();
       renderHistory();
@@ -2381,7 +2990,7 @@
       els.exportVisible.disabled = !visible;
       els.exportDecisions.disabled = !Object.keys(state.decisions).length;
       els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length;
-      els.undoBulk.disabled = !state.history.some(entry => ["bulk-status", "channel-rule"].includes(entry.action));
+      els.undoBulk.disabled = !state.history.some(entry => ["bulk-status", "channel-rule", "similarity-group"].includes(entry.action));
     }
 
     function getDatasetViewIds(view) {
@@ -2661,6 +3270,7 @@
       state.activeSavedViewId = options.savedViewId || "";
       state.selectedIds.clear();
       state.renderedCount = PAGE_SIZE;
+      state.renderedGroupCount = 20;
       renderTagFilters();
       renderChannelMenu();
       renderSavedViews();
@@ -4392,9 +5002,9 @@
     }
 
     function undoLastBulkChange() {
-      const entry = state.history.find(candidate => ["bulk-status", "channel-rule"].includes(candidate.action));
+      const entry = state.history.find(candidate => ["bulk-status", "channel-rule", "similarity-group"].includes(candidate.action));
       if (!entry) {
-        showToast("No bulk or channel-rule change is available to undo.");
+        showToast("No bulk, channel-rule, or video-group change is available to undo.");
         return;
       }
       restoreHistoryEntry(entry, { removeOriginal: true, label: "Undo" });
