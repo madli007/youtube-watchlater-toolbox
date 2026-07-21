@@ -3175,7 +3175,7 @@
       els.scopeLabel.textContent = state.videos.length ? `${scope} ${scopeName} videos` : "No videos loaded";
       els.scopeHint.textContent = selected
         ? "Bulk actions apply to selected videos."
-        : "Bulk actions apply to all visible filtered results. Shortcuts k/m/d apply to the highlighted row.";
+        : "Bulk actions apply to all visible filtered results. Shortcuts: p preview, k/m/d decide, j/↑/↓ move.";
       els.activeFilters.textContent = `Filters: ${getActiveFilterSummary().join(", ") || "none"}`;
 
       els.keepBulk.textContent = `Keep ${scopeName}`;
@@ -3775,7 +3775,7 @@
       button.type = "button";
       button.textContent = "Preview";
       button.disabled = Boolean(video.isUnavailable);
-      button.title = video.isUnavailable ? "This video is unavailable." : "Watch without leaving the current triage view";
+      button.title = video.isUnavailable ? "This video is unavailable." : "Preview this video (p)";
       button.addEventListener("click", () => openQuickPreview(video.videoId));
       return button;
     }
@@ -5620,6 +5620,13 @@
       }
 
       if (isTyping || !state.currentId) return;
+
+      if (event.key === "p") {
+        event.preventDefault();
+        if (els.quickPreviewDialog.open) els.quickPreviewDialog.close();
+        else openQuickPreview(state.currentId);
+        return;
+      }
 
       if (els.quickPreviewDialog.open && state.previewVideoId) {
         if (["k", "m", "d"].includes(event.key)) {

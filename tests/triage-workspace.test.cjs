@@ -9,6 +9,7 @@ const declaredIds = new Set(idMatches);
 assert.equal(declaredIds.size, idMatches.length, "DOM IDs must be unique");
 const referencedIds = Array.from(html.matchAll(/document\.getElementById\("([^"]+)"\)/g), match => match[1]);
 assert.deepEqual(referencedIds.filter(id => !declaredIds.has(id)), [], "all referenced DOM IDs must exist");
+assert.match(html, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "triage script not found");
 
