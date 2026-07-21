@@ -20,6 +20,7 @@ The triage page:
 - suggests a status-prioritized, shortest-first weekly shortlist from the currently visible non-delete videos and can select it for export or bulk actions;
 - detects episode/series patterns, similar same-channel titles, and probable duplicate or reuploaded videos locally within the visible scope;
 - shows every member of a detected group and supports selecting or marking the whole group, plus undoable “keep newest only” and “keep most viewed only” recommendations;
+- opens an in-app YouTube preview without changing the current filters or list position, with a larger thumbnail, metadata, decision buttons, saved playback timestamps, and an optional playback-aware 30-second review timer;
 - stores decisions in browser `localStorage`;
 - exports and imports decision-only JSON for manual sync between devices;
 - exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;

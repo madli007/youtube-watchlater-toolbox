@@ -199,7 +199,7 @@ Uporabnik bi nato lahko označil celotno skupino ali izbral “obdrži samo najn
 
 ## P3: udobje pri vsakodnevni uporabi
 
-- [ ] 11. Vgrajen hitri ogled med triageom
+- [x] 11. Vgrajen hitri ogled med triageom
 - [ ] 12. Način “odloči se namesto mene”
 
 ### 11. Vgrajen hitri ogled med triageom

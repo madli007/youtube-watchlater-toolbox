@@ -14,7 +14,7 @@ assert.ok(scriptMatch, "triage script not found");
 
 const source = scriptMatch[1].replace(
   "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration, normalizeGroupingTitle, normalizeDuplicateTitle, getSeriesSignature, calculateTitleSimilarity, buildVideoGroups, chooseGroupWinner };",
+  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration, normalizeGroupingTitle, normalizeDuplicateTitle, getSeriesSignature, calculateTitleSimilarity, buildVideoGroups, chooseGroupWinner, normalizePreviewProgress, buildYouTubeEmbedUrl, formatPreviewTime };",
 );
 
 const elementStub = {
@@ -69,6 +69,7 @@ const workspace = sandbox.testApi.buildWorkspacePayload({
   },
   history: [],
   timeBudgetHours: 3.5,
+  previewProgress: { one: 83.9, invalid: -4, nope: "not-a-time" },
   ui: {
     status: "keep",
     datasetView: "inbox",
@@ -97,6 +98,7 @@ assert.equal(workspace.workspace.userRules.invalid, undefined);
 assert.equal(workspace.workspace.importComparison.baselineAvailable, true);
 assert.deepEqual([...workspace.workspace.importComparison.newIds], ["one"]);
 assert.equal(workspace.workspace.timeBudgetHours, 3.5);
+assert.deepEqual({ ...workspace.workspace.previewProgress }, { one: 83 });
 
 const parsed = sandbox.testApi.parseWorkspacePayload(workspace);
 assert.equal(parsed.videos[0].videoId, "one");
@@ -116,6 +118,7 @@ assert.equal(parsed.savedViews[0].id, "keep-view");
 assert.equal(parsed.savedViews[0].filters.status, "keep");
 assert.equal(parsed.savedViews[0].filters.minDurationMinutes, "10");
 assert.equal(parsed.timeBudgetHours, 3.5);
+assert.deepEqual({ ...parsed.previewProgress }, { one: 83 });
 assert.throws(
   () => sandbox.testApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
   /workspace snapshot/i,
@@ -332,6 +335,16 @@ assert.equal(sandbox.testApi.normalizeTimeBudgetHours("2.6"), 2.5);
 assert.equal(sandbox.testApi.normalizeTimeBudgetHours(0), 2);
 assert.equal(sandbox.testApi.normalizeTimeBudgetHours(999), 168);
 assert.equal(sandbox.testApi.formatDuration(90 * 60), "1h 30m");
+assert.equal(sandbox.testApi.formatPreviewTime(83), "1:23");
+assert.equal(sandbox.testApi.formatPreviewTime(3723), "1:02:03");
+assert.deepEqual(
+  { ...sandbox.testApi.normalizePreviewProgress({ one: 12.8, zero: 0, bad: "nope" }) },
+  { one: 12 },
+);
+assert.equal(
+  sandbox.testApi.buildYouTubeEmbedUrl("abc_123", 83, "https://example.test"),
+  "https://www.youtube-nocookie.com/embed/abc_123?autoplay=1&enablejsapi=1&playsinline=1&rel=0&start=83&origin=https%3A%2F%2Fexample.test",
+);
 
 const durationVideos = [
   { videoId: "keep-short", title: "Keep short", channel: "A", durationSeconds: 20 * 60, suggestedTags: ["dev"] },

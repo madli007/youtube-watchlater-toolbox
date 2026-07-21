@@ -824,6 +824,114 @@
       font-weight: 800;
     }
 
+    .quick-preview-dialog {
+      width: min(1080px, calc(100vw - 28px));
+    }
+
+    .quick-preview-panel {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .quick-preview-header,
+    .quick-preview-footer,
+    .quick-preview-timer,
+    .quick-preview-status-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .quick-preview-header {
+      justify-content: space-between;
+    }
+
+    .quick-preview-header h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 24px;
+    }
+
+    .quick-preview-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.7fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .quick-preview-player-wrap {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      background: #050608;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+    }
+
+    .quick-preview-player {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .quick-preview-details {
+      display: grid;
+      gap: 10px;
+    }
+
+    .quick-preview-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #0b0c0f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .quick-preview-meta,
+    .quick-preview-progress {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .quick-preview-footer {
+      justify-content: space-between;
+      padding-top: 2px;
+      border-top: 1px solid var(--border);
+    }
+
+    .quick-preview-status-actions button {
+      min-width: 82px;
+    }
+
+    .quick-preview-status-actions .is-active[data-preview-status="keep"] {
+      color: #03120a;
+      background: var(--keep);
+      border-color: var(--keep);
+      font-weight: 800;
+    }
+
+    .quick-preview-status-actions .is-active[data-preview-status="maybe"] {
+      color: #1b1202;
+      background: var(--maybe);
+      border-color: var(--maybe);
+      font-weight: 800;
+    }
+
+    .quick-preview-status-actions .is-active[data-preview-status="delete"] {
+      color: #1b0506;
+      background: var(--delete);
+      border-color: var(--delete);
+      font-weight: 800;
+    }
+
+    .quick-preview-timer.is-ready {
+      color: var(--maybe);
+      font-weight: 800;
+    }
+
     .panel {
       margin-bottom: 14px;
       padding: 12px;
@@ -1145,6 +1253,33 @@
         grid-template-columns: repeat(4, minmax(70px, 1fr));
       }
 
+      .quick-preview-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-preview-details {
+        grid-template-columns: 120px minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .quick-preview-details .tags {
+        grid-column: 1 / -1;
+      }
+
+      .quick-preview-footer {
+        align-items: stretch;
+      }
+
+      .quick-preview-timer,
+      .quick-preview-status-actions {
+        width: 100%;
+      }
+
+      .quick-preview-status-actions button {
+        flex: 1 1 70px;
+        min-width: 0;
+      }
+
       .rule-fields {
         grid-template-columns: 1fr;
       }
@@ -1422,6 +1557,39 @@
       </aside>
     </div>
   </div>
+  <dialog id="quickPreviewDialog" class="quick-preview-dialog" aria-labelledby="quickPreviewTitle">
+    <div class="quick-preview-panel">
+      <div class="quick-preview-header">
+        <h2><a id="quickPreviewTitle" href="#" target="_blank" rel="noreferrer">Video preview</a></h2>
+        <button id="closeQuickPreview" type="button" aria-label="Close video preview">Close</button>
+      </div>
+      <div class="quick-preview-layout">
+        <div class="quick-preview-player-wrap">
+          <iframe id="quickPreviewPlayer" class="quick-preview-player" title="YouTube video preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+        <div class="quick-preview-details">
+          <img id="quickPreviewThumb" class="quick-preview-thumb" alt="">
+          <div>
+            <div id="quickPreviewMeta" class="quick-preview-meta"></div>
+            <div id="quickPreviewProgress" class="quick-preview-progress"></div>
+            <div id="quickPreviewTags" class="tags"></div>
+          </div>
+        </div>
+      </div>
+      <div class="quick-preview-footer">
+        <div id="quickPreviewTimer" class="quick-preview-timer" aria-live="polite">
+          <button id="startPreviewTimer" type="button">Start 30 s review</button>
+          <span id="quickPreviewTimerStatus">Timer starts when the video is playing.</span>
+        </div>
+        <div id="quickPreviewStatusActions" class="quick-preview-status-actions" aria-label="Set video status and show the next video">
+          <button type="button" data-preview-status="keep">Keep</button>
+          <button type="button" data-preview-status="maybe">Maybe</button>
+          <button type="button" data-preview-status="delete">Delete</button>
+          <button type="button" data-preview-status="unreviewed">Reset</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
   <dialog id="videoEditorDialog">
     <form id="videoEditorForm" class="dialog-form" method="dialog">
       <h2>Edit tags and note</h2>
@@ -1531,6 +1699,7 @@
     const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
     const DATASET_BASELINE_STORAGE_KEY = "watchlater-triage-dataset-baseline-v1";
     const TIME_BUDGET_STORAGE_KEY = "watchlater-triage-time-budget-hours-v1";
+    const PREVIEW_PROGRESS_STORAGE_KEY = "watchlater-triage-preview-progress-v1";
     const PAGE_SIZE = 220;
     const BULK_CONFIRM_THRESHOLD = 100;
     const MAX_HISTORY_ENTRIES = 20;
@@ -1582,6 +1751,16 @@
       renderedGroupCount: 20,
       groupCacheKey: "",
       groupCache: [],
+      previewVideoId: "",
+      previewCurrentTime: 0,
+      previewPlayerState: -1,
+      previewPlayerReady: false,
+      previewProgress: normalizePreviewProgress(loadStoredObject(PREVIEW_PROGRESS_STORAGE_KEY)),
+      previewLastPersistAt: 0,
+      previewCountdownRemaining: 30,
+      previewCountdownActive: false,
+      previewCountdownLastTick: 0,
+      previewPollTimer: null,
     };
 
     const els = {
@@ -1664,6 +1843,18 @@
       stateSummary: document.getElementById("stateSummary"),
       undoBulk: document.getElementById("undoBulk"),
       historyList: document.getElementById("historyList"),
+      quickPreviewDialog: document.getElementById("quickPreviewDialog"),
+      quickPreviewTitle: document.getElementById("quickPreviewTitle"),
+      closeQuickPreview: document.getElementById("closeQuickPreview"),
+      quickPreviewPlayer: document.getElementById("quickPreviewPlayer"),
+      quickPreviewThumb: document.getElementById("quickPreviewThumb"),
+      quickPreviewMeta: document.getElementById("quickPreviewMeta"),
+      quickPreviewProgress: document.getElementById("quickPreviewProgress"),
+      quickPreviewTags: document.getElementById("quickPreviewTags"),
+      quickPreviewTimer: document.getElementById("quickPreviewTimer"),
+      startPreviewTimer: document.getElementById("startPreviewTimer"),
+      quickPreviewTimerStatus: document.getElementById("quickPreviewTimerStatus"),
+      quickPreviewStatusActions: document.getElementById("quickPreviewStatusActions"),
       videoEditorDialog: document.getElementById("videoEditorDialog"),
       videoEditorForm: document.getElementById("videoEditorForm"),
       videoEditorTitle: document.getElementById("videoEditorTitle"),
@@ -1796,6 +1987,14 @@
       els.workspaceInput.addEventListener("change", importWorkspaceFile);
       els.clearDecisions.addEventListener("click", clearDecisions);
       els.undoBulk.addEventListener("click", undoLastBulkChange);
+      els.closeQuickPreview.addEventListener("click", () => els.quickPreviewDialog.close());
+      els.quickPreviewDialog.addEventListener("close", closeQuickPreview);
+      els.quickPreviewPlayer.addEventListener("load", initializePreviewPlayer);
+      els.startPreviewTimer.addEventListener("click", startPreviewDecisionTimer);
+      els.quickPreviewStatusActions.addEventListener("click", event => {
+        const button = event.target.closest("[data-preview-status]");
+        if (button) setPreviewStatusAndAdvance(button.dataset.previewStatus);
+      });
       els.manageRules.addEventListener("click", openRulesDialog);
       els.videoEditorForm.addEventListener("submit", saveVideoEditor);
       els.cancelVideoEditor.addEventListener("click", () => els.videoEditorDialog.close());
@@ -1828,6 +2027,8 @@
       els.applyAllChannelRules.addEventListener("click", applyAllPendingChannelRules);
       els.closeChannelRules.addEventListener("click", () => els.channelRulesDialog.close());
       document.addEventListener("keydown", handleShortcuts);
+      window.addEventListener("message", handlePreviewPlayerMessage);
+      window.addEventListener("beforeunload", flushPreviewProgress);
       window.addEventListener("scroll", maybeRenderMore);
     }
 
@@ -3524,6 +3725,7 @@
         createStatusButton(video.videoId, "delete", status),
         createStatusButton(video.videoId, "unreviewed", status, "Reset"),
         createEditVideoButton(video),
+        createPreviewButton(video),
         createOpenButton(video),
       );
 
@@ -3566,6 +3768,274 @@
         window.open(video.cleanUrl || video.url, "_blank", "noreferrer");
       });
       return button;
+    }
+
+    function createPreviewButton(video) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Preview";
+      button.disabled = Boolean(video.isUnavailable);
+      button.title = video.isUnavailable ? "This video is unavailable." : "Watch without leaving the current triage view";
+      button.addEventListener("click", () => openQuickPreview(video.videoId));
+      return button;
+    }
+
+    function normalizePreviewProgress(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+      const normalized = {};
+      for (const [videoId, rawSeconds] of Object.entries(value)) {
+        const cleanId = String(videoId || "").trim();
+        const seconds = Number(rawSeconds);
+        if (!cleanId || !Number.isFinite(seconds) || seconds <= 0) continue;
+        normalized[cleanId] = Math.min(604800, Math.max(0, Math.floor(seconds)));
+      }
+      return normalized;
+    }
+
+    function buildYouTubeEmbedUrl(videoId, startSeconds = 0, locationOrigin = "") {
+      const cleanId = String(videoId || "").trim();
+      if (!cleanId) return "";
+      const seconds = Math.max(0, Math.floor(Number(startSeconds) || 0));
+      const params = ["autoplay=1", "enablejsapi=1", "playsinline=1", "rel=0"];
+      if (seconds > 0) params.push(`start=${seconds}`);
+      if (/^https?:\/\//i.test(locationOrigin)) params.push(`origin=${encodeURIComponent(locationOrigin)}`);
+      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(cleanId)}?${params.join("&")}`;
+    }
+
+    function formatPreviewTime(seconds) {
+      const total = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const remainder = total % 60;
+      return hours
+        ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+        : `${minutes}:${String(remainder).padStart(2, "0")}`;
+    }
+
+    function openQuickPreview(videoId) {
+      const video = state.videos.find(candidate => candidate.videoId === videoId);
+      if (!video || video.isUnavailable) return;
+      if (state.previewVideoId && state.previewVideoId !== videoId) flushPreviewProgress();
+      state.previewVideoId = videoId;
+      state.currentId = videoId;
+      render();
+      renderQuickPreview(video);
+      if (!els.quickPreviewDialog.open) els.quickPreviewDialog.showModal();
+      startPreviewSession();
+    }
+
+    function renderQuickPreview(video) {
+      if (!video) return;
+      const savedSeconds = state.previewProgress[video.videoId] || 0;
+      const link = video.cleanUrl || video.url || `https://www.youtube.com/watch?v=${encodeURIComponent(video.videoId)}`;
+      els.quickPreviewTitle.textContent = video.title || "(untitled)";
+      els.quickPreviewTitle.href = link;
+      els.quickPreviewThumb.src = video.thumbnailUrl || "";
+      els.quickPreviewThumb.alt = video.title ? `Thumbnail for ${video.title}` : "Video thumbnail";
+      els.quickPreviewMeta.textContent = [video.channel, video.duration, video.views, video.uploaded].filter(Boolean).join(" · ");
+      els.quickPreviewProgress.textContent = savedSeconds
+        ? `Resuming from ${formatPreviewTime(savedSeconds)}. Playback position is saved locally.`
+        : "Playback position will be saved locally.";
+
+      const decision = getDecision(video.videoId);
+      const chips = [];
+      (video.suggestedTags || []).forEach(tag => chips.push(createPreviewTag(`Suggested: ${tag}`, "tag")));
+      (decision.tags || []).forEach(tag => chips.push(createPreviewTag(`Manual: ${tag}`, "tag manual-tag")));
+      els.quickPreviewTags.replaceChildren(...chips);
+      Array.from(els.quickPreviewStatusActions.querySelectorAll("[data-preview-status]")).forEach(button => {
+        button.classList.toggle("is-active", button.dataset.previewStatus === decision.status);
+      });
+
+      const origin = location.origin === "null" ? "" : location.origin;
+      els.quickPreviewPlayer.dataset.videoId = video.videoId;
+      state.previewPlayerReady = false;
+      els.quickPreviewPlayer.src = buildYouTubeEmbedUrl(video.videoId, savedSeconds, origin);
+      resetPreviewDecisionTimer();
+    }
+
+    function createPreviewTag(text, className) {
+      const chip = document.createElement("span");
+      chip.className = className;
+      chip.textContent = text;
+      return chip;
+    }
+
+    function startPreviewSession() {
+      stopPreviewSession(false);
+      state.previewCurrentTime = state.previewProgress[state.previewVideoId] || 0;
+      state.previewPlayerState = -1;
+      state.previewLastPersistAt = Date.now();
+      state.previewPollTimer = window.setInterval(() => {
+        sendPreviewCommand("getCurrentTime");
+        sendPreviewCommand("getPlayerState");
+        tickPreviewDecisionTimer();
+      }, 500);
+    }
+
+    function stopPreviewSession(shouldFlush = true) {
+      if (shouldFlush) flushPreviewProgress();
+      if (state.previewPollTimer !== null) window.clearInterval(state.previewPollTimer);
+      state.previewPollTimer = null;
+      state.previewCountdownActive = false;
+    }
+
+    function closeQuickPreview() {
+      stopPreviewSession();
+      state.previewVideoId = "";
+      state.previewCurrentTime = 0;
+      state.previewPlayerState = -1;
+      state.previewPlayerReady = false;
+      els.quickPreviewPlayer.src = "about:blank";
+      els.quickPreviewPlayer.dataset.videoId = "";
+      resetPreviewDecisionTimer();
+    }
+
+    function initializePreviewPlayer() {
+      if (!state.previewVideoId || els.quickPreviewPlayer.src === "about:blank") return;
+      state.previewPlayerReady = true;
+      els.quickPreviewPlayer.contentWindow?.postMessage(JSON.stringify({
+        event: "listening",
+        id: "quick-preview-player",
+        channel: "quick-preview",
+      }), "*");
+      sendPreviewCommand("addEventListener", ["onStateChange"]);
+      sendPreviewCommand("getCurrentTime");
+      sendPreviewCommand("getPlayerState");
+    }
+
+    function sendPreviewCommand(func, args = []) {
+      if (!state.previewVideoId) return;
+      els.quickPreviewPlayer.contentWindow?.postMessage(JSON.stringify({
+        event: "command",
+        func,
+        args,
+      }), "*");
+    }
+
+    function handlePreviewPlayerMessage(event) {
+      if (!state.previewVideoId || !state.previewPlayerReady || event.source !== els.quickPreviewPlayer.contentWindow) return;
+      if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/i.test(event.origin)) return;
+      let message = event.data;
+      if (typeof message === "string") {
+        try {
+          message = JSON.parse(message);
+        } catch (_error) {
+          return;
+        }
+      }
+      if (!message || typeof message !== "object") return;
+      const info = message.info && typeof message.info === "object" ? message.info : {};
+      if (Number.isFinite(Number(info.currentTime))) updatePreviewCurrentTime(Number(info.currentTime));
+      if (Number.isFinite(Number(info.playerState))) state.previewPlayerState = Number(info.playerState);
+      if (message.event === "onStateChange" && Number.isFinite(Number(message.info))) {
+        state.previewPlayerState = Number(message.info);
+      }
+    }
+
+    function updatePreviewCurrentTime(seconds) {
+      if (!state.previewVideoId || !Number.isFinite(seconds) || seconds < 0) return;
+      state.previewCurrentTime = seconds;
+      state.previewProgress[state.previewVideoId] = Math.floor(seconds);
+      els.quickPreviewProgress.textContent = `Current position ${formatPreviewTime(seconds)} · saved locally.`;
+      if (Date.now() - state.previewLastPersistAt >= 5000) flushPreviewProgress();
+    }
+
+    function flushPreviewProgress() {
+      if (state.previewVideoId && state.previewCurrentTime > 0) {
+        state.previewProgress[state.previewVideoId] = Math.floor(state.previewCurrentTime);
+      }
+      try {
+        localStorage.setItem(PREVIEW_PROGRESS_STORAGE_KEY, JSON.stringify(normalizePreviewProgress(state.previewProgress)));
+        state.previewLastPersistAt = Date.now();
+        return true;
+      } catch (_error) {
+        return false;
+      }
+    }
+
+    function startPreviewDecisionTimer() {
+      state.previewCountdownRemaining = 30;
+      state.previewCountdownActive = true;
+      state.previewCountdownLastTick = performance.now();
+      sendPreviewCommand("playVideo");
+      updatePreviewTimerUi();
+    }
+
+    function resetPreviewDecisionTimer() {
+      state.previewCountdownRemaining = 30;
+      state.previewCountdownActive = false;
+      state.previewCountdownLastTick = 0;
+      updatePreviewTimerUi();
+    }
+
+    function tickPreviewDecisionTimer(now = performance.now()) {
+      if (!state.previewCountdownActive) return;
+      if (state.previewPlayerState === 1) {
+        const elapsed = Math.max(0, (now - state.previewCountdownLastTick) / 1000);
+        state.previewCountdownRemaining = Math.max(0, state.previewCountdownRemaining - elapsed);
+      }
+      state.previewCountdownLastTick = now;
+      if (state.previewCountdownRemaining <= 0) {
+        state.previewCountdownActive = false;
+        sendPreviewCommand("pauseVideo");
+        updatePreviewTimerUi();
+        els.quickPreviewStatusActions.querySelector('[data-preview-status="keep"]')?.focus();
+        showToast("30-second review complete. Choose Keep, Maybe, or Delete.");
+        return;
+      }
+      updatePreviewTimerUi();
+    }
+
+    function updatePreviewTimerUi() {
+      const ready = !state.previewCountdownActive && state.previewCountdownRemaining <= 0;
+      els.quickPreviewTimer.classList.toggle("is-ready", ready);
+      els.startPreviewTimer.textContent = state.previewCountdownActive ? "Restart 30 s review" : "Start 30 s review";
+      els.quickPreviewTimerStatus.textContent = ready
+        ? "Time to decide — playback is paused."
+        : state.previewCountdownActive
+          ? `${Math.ceil(state.previewCountdownRemaining)} s left${state.previewPlayerState === 1 ? "" : " · waiting for playback"}`
+          : "Timer counts only while the video is playing.";
+    }
+
+    function setPreviewStatusAndAdvance(status) {
+      const videoId = state.previewVideoId;
+      if (!videoId || !["keep", "maybe", "delete", "unreviewed"].includes(status)) return;
+      const before = getFilteredVideos();
+      const currentIndex = before.findIndex(video => video.videoId === videoId);
+      const preferredIds = before.slice(Math.max(0, currentIndex + 1)).concat(before.slice(0, Math.max(0, currentIndex)))
+        .map(video => video.videoId)
+        .filter(candidateId => candidateId !== videoId);
+      flushPreviewProgress();
+      setStatus(videoId, status);
+      const after = getFilteredVideos();
+      const afterIds = new Set(after.map(video => video.videoId));
+      const nextId = preferredIds.find(candidateId => afterIds.has(candidateId)) || after[0]?.videoId || "";
+      if (!nextId) {
+        els.quickPreviewDialog.close();
+        render();
+        showToast(`Marked the last matching video as ${status}.`);
+        return;
+      }
+      state.previewVideoId = nextId;
+      state.currentId = nextId;
+      render();
+      renderQuickPreview(state.videos.find(video => video.videoId === nextId));
+      startPreviewSession();
+    }
+
+    function moveQuickPreview(direction) {
+      const videos = getFilteredVideos();
+      const currentIndex = videos.findIndex(video => video.videoId === state.previewVideoId);
+      if (currentIndex < 0) return;
+      const nextIndex = Math.min(Math.max(currentIndex + direction, 0), videos.length - 1);
+      const next = videos[nextIndex];
+      if (!next || next.videoId === state.previewVideoId) return;
+      flushPreviewProgress();
+      state.previewVideoId = next.videoId;
+      state.currentId = next.videoId;
+      render();
+      renderQuickPreview(next);
+      startPreviewSession();
     }
 
     function createEditVideoButton(video) {
@@ -4413,6 +4883,7 @@
         importComparison: state.importComparison,
         history: state.history,
         timeBudgetHours: state.timeBudgetHours,
+        previewProgress: state.previewProgress,
         ui: getWorkspaceUiState(),
       });
       downloadJson(`watchlater_workspace_${getDateStamp()}.json`, payload);
@@ -4434,6 +4905,7 @@
           importComparison: normalizeImportComparison(workspace.importComparison),
           history: normalizeHistory(workspace.history),
           timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
+          previewProgress: normalizePreviewProgress(workspace.previewProgress),
           ui: normalizeWorkspaceUi(workspace.ui),
         },
       };
@@ -4465,6 +4937,7 @@
         importComparison: normalizeImportComparison(workspace.importComparison),
         history: normalizeHistory(workspace.history),
         timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
+        previewProgress: normalizePreviewProgress(workspace.previewProgress),
         ui: normalizeWorkspaceUi(workspace.ui),
       };
     }
@@ -4510,6 +4983,7 @@
         state.lastImport = incoming.lastImport;
         state.importComparison = incoming.importComparison;
         state.timeBudgetHours = incoming.timeBudgetHours;
+        state.previewProgress = incoming.previewProgress;
         state.decisions = incoming.decisions;
         state.videos = dedupeVideos(incoming.videos)
           .map(video => enrichVideo(video))
@@ -4527,6 +5001,7 @@
         saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
         saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
         localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+        flushPreviewProgress();
         saveHistory();
         applyWorkspaceUi(incoming.ui);
         populateChannels();
@@ -5145,6 +5620,20 @@
       }
 
       if (isTyping || !state.currentId) return;
+
+      if (els.quickPreviewDialog.open && state.previewVideoId) {
+        if (["k", "m", "d"].includes(event.key)) {
+          const status = { k: "keep", m: "maybe", d: "delete" }[event.key];
+          setPreviewStatusAndAdvance(status);
+        } else if (event.key === "j" || event.key === "ArrowDown") {
+          event.preventDefault();
+          moveQuickPreview(1);
+        } else if (event.key === "J" || event.key === "ArrowUp") {
+          event.preventDefault();
+          moveQuickPreview(-1);
+        }
+        return;
+      }
 
       if (event.key === "k") {
         setStatusAndAdvance(state.currentId, "keep");
