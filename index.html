@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Watch Later Triage</title>
+  <link rel="icon" type="image/png" href="assets/app-icon.png">
   <style>
     :root {
       color-scheme: dark;
@@ -102,6 +103,21 @@
       background: rgba(16, 17, 20, 0.94);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(10px);
+    }
+
+    .brand {
+      display: flex;
+      gap: 11px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 10px;
+      object-fit: cover;
     }
 
     .brand h1 {
@@ -1308,8 +1324,11 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <h1>Watch Later Triage</h1>
-        <p>Import a Watch Later JSON export, mark what stays, export keep/maybe.</p>
+        <img class="brand-icon" src="assets/app-icon.png" alt="">
+        <div>
+          <h1>Watch Later Triage</h1>
+          <p>Import a Watch Later JSON export, mark what stays, export keep/maybe.</p>
+        </div>
       </div>
       <div class="top-actions">
         <label class="file-button">
