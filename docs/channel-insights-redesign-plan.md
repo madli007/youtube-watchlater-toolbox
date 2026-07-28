@@ -20,11 +20,29 @@ Ohranijo se:
 - vanilla HTML/CSS/JavaScript brez obveznega frameworka ali build koraka;
 - neposredno lokalno odpiranje in GitHub Pages;
 - popolnoma statično delovanje brez backenda;
-- trenutni import/export formati in semantika `keep + maybe = protected`;
-- obstoječe odločitve, pravila, saved views, undo zgodovina in preview progress;
+- semantika `keep + maybe = protected`;
+- funkcije za odločitve, pravila, saved views, undo zgodovino in preview progress;
 - keyboard-first triage.
 
-Userscript ni treba spreminjati za Faze 1–3. Morebitna poznejša obogatitev njegovega JSON ovoja z `exportedAt` je koristna, ni pa pogoj za MVP Channel Insights.
+Trenutni lokalni podatki in odločitve so testni. Implementacija zato ne potrebuje
+migracije teh instanc in lahko pred uvedbo končnih shem začne s praznim
+`localStorage`. Produktna semantika in uporabne funkcije se ohranijo, testni
+storage pa ne sme omejevati zasnove končne aplikacije.
+
+Kanonični Watch Later izvoz userscripta naj od začetka končne aplikacije uporablja
+verzioniran ovoj:
+
+```js
+{
+  schemaVersion: 1,
+  exportedAt: "2026-07-28T12:34:56.000Z",
+  videos: []
+}
+```
+
+`exportedAt` je obvezen ISO 8601 UTC timestamp. Triage lahko zaradi priročnega
+uvoza že ustvarjenih datotek še naprej sprejme tudi golo polje, vendar to ni
+migracijska zahteva in golo polje ni več kanonični output userscripta.
 
 ## 1. Current-state findings
 
@@ -544,7 +562,7 @@ Trenutni `uploaded` je relativno in približno besedilo. Za svež import je mož
 1. `sourceExportedAt`, če je prisoten v objektni obliki importa;
 2. sicer `importedAt`.
 
-Nato se shrani ali izpelje `approxPublishedAt = anchor - parsedAge`. Tako se “pred 5 meseci” po dveh mesecih ne interpretira še vedno kot samo pet mesecev star video. Ker trenutni userscript izvozi golo polje brez `exportedAt`, je ta vrednost še vedno približek in UI jo mora tako označiti.
+Nato se shrani ali izpelje `approxPublishedAt = anchor - parsedAge`. Tako se “pred 5 meseci” po dveh mesecih ne interpretira še vedno kot samo pet mesecev star video. Kanonični userscript izvoz zato vedno vsebuje `exportedAt`; fallback na `importedAt` je namenjen le ročnim ali starim golim poljem. Vrednost je kljub sidru še vedno približna zaradi relativnega izvornega besedila in jo mora UI tako označiti.
 
 ### 6.3 Channel aggregate
 
@@ -622,10 +640,14 @@ Nato se shrani ali izpelje `approxPublishedAt = anchor - parsedAge`. Tako se “
 
 - reviewed coverage;
 - Maybe rate med odločenimi kot indikator neodločnosti, ne napake;
-- stale decisions, npr. `updatedAt` starejši od določenega praga;
+- stale decisions, kjer je `updatedAt` starejši od uporabniško nastavljivega praga;
 - explicit delete vs implicit delete-candidate (`unreviewed`).
 
 Aplikacija ne ve, ali je bila odločitev dobra, zato naj tega ne trdi.
+Privzeti stale prag je 180 dni. Nastavitev sprejme pozitivno število dni in
+možnost `Off`; UI vedno pokaže uporabljeni prag ter count in delež stale
+odločitev. Stale pomeni samo “primerno za ponovni pregled”, ne “napačna
+odločitev”.
 
 ### 6.6 Metrike, ki zahtevajo dodatno zgodovino
 
@@ -639,7 +661,7 @@ Aplikacija ne ve, ali je bila odločitev dobra, zato naj tega ne trdi.
 
 ### 6.7 Metrike, ki zahtevajo metadata enrichment
 
-Naslednje niso del lokalnega MVP-ja:
+Naslednjih metrik lokalna aplikacija brez dodatnega enrichmenta ne more zanesljivo izpeljati:
 
 - točen `publishedAt`;
 - točen channel ID, kadar `channelUrl` manjka;
@@ -835,24 +857,26 @@ Pravila:
 | Reupload iste epizode | lahko je hkrati duplicate in series član; UI pokaže primary type in secondary flag |
 | Spremenjen naslov po importu | override je vezan na `videoId`; parser se ponovno izvede, manual odločitev ostane |
 
-## 8. Migracija obstoječih podatkov in localStorage
+## 8. Končne podatkovne sheme in localStorage
 
-### 8.1 Pravilo migracije
+### 8.1 Pravilo čistega začetka
 
-Obstoječi ključi ostanejo nespremenjeni. Dodata se največ:
+Ker so trenutne odločitve in lokalni podatki testni, migracija njihovih instanc ni
+zahtevana. Pred uvedbo končnih shem se lahko lokalni storage enkrat počisti.
+Končne sheme morajo biti od prve izdaje verzionirane in testirane.
+
+Poleg smiselno ohranjenih funkcijskih ključev se uvedejo:
 
 ```text
 watchlater-triage-import-history-v1
 watchlater-triage-grouping-overrides-v1
+watchlater-triage-insights-settings-v1
 ```
 
-Prvi zagon po nadgradnji:
-
-- ne prepisuje odločitev;
-- obstoječi baseline po možnosti pretvori v prvi “legacy baseline” snapshot;
-- trenutni import ustvari naslednji snapshot;
-- če baseline nima `uploaded`, zgodovinski age podatki za ta prvi snapshot ostanejo `unknown`;
-- brez obstoječega baselinea začne zgodovino ob naslednjem importu.
+`watchlater-triage-insights-settings-v1` vsebuje najmanj
+`decisionStaleDays: 180 | positive integer | null`, kjer `null` pomeni `Off`.
+Import history se začne s prvim importom v končno aplikacijo; migracija testnega
+baselinea ni potrebna.
 
 ### 8.2 Kompaktna import history shema
 
@@ -1088,8 +1112,8 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - **Cilj:** zmanjšati višino vrstice in ohraniti vse informacije/akcije.
 - **Prizadeto:** `app.css`, `ui/video-list.js`, `ui/dialogs.js` za overflow/preview/editor povezave.
 - **Podatki:** brez sprememb.
-- **UI:** K/M/D segmented controls, Preview, overflow; Reset/Tags/Open v overflowu; tags `+N`.
-- **Testi:** DOM test za zahtevana polja in action labels; active status; overflow keyboard handling.
+- **UI:** K/M/D segmented controls, Preview kot ikona z dostopnim imenom in tooltipom, overflow; Reset/Tags/Open v overflowu; tags `+N`.
+- **Testi:** DOM test za zahtevana polja in action labels; Preview `aria-label`; active status; overflow keyboard handling.
 - **Acceptance:** na 1080p se prikaže občutno več vrstic kot danes; nobena zahtevana informacija ni izgubljena.
 - **Tveganja:** preveč skrit Preview ali Open bi upočasnil triage; uporabniški smoke test potrdi prioritete.
 
@@ -1114,6 +1138,17 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - **Testi:** Triage ne renderira time/groups; domenske funkcije ostanejo testirane.
 - **Acceptance:** prvi video sledi takoj za compact scope/bulk vrstico.
 - **Tveganja:** funkcije ne smejo postati nedosegljive pred Fazama 2/3; zato slice pride po view shellu in placeholderjih.
+
+#### Slice 1.7 — Verzioniran Watch Later export
+
+- [ ] **Slice 1.7 zaključen**
+- **Cilj:** pred izračunom starostnih metrik uvesti kanonični userscript ovoj `{ schemaVersion, exportedAt, videos }`.
+- **Prizadeto:** `youtube-watchlater-toolbox.user.js`, import normalizacija v `app.js` oziroma izločenem domenskem modulu, `tests/userscript-reconciliation.test.cjs`.
+- **Podatki:** `schemaVersion: 1`, obvezen veljaven `exportedAt` v UTC in polje `videos`; golo polje ostane le toleriran vhod.
+- **UI:** import summary pokaže čas izvoza, kadar je na voljo; za golo polje jasno uporabi čas importa.
+- **Testi:** userscript output shape, veljaven timestamp, object/array normalizacija, neveljaven ovoj in starostni anchor.
+- **Acceptance:** nov userscript vedno izvozi verzioniran objekt; Insights lahko pri vsakem novem izvozu uporabi stabilen časovni anchor.
+- **Tveganja:** ročno urejen ali tuj JSON; validator mora napako razložiti brez delnega importa.
 
 ### Faza 2 — osnovni Channel Insights
 
@@ -1145,8 +1180,8 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - **Cilj:** glavni count/watch-time matrix.
 - **Prizadeto:** `domain/insights.js`, `ui/insights-view.js`, `app.css`, `state.js`.
 - **Podatki:** transient `insightsMeasure`, `insightsSort`, `selectedChannelKey`.
-- **UI:** semantic table, sticky headers, global/per-channel scale, paginacija/virtualizacija.
-- **Testi:** cell vrednosti, totals, sort, unknown stolpec, watch-time coverage.
+- **UI:** semantic table, sticky headers, global/per-channel scale, privzeto top 100 po backlog countu in eksplicitni `Show all`; search vedno preišče vse kanale.
+- **Testi:** cell vrednosti, totals, sort, unknown stolpec, watch-time coverage, top-100 meja, `Show all` in search čez kanale zunaj prvih 100.
 - **Acceptance:** 5.000-video fixture se odpre znotraj performance cilja; tabela je uporabna brez barv.
 - **Tveganja:** zelo velik DOM in nečitljiva barvna skala.
 
@@ -1155,9 +1190,9 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - [ ] **Slice 2.4 zaključen**
 - **Cilj:** dodati Backlog impact, Decision health, Age distribution, Oldest untouched in New since last import.
 - **Prizadeto:** `domain/insights.js`, `domain/time-budget.js`, `ui/insights-view.js`, `app.css`.
-- **Podatki:** brez persistence; persistence blok je empty state.
-- **UI:** desni panel/odzivni drawer; grafi so preprosti CSS bars/donut le, če dostopni.
-- **Testi:** izbran kanal, manjkajoč kanal po importu, status mix denominator, oldest untouched.
+- **Podatki:** `watchlater-triage-insights-settings-v1` za `decisionStaleDays`; persistence blok import zgodovine je empty state.
+- **UI:** desni panel/odzivni drawer; grafi so preprosti CSS bars/donut le, če dostopni; Decision health omogoča nastavitev stale praga ali `Off`.
+- **Testi:** izbran kanal, manjkajoč kanal po importu, status mix denominator, oldest untouched, stale prag na meji, sprememba praga in `Off`.
 - **Acceptance:** noben blok ne uporablja nedostopnih subscription/watch-history podatkov.
 - **Tveganja:** “quality” poimenovanje; uporabi proxy razlago.
 
@@ -1247,9 +1282,9 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - [ ] **Slice 4.1 zaključen**
 - **Cilj:** po uspešnem importu zapisati minimalen zgodovinski snapshot.
 - **Prizadeto:** novi `domain/import-history.js`, `domain/import-comparison.js`, `domain/workspace.js`, `storage.js`, `state.js`, import orchestration v `app.js`.
-- **Podatki:** `watchlater-triage-import-history-v1`; migracija zadnjega baselinea.
+- **Podatki:** `watchlater-triage-import-history-v1`; zgodovina se začne s prvim končnim importom.
 - **UI:** nastavitev/tekst `History: 2/6 imports`, clear history z typed confirmom.
-- **Testi:** append/dedupe/cap, baseline migration, quota failure, corrupt JSON.
+- **Testi:** append/dedupe/cap, prazen začetni history, quota failure, corrupt JSON.
 - **Acceptance:** import uspe tudi, ko history write odpove; največ 6 default snapshotov.
 - **Tveganja:** storage quota in podvojeni import iste datoteke; snapshot ID naj kombinira source metadata in dataset fingerprint.
 
@@ -1307,17 +1342,18 @@ Pred feature commiti se izvedejo vsi majhni `test/chore/refactor/docs` rezi iz
 2. `feat: group triage import and export actions`
 3. `feat: compact triage filters and video rows`
 4. `refactor: isolate active-view rendering`
-5. `feat: derive channel insight aggregates`
-6. `feat: add channel age matrix and detail`
-7. `feat: link channel insights to triage filters`
-8. `feat: move time budget workflow to insights`
-9. `feat: improve local series parsing and scoring`
-10. `feat: add series groups view and safe bulk actions`
-11. `feat: persist manual grouping overrides`
-12. `feat: retain compact import history`
-13. `feat: add backlog persistence insights`
-14. `perf: cache large triage and insight derivations`
-15. `a11y: polish navigation matrices and dialogs`
+5. `feat: version Watch Later exports with export time`
+6. `feat: derive channel insight aggregates`
+7. `feat: add channel age matrix and detail`
+8. `feat: link channel insights to triage filters`
+9. `feat: move time budget workflow to insights`
+10. `feat: improve local series parsing and scoring`
+11. `feat: add series groups view and safe bulk actions`
+12. `feat: persist manual grouping overrides`
+13. `feat: retain compact import history`
+14. `feat: add backlog persistence insights`
+15. `perf: cache large triage and insight derivations`
+16. `a11y: polish navigation matrices and dialogs`
 
 Vsak commit mora ohraniti uspešna obstoječa testa in imeti lasten majhen acceptance checklist.
 
@@ -1332,15 +1368,15 @@ Repo koda že razreši večino vprašanj:
 - **Kaj pomeni Delete candidates?** V običajnem UI toku `unreviewed + delete`; trenutna implementacija zaradi pravila “vse razen keep/maybe” vključuje tudi morebiten uvožen `archive`. To neskladje naj ostane vidno in se razreši v ločenem, testiranem product rezu.
 - **Koliko import zgodovine?** 6 snapshotov privzeto, 12 kot trd največji cap.
 - **Ali se časovni shortlist preseli?** Da, v Insights, z akcijo nazaj v Triage.
-- **Ali potrebujemo API/LLM?** Ne za MVP.
+- **Ali potrebujemo API/LLM?** Ne.
 
-Odprto za uporabniško odločitev med implementacijo, vendar ne blokira začetka:
+Uporabniške produktne odločitve so zaključene:
 
-1. Ali naj se `Preview` v dense vrstici ohrani kot tekstovni gumb ali kot ikona z labelom za screen reader?
-2. Ali naj Insights default prikaže vse kanale ali npr. top 100 z eksplicitnim “Show all”? Priporočilo: top 100 po backlog countu, search vedno preišče vse.
-3. Ali naj “Decision health” uporablja nastavljiv prag za stale decision ali se stale metrika v MVP izpusti? Priporočilo: izpusti do Faze 4, da ne uvedemo arbitrarnega praga.
-4. Ali naj userscript pozneje preide iz golega polja na objekt `{ exportedAt, videos }`? Priporočilo: da kot backward-compatible enhancement, vendar Channel Insights ne sme biti od tega odvisen.
+1. `Preview` je ikona z vidnim tooltipom in dostopnim imenom za screen reader.
+2. Insights privzeto prikaže top 100 kanalov po backlog countu; `Show all` razširi seznam, search pa vedno preišče vse kanale.
+3. `Decision health` vključuje nastavljiv stale prag, privzeto 180 dni, z možnostjo `Off`.
+4. Kanonični userscript izvoz je verzioniran objekt `{ schemaVersion, exportedAt, videos }`; aplikacija ga uporablja kot zanesljivo časovno sidro relativnih starosti.
 
 ## Definition of done celotnega redesign-a
 
-Redesign je končan, ko je Faza 0 stabilno zaključena, glavni Triage ponovno hiter in namenski, Channel Insights transparentno pokaže samo izpeljive podatke, Series & Groups omogoča varno množično delo z razložljivim confidenceom, vsi obstoječi podatki in exporti ostanejo združljivi, ter aplikacija še naprej deluje kot popolnoma statična stran brez API-ja ali backenda.
+Redesign je končan, ko je Faza 0 stabilno zaključena, glavni Triage ponovno hiter in namenski, Channel Insights transparentno pokaže samo izpeljive podatke, Series & Groups omogoča varno množično delo z razložljivim confidenceom, končne podatkovne in izvozne sheme so verzionirane in testirane, ter aplikacija še naprej deluje kot popolnoma statična stran brez API-ja ali backenda.
