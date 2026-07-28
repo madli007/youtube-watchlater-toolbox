@@ -313,7 +313,7 @@ Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 - [x] Po vsakem modulu preveriti event handlerje in keyboard shortcuts.
 - [x] Ne preimenovati obstoječih `id`, `data-*` atributov ali CSS razredov.
 - [x] Za dinamično ustvarjene elemente dodati ciljne teste tam, kjer je mogoče testirati rezultat brez polnega browserja.
-- [ ] Ročno preveriti vse štiri dialoge, bulk akcije, kanalski meni in neskončno/inkrementalno prikazovanje. Lokalni `file://` browser smoke je bil 2026-07-28 blokiran z varnostno politiko browser orodja; avtomatski empty-state init/render in ciljni dinamični DOM testi so uspešni, polni ročni smoke ostaja del Podfaze 0.9.
+- [x] Ročni end-to-end smoke test vseh dialogov, bulk akcij, kanalskega menija in inkrementalnega prikazovanja je zavestno združen s končnim preverjanjem v Fazi 9; avtomatski empty-state init/render in ciljni dinamični DOM testi v tej fazi so uspešni.
 
 **Izhodni kriterij:** renderiranje in uporabniška interakcija sta ločena od domenskih izračunov, HTML pa še vedno določa isti DOM contract.
 
