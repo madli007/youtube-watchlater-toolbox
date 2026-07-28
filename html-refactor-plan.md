@@ -222,14 +222,15 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 
 **Namen:** odstraniti približno 1.279 vrstic CSS iz HTML-ja z minimalnim tveganjem za cascade.
 
-- [ ] Ustvariti `docs/assets/css/app.css`.
-- [ ] Vsebino trenutnega `<style>` prenesti nespremenjeno in v enakem vrstnem redu.
-- [ ] `<style>` nadomestiti z relativno povezavo `./assets/css/app.css`.
-- [ ] Ne preimenovati razredov, ne združevati selektorjev in ne spreminjati media queries.
-- [ ] Dodati statični test, da HTML nima več aplikacijskega inline `<style>` in da CSS datoteka obstaja.
-- [ ] Primerjati desktop, 980 px in 680 px responsive postavitev.
-- [ ] Preveriti dialoge, video vrstice, status barve, sticky/sidebar obnašanje in focus stanja.
-- [ ] Pognati oba testa in preveriti GitHub Pages asset URL.
+- [x] Ustvariti `docs/assets/css/app.css`.
+- [x] Vsebino trenutnega `<style>` prenesti nespremenjeno in v enakem vrstnem redu.
+- [x] `<style>` nadomestiti z relativno povezavo `./assets/css/app.css`.
+- [x] Ne preimenovati razredov, ne združevati selektorjev in ne spreminjati media queries.
+- [x] Dodati statični test, da HTML nima več aplikacijskega inline `<style>` in da CSS datoteka obstaja.
+- [x] Primerjati desktop, 980 px in 680 px responsive postavitev.
+- [x] Preveriti dialoge, video vrstice, status barve, sticky/sidebar obnašanje in focus stanja.
+- [x] Pognati oba testa.
+- [ ] Po deploymentu preveriti GitHub Pages asset URL.
 
 **Izhodni kriterij:** HTML vsebuje samo `<link>` do enega CSS asseta, vizualni rezultat pa je nespremenjen.
 

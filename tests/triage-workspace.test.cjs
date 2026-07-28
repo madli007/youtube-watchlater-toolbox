@@ -3,11 +3,24 @@ const path = require("node:path");
 const vm = require("node:vm");
 const {
   assertLinkedAssetsExist,
+  getLinkedAssets,
   loadScriptSources,
   loadTriageApp,
 } = require("./helpers/load-triage-app.cjs");
 
-const { html, source } = loadTriageApp();
+const { entryPath, html, source } = loadTriageApp();
+assert.doesNotMatch(
+  html,
+  /<style\b/i,
+  "production HTML must not contain an inline application stylesheet",
+);
+assert.deepEqual(
+  getLinkedAssets(html, entryPath)
+    .filter(asset => asset.type === "CSS")
+    .map(asset => asset.reference),
+  ["./assets/css/app.css"],
+  "production HTML must link the single application stylesheet",
+);
 assert.match(html, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
 
 const fixtureEntryPath = path.join(__dirname, "fixtures", "loader-entry.html");
