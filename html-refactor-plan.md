@@ -204,11 +204,11 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 - [x] Posodobiti README navodilo za lokalno odpiranje.
 - [x] Pognati teste in lokalno odpreti `docs/index.html`.
 - [x] Commitati prehodno stanje, v katerem obstajata oba identična entrypointa.
-- [ ] V GitHubu spremeniti Pages source na `main` + `/docs`.
-- [ ] Počakati na uspešen Pages deployment in preveriti produkcijski URL, import ter refresh.
-- [ ] Šele po uspešni objavi odstraniti korenski `index.html`.
-- [ ] Ponovno pognati teste in preveriti, da repozitorij nima dveh različic aplikacije.
-- [ ] Statično preveriti, da vsi lokalni asseti, vključno z `assets/app-icon.png`, obstajajo znotraj objavljivega `docs/` drevesa.
+- [x] V GitHubu spremeniti Pages source na `main` + `/docs`.
+- [x] Počakati na uspešen Pages deployment in preveriti produkcijski URL, import ter refresh.
+- [x] Šele po uspešni objavi odstraniti korenski `index.html`.
+- [x] Ponovno pognati teste in preveriti, da repozitorij nima dveh različic aplikacije.
+- [x] Statično preveriti, da vsi lokalni asseti, vključno z `assets/app-icon.png`, obstajajo znotraj objavljivega `docs/` drevesa.
 
 **Zakaj prehodna kopija:** trenutna Pages nastavitev je po README `main` + `/(root)`. Če bi korenski `index.html` izginil pred spremembo nastavitve, bi lahko nastalo kratko obdobje z nedelujočo stranjo.
 

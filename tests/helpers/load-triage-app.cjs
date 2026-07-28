@@ -29,8 +29,9 @@ function getLinkedAssets(html, entryPath) {
     const attributes = match[1];
     const rel = getAttribute(attributes, "rel").toLowerCase().split(/\s+/);
     const href = getAttribute(attributes, "href");
-    if (rel.includes("stylesheet") && isLocalAsset(href)) {
-      assets.push({ type: "CSS", reference: href, path: resolveLocalAsset(entryPath, href) });
+    if (isLocalAsset(href)) {
+      const type = rel.includes("stylesheet") ? "CSS" : "linked";
+      assets.push({ type, reference: href, path: resolveLocalAsset(entryPath, href) });
     }
   }
 
@@ -38,6 +39,13 @@ function getLinkedAssets(html, entryPath) {
     const src = getAttribute(match[1], "src");
     if (isLocalAsset(src)) {
       assets.push({ type: "JavaScript", reference: src, path: resolveLocalAsset(entryPath, src) });
+    }
+  }
+
+  for (const match of html.matchAll(/<(?:img|source|video|audio)\b([^>]*)>/gi)) {
+    const src = getAttribute(match[1], "src");
+    if (isLocalAsset(src)) {
+      assets.push({ type: "media", reference: src, path: resolveLocalAsset(entryPath, src) });
     }
   }
 

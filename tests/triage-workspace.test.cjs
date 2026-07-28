@@ -34,6 +34,13 @@ assert.throws(
   ),
   /Missing JavaScript asset.*missing-script\.js/,
 );
+assert.throws(
+  () => assertLinkedAssetsExist(
+    '<img src="./missing-image.png" alt="">',
+    fixtureEntryPath,
+  ),
+  /Missing media asset.*missing-image\.png/,
+);
 
 const elementStub = {
   addEventListener() {},
