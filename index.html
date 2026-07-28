@@ -1926,7 +1926,52 @@
       toast: document.getElementById("toast"),
     };
 
-    init();
+    if (globalThis.__WATCHLATER_TEST__) {
+      globalThis.WatchLaterTestApi = {
+        buildWorkspacePayload,
+        parseWorkspacePayload,
+        createHistoryEntry,
+        applyHistoryEntry,
+        normalizeHistory,
+        compareVideoDatasets,
+        createDatasetBaseline,
+        normalizeImportComparison,
+        normalizeUserRules,
+        ruleMatchesVideo,
+        normalizeChannelRules,
+        normalizeChannelRule,
+        getChannelRuleDecision,
+        getChannelRuleImpact,
+        getCombinedChannelRuleImpact,
+        getProtectedChannelMatches,
+        channelMatchesQuery,
+        filterChannelOptions,
+        getChannelOptionPage,
+        updateDecisionDetails,
+        getPortableDecisions,
+        normalizeFilterState,
+        normalizeSavedViews,
+        parseApproximateAgeDays,
+        parseApproximateViewCount,
+        videoMatchesFilters,
+        normalizeTimeBudgetHours,
+        calculateDurationStats,
+        getSortedDurationGroups,
+        buildTimeBudgetShortlist,
+        formatDuration,
+        normalizeGroupingTitle,
+        normalizeDuplicateTitle,
+        getSeriesSignature,
+        calculateTitleSimilarity,
+        buildVideoGroups,
+        chooseGroupWinner,
+        normalizePreviewProgress,
+        buildYouTubeEmbedUrl,
+        formatPreviewTime,
+      };
+    } else {
+      init();
+    }
 
     function init() {
       els.timeBudgetHours.value = state.timeBudgetHours;

@@ -1,21 +1,38 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const {
+  assertLinkedAssetsExist,
+  loadScriptSources,
+  loadTriageApp,
+} = require("./helpers/load-triage-app.cjs");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const idMatches = Array.from(html.matchAll(/\bid="([^"]+)"/g), match => match[1]);
-const declaredIds = new Set(idMatches);
-assert.equal(declaredIds.size, idMatches.length, "DOM IDs must be unique");
-const referencedIds = Array.from(html.matchAll(/document\.getElementById\("([^"]+)"\)/g), match => match[1]);
-assert.deepEqual(referencedIds.filter(id => !declaredIds.has(id)), [], "all referenced DOM IDs must exist");
+const { html, source } = loadTriageApp();
 assert.match(html, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
-const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-assert.ok(scriptMatch, "triage script not found");
 
-const source = scriptMatch[1].replace(
-  "    init();",
-  "    globalThis.testApi = { buildWorkspacePayload, parseWorkspacePayload, createHistoryEntry, applyHistoryEntry, normalizeHistory, compareVideoDatasets, createDatasetBaseline, normalizeImportComparison, normalizeUserRules, ruleMatchesVideo, normalizeChannelRules, normalizeChannelRule, getChannelRuleDecision, getChannelRuleImpact, getCombinedChannelRuleImpact, getProtectedChannelMatches, channelMatchesQuery, filterChannelOptions, getChannelOptionPage, updateDecisionDetails, getPortableDecisions, normalizeFilterState, normalizeSavedViews, parseApproximateAgeDays, parseApproximateViewCount, videoMatchesFilters, normalizeTimeBudgetHours, calculateDurationStats, getSortedDurationGroups, buildTimeBudgetShortlist, formatDuration, normalizeGroupingTitle, normalizeDuplicateTitle, getSeriesSignature, calculateTitleSimilarity, buildVideoGroups, chooseGroupWinner, normalizePreviewProgress, buildYouTubeEmbedUrl, formatPreviewTime };",
+const fixtureEntryPath = path.join(__dirname, "fixtures", "loader-entry.html");
+const externalFixtureHtml = [
+  '<link rel="stylesheet" href="./loader-style.css">',
+  '<script src="./loader-script.js"></script>',
+].join("\n");
+assertLinkedAssetsExist(externalFixtureHtml, fixtureEntryPath);
+const externalFixtureScripts = loadScriptSources(externalFixtureHtml, fixtureEntryPath);
+assert.equal(externalFixtureScripts.length, 1);
+assert.equal(externalFixtureScripts[0].kind, "external");
+assert.match(externalFixtureScripts[0].source, /loaderFixture/);
+assert.throws(
+  () => assertLinkedAssetsExist(
+    '<link rel="stylesheet" href="./missing-style.css">',
+    fixtureEntryPath,
+  ),
+  /Missing CSS asset.*missing-style\.css/,
+);
+assert.throws(
+  () => assertLinkedAssetsExist(
+    '<script src="./missing-script.js"></script>',
+    fixtureEntryPath,
+  ),
+  /Missing JavaScript asset.*missing-script\.js/,
 );
 
 const elementStub = {
@@ -27,6 +44,7 @@ const elementStub = {
   value: "",
 };
 const sandbox = {
+  __WATCHLATER_TEST__: true,
   document: {
     getElementById() {
       return { ...elementStub, classList: { ...elementStub.classList } };
@@ -42,6 +60,8 @@ const sandbox = {
 
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
+assert.ok(sandbox.WatchLaterTestApi, "triage test API not exposed");
+sandbox.testApi = sandbox.WatchLaterTestApi;
 
 const exportedAt = "2026-07-19T12:00:00.000Z";
 const workspace = sandbox.testApi.buildWorkspacePayload({

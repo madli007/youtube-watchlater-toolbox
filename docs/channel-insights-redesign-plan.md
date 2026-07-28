@@ -1058,7 +1058,7 @@ Checkbox Faze se označi šele, ko so končani vsi njeni podrejeni checkboxi in 
 ### Faza 0 — strukturni refaktor
 
 - [x] **Podfaza 0.0 — baseline:** zamrznjeni scope, zeleni testi, neosebni fixture, workspace backup in ročni acceptance checklist.
-- [ ] **Podfaza 0.1 — testni rob:** testi niso več vezani na korenski inline `index.html` ali krhko zamenjavo `init()`.
+- [x] **Podfaza 0.1 — testni rob:** testi niso več vezani na korenski inline `index.html` ali krhko zamenjavo `init()`.
 - [ ] **Podfaza 0.2 — Pages source:** aplikacija, ikona in obstoječi načrt so varno v `docs/`; Pages uporablja `main` + `/docs`.
 - [ ] **Podfaza 0.3 — CSS:** obstoječi CSS je mehansko prenesen v `docs/assets/css/app.css` in vizualno nespremenjen.
 - [ ] **Podfaza 0.4 — JavaScript:** obstoječi inline skript je mehansko prenesen v `docs/assets/js/app.js`.

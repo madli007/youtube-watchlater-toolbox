@@ -176,14 +176,14 @@ Prehod na ES module in lokalni strežnik se lahko oceni kot ločen prihodnji pro
 
 **Namen:** odstraniti trenutno največjo tehnično oviro pred premikom in ekstrakcijo skripta.
 
-- [ ] Dodati en testni helper, ki pozna trenutno vstopno HTML datoteko in iz nje pridobi povezane skripte.
-- [ ] Helper naj začasno podpira inline skript in pozneje zunanje skripte, da sprememba ni big-bang.
-- [ ] Prestaviti logiko za unikatne DOM `id`-je in preverjanje `getElementById` referenc v ta helper.
-- [ ] Odstraniti neposredno odvisnost testa od `path.join(__dirname, "..", "index.html")`.
-- [ ] Nadomestiti krhko string zamenjavo `init()` z eksplicitnim testnim bootstrap guardom ali javnim testnim API robom.
-- [ ] Ohraniti vse obstoječe assertions brez spreminjanja pričakovanega obnašanja.
-- [ ] Dodati test, ki jasno odpove, če HTML kaže na manjkajoč CSS ali JavaScript asset.
-- [ ] Pognati oba obstoječa testa.
+- [x] Dodati en testni helper, ki pozna trenutno vstopno HTML datoteko in iz nje pridobi povezane skripte.
+- [x] Helper naj začasno podpira inline skript in pozneje zunanje skripte, da sprememba ni big-bang.
+- [x] Prestaviti logiko za unikatne DOM `id`-je in preverjanje `getElementById` referenc v ta helper.
+- [x] Odstraniti neposredno odvisnost testa od `path.join(__dirname, "..", "index.html")`.
+- [x] Nadomestiti krhko string zamenjavo `init()` z eksplicitnim testnim bootstrap guardom ali javnim testnim API robom.
+- [x] Ohraniti vse obstoječe assertions brez spreminjanja pričakovanega obnašanja.
+- [x] Dodati test, ki jasno odpove, če HTML kaže na manjkajoč CSS ali JavaScript asset.
+- [x] Pognati oba obstoječa testa.
 
 **Izhodni kriterij:** test ne predpostavlja več, da je aplikacijski JavaScript inline ali da je `index.html` nujno v korenu.
 
