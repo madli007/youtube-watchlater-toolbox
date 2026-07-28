@@ -17,14 +17,14 @@
         .replace(/\s+/g, " ")
         .trim();
     }
-    
+
     function normalizeDuplicateTitle(value) {
       return normalizeGroupingTitle(value)
         .replace(/\b(?:official|music|lyric|lyrics|video|audio|hd|hq|uhd|4k|8k|1080p|720p|reupload|reuploaded|remaster|remastered)\b/gu, " ")
         .replace(/\s+/g, " ")
         .trim();
     }
-    
+
     function getSeriesSignature(video) {
       const title = normalizeGroupingTitle(video?.title);
       if (!title) return null;
@@ -35,7 +35,7 @@
         { regex: /\b(?:episode|ep|part|pt|chapter)\s*#?\s*0*(\d{1,4})\b/u, episode: 1 },
         { regex: /(?:^|\s)#\s*0*(\d{1,4})\b/u, episode: 1 },
       ];
-    
+
       let match = null;
       let pattern = null;
       for (const candidate of patterns) {
@@ -45,7 +45,7 @@
           break;
         }
       }
-    
+
       if (!match) {
         const trailing = title.match(/\b0*(\d{1,3})\s*$/u);
         const number = trailing ? Number(trailing[1]) : null;
@@ -53,7 +53,7 @@
         match = trailing;
         pattern = { regex: /\b0*(\d{1,3})\s*$/u, episode: 1 };
       }
-    
+
       const base = title.replace(pattern.regex, " ").replace(/\s+/g, " ").trim();
       const meaningful = getSimilarityTokens(base);
       if (!base || !meaningful.length || base.length < 3) return null;
@@ -65,13 +65,13 @@
         episode: pattern.episode ? Number(match[pattern.episode]) : 0,
       };
     }
-    
+
     function getSimilarityTokens(value) {
       return Array.from(new Set(normalizeDuplicateTitle(value)
         .split(" ")
         .filter(token => token.length >= 2 && !/^\d+$/u.test(token) && !GROUPING_STOP_WORDS.has(token))));
     }
-    
+
     function calculateTitleSimilarity(left, right) {
       const leftTokens = Array.isArray(left) ? left : getSimilarityTokens(left);
       const rightTokens = Array.isArray(right) ? right : getSimilarityTokens(right);
@@ -84,7 +84,7 @@
       const balance = Math.min(leftTokens.length, rightTokens.length) / Math.max(leftTokens.length, rightTokens.length);
       return Math.max(dice, containment * (0.75 + 0.25 * balance));
     }
-    
+
     function createGroupId(type, members) {
       const source = `${type}:${members.map(video => video.videoId).sort().join("|")}`;
       let hash = 2166136261;
@@ -94,26 +94,26 @@
       }
       return `${type}-${(hash >>> 0).toString(36)}`;
     }
-    
+
     function getRepresentativeTitle(members) {
       return [...members]
         .map(video => String(video.title || "").trim())
         .filter(Boolean)
         .sort((a, b) => a.length - b.length || a.localeCompare(b))[0] || "Untitled group";
     }
-    
+
     function formatGroupLabel(value) {
       const text = String(value || "").trim();
       return text ? text[0].toUpperCase() + text.slice(1) : "Untitled group";
     }
-    
+
     function getCommonTitleWords(members) {
       const tokenLists = members.map(video => getSimilarityTokens(video.title));
       if (!tokenLists.length) return "";
       const common = tokenLists[0].filter(token => tokenLists.every(tokens => tokens.includes(token)));
       return common.slice(0, 8).join(" ");
     }
-    
+
     function buildSeriesGroups(videos) {
       const buckets = new Map();
       for (const video of videos) {
@@ -138,7 +138,7 @@
       }
       return groups;
     }
-    
+
     function buildDuplicateGroups(videos) {
       const buckets = new Map();
       for (const video of videos) {
@@ -162,7 +162,7 @@
           };
         });
     }
-    
+
     function buildSimilarTitleGroups(videos) {
       const channelBuckets = new Map();
       for (const video of videos) {
@@ -172,7 +172,7 @@
         if (!channelBuckets.has(channel)) channelBuckets.set(channel, []);
         channelBuckets.get(channel).push({ video, tokens });
       }
-    
+
       const groups = [];
       for (const items of channelBuckets.values()) {
         if (items.length < 2) continue;
@@ -227,7 +227,7 @@
       }
       return groups;
     }
-    
+
     function buildVideoGroups(videos) {
       const uniqueVideos = dedupeVideos(Array.isArray(videos) ? videos : []).filter(video => video?.videoId);
       const candidates = [
@@ -248,7 +248,7 @@
           || b.members.length - a.members.length
           || a.label.localeCompare(b.label));
     }
-    
+
     function chooseGroupWinner(group, strategy) {
       const members = Array.isArray(group?.members) ? group.members.filter(video => video?.videoId) : [];
       if (!members.length) return null;

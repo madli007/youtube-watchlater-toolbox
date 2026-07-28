@@ -18,7 +18,7 @@
       const hasNegative = normalized.negative.some(keyword => haystack.includes(keyword.toLowerCase()));
       return hasPositive && !hasNegative;
     }
-    
+
     function updateDecisionDetails(decisions, videoId, tags, note, updatedAt = new Date().toISOString()) {
       const current = normalizeDecision(decisions[videoId] || {});
       const next = {
@@ -31,7 +31,7 @@
       else decisions[videoId] = next;
       return next;
     }
-    
+
     function normalizeUserRules(rules) {
       if (!rules || typeof rules !== "object" || Array.isArray(rules)) return {};
       const normalized = {};
@@ -44,7 +44,7 @@
       }
       return normalized;
     }
-    
+
     function normalizeRule(rule) {
       if (Array.isArray(rule)) {
         return { positive: normalizeTags(rule), negative: [], channel: "" };
@@ -56,7 +56,7 @@
         channel: typeof source.channel === "string" ? source.channel.trim() : "",
       };
     }
-    
+
     function normalizeChannelRules(rules) {
       const source = Array.isArray(rules)
         ? rules
@@ -68,7 +68,7 @@
       });
       return Array.from(byChannel.values()).sort((a, b) => a.channel.localeCompare(b.channel));
     }
-    
+
     function normalizeChannelRule(rule, index = 0) {
       if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
       const channel = String(rule.channel || "").trim();
@@ -84,7 +84,7 @@
         protected: Boolean(rule.protected || mode === "always-keep"),
       };
     }
-    
+
     function getChannelRuleDecision(decision, rule, updatedAt = new Date().toISOString()) {
       const current = normalizeDecision(decision || {});
       const normalizedRule = normalizeChannelRule(rule);
@@ -100,7 +100,7 @@
       if (status === current.status && tags === current.tags) return current;
       return { ...current, status, tags, updatedAt };
     }
-    
+
     function getChannelRuleImpact(videos, decisions, rule) {
       const normalizedRule = normalizeChannelRule(rule);
       const impact = {
@@ -124,7 +124,7 @@
       }
       return impact;
     }
-    
+
     function getCombinedChannelRuleImpact(videos, decisions, rules) {
       const combined = {
         matchCount: 0,
@@ -143,7 +143,7 @@
       combined.affectedIds = Array.from(affectedIds);
       return combined;
     }
-    
+
     function getProtectedChannelMatches(videos, videoIds, rules) {
       const protectedChannels = new Set(normalizeChannelRules(rules)
         .filter(rule => rule.protected)
@@ -154,24 +154,24 @@
         .filter(video => scopedIds.has(video.videoId) && protectedChannels.has(String(video.channel || "").trim().toLowerCase()))
         .map(video => ({ videoId: video.videoId, channel: String(video.channel || "").trim() }));
     }
-    
+
     function splitInputValues(value) {
       return normalizeTags(String(value || "").split(/[,\n]+/));
     }
-    
+
     function parseDecisionsPayload(payload) {
       if (!payload || typeof payload !== "object") {
         throw new Error("Expected a decisions export JSON object.");
       }
-    
+
       const decisions = payload.decisions || payload;
       if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) {
         throw new Error("Expected a decisions map keyed by videoId.");
       }
-    
+
       return getPortableDecisions(decisions);
     }
-    
+
     function previewDecisionsMerge(incoming, current) {
       const merged = { ...current };
       const stats = {
@@ -181,19 +181,19 @@
         conflictCount: 0,
         merged,
       };
-    
+
       for (const [videoId, incomingDecision] of Object.entries(incoming)) {
         const currentDecision = current[videoId] ? normalizeDecision(current[videoId]) : null;
-    
+
         if (!currentDecision) {
           merged[videoId] = incomingDecision;
           stats.newCount++;
           continue;
         }
-    
+
         const differs = !areDecisionsEqual(incomingDecision, currentDecision);
         if (differs) stats.conflictCount++;
-    
+
         const incomingTime = getDecisionTime(incomingDecision);
         const currentTime = getDecisionTime(currentDecision);
         if (incomingTime > currentTime) {
@@ -204,10 +204,10 @@
           stats.skippedCount++;
         }
       }
-    
+
       return stats;
     }
-    
+
     function getPortableDecisions(decisions) {
       const portable = {};
       for (const [videoId, decision] of Object.entries(decisions || {})) {
@@ -218,7 +218,7 @@
       }
       return portable;
     }
-    
+
     function normalizeDecision(decision) {
       const validStatuses = new Set(["keep", "maybe", "delete", "archive", "unreviewed"]);
       const status = validStatuses.has(decision.status) ? decision.status : "unreviewed";
@@ -229,23 +229,23 @@
         updatedAt: typeof decision.updatedAt === "string" ? decision.updatedAt : "",
       };
     }
-    
+
     function normalizeTags(tags) {
       if (!Array.isArray(tags)) return [];
       return Array.from(new Set(tags
         .map(tag => String(tag || "").trim())
         .filter(Boolean)));
     }
-    
+
     function areDecisionsEqual(a, b) {
       return JSON.stringify(normalizeDecision(a)) === JSON.stringify(normalizeDecision(b));
     }
-    
+
     function getDecisionTime(decision) {
       const time = Date.parse(decision.updatedAt || "");
       return Number.isFinite(time) ? time : 0;
     }
-    
+
     function createHistoryEntry(description, action, beforeDecisions, createdAt = new Date().toISOString(), id = "") {
       const normalizedDecisions = normalizeBeforeDecisions(beforeDecisions);
       return {
@@ -257,12 +257,12 @@
         beforeDecisions: normalizedDecisions,
       };
     }
-    
+
     function createSnapshotId() {
       if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
       return `snapshot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
-    
+
     function normalizeBeforeDecisions(decisions) {
       const normalized = {};
       if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) return normalized;
@@ -272,7 +272,7 @@
       }
       return normalized;
     }
-    
+
     function normalizeHistory(history) {
       if (!Array.isArray(history)) return [];
       return history
@@ -287,7 +287,7 @@
         .filter(entry => Object.keys(entry.beforeDecisions).length)
         .slice(0, MAX_HISTORY_ENTRIES);
     }
-    
+
     function mergeHistoryEntries(history) {
       const seen = new Set();
       const merged = [];
@@ -299,7 +299,7 @@
       }
       return merged;
     }
-    
+
     function applyHistoryEntry(decisions, entry) {
       const restored = { ...getPortableDecisions(decisions) };
       for (const [videoId, previousDecision] of Object.entries(entry.beforeDecisions || {})) {

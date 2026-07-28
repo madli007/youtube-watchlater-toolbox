@@ -11,11 +11,11 @@
       if (!Number.isFinite(hours) || hours <= 0) return 2;
       return Math.min(168, Math.max(0.25, Math.round(hours * 4) / 4));
     }
-    
+
     function getMappedDecision(decisions, videoId) {
       return normalizeDecision(decisions?.[videoId] || {});
     }
-    
+
     function calculateDurationStats(videos, decisions) {
       const summary = {
         totalCount: 0,
@@ -29,7 +29,7 @@
         byChannel: {},
         byTag: {},
       };
-    
+
       for (const video of Array.isArray(videos) ? videos : []) {
         if (!video?.videoId) continue;
         summary.totalCount++;
@@ -41,7 +41,7 @@
           summary.unknownCount++;
           continue;
         }
-    
+
         summary.knownCount++;
         summary.totalSeconds += seconds;
         if (status !== "unreviewed") summary.decidedSeconds += seconds;
@@ -54,22 +54,22 @@
         ]));
         tags.forEach(tag => addDurationGroup(summary.byTag, tag, seconds));
       }
-    
+
       return summary;
     }
-    
+
     function addDurationGroup(groups, name, seconds) {
       if (!groups[name]) groups[name] = { count: 0, seconds: 0 };
       groups[name].count++;
       groups[name].seconds += seconds;
     }
-    
+
     function getSortedDurationGroups(groups) {
       return Object.entries(groups || {})
         .map(([name, value]) => ({ name, count: value.count, seconds: value.seconds }))
         .sort((a, b) => b.seconds - a.seconds || b.count - a.count || a.name.localeCompare(b.name));
     }
-    
+
     function buildTimeBudgetShortlist(videos, decisions, budgetSeconds) {
       const budget = Math.max(0, Number(budgetSeconds) || 0);
       const priorities = { keep: 0, maybe: 1, unreviewed: 2 };
@@ -97,7 +97,7 @@
       }
       return { videos: selected, totalSeconds, budgetSeconds: budget };
     }
-    
+
     function formatDuration(seconds) {
       const totalMinutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
       const days = Math.floor(totalMinutes / 1440);

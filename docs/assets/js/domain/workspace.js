@@ -31,7 +31,7 @@
         },
       };
     }
-    
+
     function parseWorkspacePayload(payload) {
       if (!payload || typeof payload !== "object" || payload.mode !== "workspace-snapshot") {
         throw new Error("Expected a workspace snapshot JSON file.");
@@ -39,7 +39,7 @@
       if (payload.schemaVersion !== 1) {
         throw new Error(`Unsupported workspace schema version: ${payload.schemaVersion ?? "missing"}.`);
       }
-    
+
       const workspace = payload.workspace;
       if (!workspace || typeof workspace !== "object" || !Array.isArray(workspace.videos)) {
         throw new Error("Workspace snapshot is missing its video dataset.");
@@ -47,7 +47,7 @@
       if (!workspace.decisions || typeof workspace.decisions !== "object" || Array.isArray(workspace.decisions)) {
         throw new Error("Workspace snapshot is missing its decisions map.");
       }
-    
+
       return {
         videos: workspace.videos.filter(video => video && typeof video === "object"),
         decisions: getPortableDecisions(workspace.decisions),
@@ -62,12 +62,12 @@
         ui: normalizeWorkspaceUi(workspace.ui),
       };
     }
-    
+
     function toWorkspaceVideo(video) {
       const { suggestedTags: _suggestedTags, searchText: _searchText, ...portable } = video;
       return portable;
     }
-    
+
     function normalizeWorkspaceUi(ui) {
       const source = ui && typeof ui === "object" && !Array.isArray(ui) ? ui : {};
       return {
@@ -77,7 +77,7 @@
         currentId: typeof source.currentId === "string" ? source.currentId : "",
       };
     }
-    
+
     function normalizePreviewProgress(value) {
       if (!value || typeof value !== "object" || Array.isArray(value)) return {};
       const normalized = {};
