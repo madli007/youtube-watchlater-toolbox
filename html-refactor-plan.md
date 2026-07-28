@@ -8,6 +8,42 @@ Fokus je izključno na trenutnem `index.html` in na datotekah, ki bodo nastale i
 
 Glavni cilj je zmanjšati velikost in število odgovornosti ene datoteke, ne da bi hkrati uvedli framework, bundler, backend ali spremembe uporabniškega obnašanja.
 
+## Razmerje do Channel Insights redesign-a
+
+Ta dokument je podrobni izvedbeni načrt za **Fazo 0** v
+[`docs/channel-insights-redesign-plan.md`](docs/channel-insights-redesign-plan.md).
+
+Preslikava poimenovanja:
+
+| Ta dokument | Glavni feature načrt |
+|---|---|
+| Faza 0 — baseline | Podfaza 0.0 |
+| Faza 1 — testi | Podfaza 0.1 |
+| Faza 2 — `docs/` | Podfaza 0.2 |
+| Faza 3 — CSS | Podfaza 0.3 |
+| Faza 4 — en `app.js` | Podfaza 0.4 |
+| Faza 5 — domain moduli | Podfaza 0.5 |
+| Faza 6 — state/storage | Podfaza 0.6 |
+| Faza 7 — UI moduli | Podfaza 0.7 |
+| Faza 8 — bootstrap | Podfaza 0.8 |
+| Faza 9 — stabilizacija | Podfaza 0.9 |
+
+Feature Faza 1 se začne šele po izhodnem kriteriju Podfaze 0.9. S tem se navigacija, novi pogledi, dense video item, nova storage polja in vizualni redesign ne mešajo z mehanskim premikom ter ekstrakcijo obstoječe aplikacije.
+
+Ta refaktor vseeno pripravi jasne razširitvene točke:
+
+| Ekstrahirana odgovornost | Poznejši feature porabnik |
+|---|---|
+| `domain/filters.js` | compact Triage filtri in Insights → Triage bridge |
+| `domain/import-comparison.js` | New since last import in poznejša import history |
+| `domain/time-budget.js` | selitev time budget workflowa v Channel Insights |
+| `domain/grouping.js` | izboljšani series parser, confidence in manual overrides |
+| `domain/workspace.js` + `storage.js` | workspace extensions, import history in grouping overrides |
+| `ui/dashboards.js` | prehodni dom trenutnih dashboardov; pozneje ga nadomestita Insights in Groups view |
+| `ui/video-list.js` | dense video vrstica in keyboard-first interakcije |
+
+Med Fazo 0 se v te module prenese samo trenutno vedenje. `insights.js`, `import-history.js`, novi view moduli in novi storage ključi nastanejo šele v ustreznih feature fazah.
+
 ## Trenutno stanje
 
 Pregled dne 2026-07-21:
@@ -52,7 +88,9 @@ To so naravne meje za postopno ekstrakcijo. Ne smemo jih vseh ločiti v enem kor
 docs/
   .nojekyll
   index.html
+  channel-insights-redesign-plan.md
   assets/
+    app-icon.png
     css/
       app.css
     js/
@@ -159,8 +197,9 @@ Prehod na ES module in lokalni strežnik se lahko oceni kot ločen prihodnji pro
 
 Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris korenskega entrypointa:
 
-- [ ] Ustvariti `docs/` in vanj najprej kopirati trenutni `index.html` brez vsebinskih sprememb.
+- [ ] Uporabiti obstoječi `docs/` (oziroma ga ustvariti, če manjka), ohraniti `docs/channel-insights-redesign-plan.md` in vanj kopirati trenutni `index.html` brez vsebinskih sprememb.
 - [ ] Dodati `docs/.nojekyll`, ker stran ne potrebuje Jekyll obdelave.
+- [ ] Kopirati `assets/app-icon.png` v `docs/assets/app-icon.png`, da relativna pot deluje tudi, ko Pages objavlja samo vsebino `docs/`.
 - [ ] Testni entrypoint preusmeriti na `docs/index.html`.
 - [ ] Posodobiti README navodilo za lokalno odpiranje.
 - [ ] Pognati teste in lokalno odpreti `docs/index.html`.
@@ -169,6 +208,7 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 - [ ] Počakati na uspešen Pages deployment in preveriti produkcijski URL, import ter refresh.
 - [ ] Šele po uspešni objavi odstraniti korenski `index.html`.
 - [ ] Ponovno pognati teste in preveriti, da repozitorij nima dveh različic aplikacije.
+- [ ] Statično preveriti, da vsi lokalni asseti, vključno z `assets/app-icon.png`, obstajajo znotraj objavljivega `docs/` drevesa.
 
 **Zakaj prehodna kopija:** trenutna Pages nastavitev je po README `main` + `/(root)`. Če bi korenski `index.html` izginil pred spremembo nastavitve, bi lahko nastalo kratko obdobje z nedelujočo stranjo.
 
@@ -276,6 +316,8 @@ Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 
 **Izhodni kriterij:** renderiranje in uporabniška interakcija sta ločena od domenskih izračunov, HTML pa še vedno določa isti DOM contract.
 
+**Navezava na redesign:** `ui/dashboards.js` je namenoma prehodni modul, ki med refaktorjem ohrani trenutno vedenje. V feature Fazah 1–3 se njegove odgovornosti postopno razdelijo med novi Triage shell, Channel Insights in Series & Groups; tega preoblikovanja ne izvajamo v Fazi 0.
+
 **Tveganje:** srednje do visoko, ker je obstoječa UI koda močno povezana z globalnim `state` in `els`. Zato se deli po vertikalah, ne po vseh render funkcijah naenkrat.
 
 ## Faza 8 — Minimalen bootstrap in čiščenje odvisnosti
@@ -305,6 +347,7 @@ Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 - [ ] Preveriti desktop in oba obstoječa responsive breakpointa.
 - [ ] Preveriti neposredno lokalno odpiranje `docs/index.html`.
 - [ ] Preveriti produkcijski GitHub Pages URL in vse asset requeste brez 404.
+- [ ] Preveriti, da se `docs/assets/app-icon.png` pravilno naloži na produkcijskem URL-ju.
 - [ ] Preveriti, da v spremembah ni userscripta ali osebnih exportov.
 - [ ] Primerjati exportane JSON sheme pred/po refaktorju.
 - [ ] Dokumentirati morebitni preostali tehnični dolg kot ločene naloge, ne kot dodatek zadnjemu refaktorskemu commitu.
@@ -363,6 +406,7 @@ Ko se doda testni helper oziroma test runner, naj obstaja še en dokumentiran uk
 | Test bere inline skript iz točne poti | Ekstrakcija ali premik bi test takoj zlomila | Najprej Faza 1: nevtralen loader/helper |
 | Pages pozna samo root ali `/docs` pri branch deployu | Poljubna mapa ne bo delovala brez workflowa | Uporabiti `docs/` in spremeniti Pages folder |
 | Relativne poti na project Pages | Absolutni `/assets/...` kažejo na domenin root | Vedno uporabljati `./assets/...` in testirati 404 |
+| Ikona je trenutno zunaj bodočega Pages sourcea | Ob objavi samo `docs/` datoteka `assets/app-icon.png` sicer ni vključena | Kopirati jo v `docs/assets/` in preveriti statično ter v produkciji |
 | CSS cascade | Razdelitev ali preureditev spremeni prioritete | Najprej en nespremenjen `app.css` |
 | Čas izvajanja JavaScripta | `async`, `module` ali premik v `<head>` lahko sproži init pred DOM-om | Navaden script na koncu `<body>` |
 | Globalne odvisnosti med 234 funkcijami | Big-bang split hitro ustvari skrite napake | Ekstrakcija po čistih modulih, en commit na sklop |
@@ -404,7 +448,9 @@ Prvi cikel naj se zavestno konča po Fazi 4. Takrat bo dosežena jasna, nizko tv
 docs/
   .nojekyll
   index.html
+  channel-insights-redesign-plan.md
   assets/
+    app-icon.png
     css/app.css
     js/app.js
 ```
