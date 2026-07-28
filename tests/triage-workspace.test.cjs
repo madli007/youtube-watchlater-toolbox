@@ -38,6 +38,10 @@ const expectedApplicationScripts = [
   "./assets/js/storage.js",
   "./assets/js/browser-io.js",
   "./assets/js/state.js",
+  "./assets/js/ui/dom.js",
+  "./assets/js/ui/dialogs.js",
+  "./assets/js/ui/video-list.js",
+  "./assets/js/ui/dashboards.js",
   "./assets/js/app.js",
 ];
 assert.equal(scripts.length, expectedApplicationScripts.length);
@@ -63,6 +67,39 @@ assert.doesNotMatch(
   "the application orchestrator must use the replaceable storage and browser I/O boundaries",
 );
 assert.match(source, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
+
+const appSource = scripts.find(script => script.path.endsWith(path.join("js", "app.js"))).source;
+const dialogsSource = scripts.find(script => script.path.endsWith(path.join("ui", "dialogs.js"))).source;
+const dashboardsSource = scripts.find(script => script.path.endsWith(path.join("ui", "dashboards.js"))).source;
+const videoListSource = scripts.find(script => script.path.endsWith(path.join("ui", "video-list.js"))).source;
+assert.doesNotMatch(
+  appSource,
+  /^\s+function (?:renderVideoList|openQuickPreview|renderStats|renderVideoGroups|renderHistory)\b/m,
+  "UI implementations must live outside the application orchestrator",
+);
+assert.match(dialogsSource, /^\s+function openQuickPreview\b/m);
+assert.match(dashboardsSource, /^\s+function renderVideoGroups\b/m);
+assert.match(dashboardsSource, /^\s+function renderHistory\b/m);
+assert.match(videoListSource, /^\s+function renderVideoList\b/m);
+
+const domUiSource = scripts.find(script => script.path.endsWith(path.join("ui", "dom.js"))).source;
+const domUiSandbox = { globalThis: null };
+domUiSandbox.globalThis = domUiSandbox;
+vm.runInNewContext(domUiSource, domUiSandbox);
+const domUi = domUiSandbox.WatchLaterApp.ui.dom;
+const domElements = new Map(domUi.ELEMENT_IDS.map(id => [id, { id }]));
+const domRegistry = domUi.createDomRegistry({
+  getElementById(id) {
+    return domElements.get(id) || null;
+  },
+});
+assert.equal(Object.keys(domRegistry).length, domUi.ELEMENT_IDS.length);
+assert.equal(domRegistry.videoList.id, "videoList");
+assert.throws(
+  () => domUi.createDomRegistry({ getElementById() { return null; } }),
+  /Missing required DOM elements:.*fileInput.*videoList/,
+  "the DOM registry must fail early with the missing contract IDs",
+);
 
 const fixtureEntryPath = path.join(__dirname, "fixtures", "loader-entry.html");
 const externalFixtureHtml = [
@@ -130,6 +167,15 @@ assert.ok(
   Object.values(sandbox.WatchLaterApp.domain).every(Object.isFrozen),
   "domain module APIs must be immutable",
 );
+assert.deepEqual(
+  Object.keys(sandbox.WatchLaterApp.ui),
+  ["dom", "dialogs", "videoList", "dashboards"],
+  "UI modules must be registered in dependency order",
+);
+assert.ok(
+  Object.values(sandbox.WatchLaterApp.ui).every(Object.isFrozen),
+  "UI module factory APIs must be immutable",
+);
 assert.ok(sandbox.WatchLaterTestApi, "triage test API not exposed");
 const {
   decisions: decisionsApi,
@@ -140,6 +186,238 @@ const {
   workspace: workspaceApi,
 } = sandbox.WatchLaterApp.domain;
 sandbox.testApi = sandbox.WatchLaterTestApi;
+
+const dynamicElement = () => {
+  const listeners = {};
+  const classes = new Set();
+  const children = [];
+  return {
+    children,
+    dataset: {},
+    classList: {
+      add(name) {
+        classes.add(name);
+      },
+      contains(name) {
+        return classes.has(name);
+      },
+    },
+    addEventListener(type, listener) {
+      listeners[type] = listener;
+    },
+    click() {
+      listeners.click?.({ target: this });
+    },
+    append(...items) {
+      children.push(...items);
+    },
+    appendChild(item) {
+      children.push(item);
+      return item;
+    },
+    replaceChildren(...items) {
+      children.splice(0, children.length, ...items);
+    },
+    closest() {
+      return null;
+    },
+    textContent: "",
+  };
+};
+sandbox.document.createElement = dynamicElement;
+let statusChange = null;
+const videoListUi = sandbox.WatchLaterApp.ui.videoList.createVideoListUi({
+  state: {},
+  els: {},
+  PAGE_SIZE: 220,
+  normalizeTags: value => value,
+  setStatusAndAdvance(videoId, status) {
+    statusChange = { videoId, status };
+  },
+});
+assert.ok(Object.isFrozen(videoListUi), "created video-list API must be immutable");
+const statusButton = videoListUi.createStatusButton("video-1", "keep", "keep");
+assert.equal(statusButton.dataset.actionStatus, "keep");
+assert.equal(statusButton.textContent, "Keep");
+assert.equal(statusButton.classList.contains("is-active"), true);
+statusButton.click();
+assert.deepEqual(statusChange, { videoId: "video-1", status: "keep" });
+
+const rowState = {
+  selectedIds: new Set(),
+  currentId: "video-1",
+  importComparison: {
+    newIds: [],
+    changedIds: [],
+    changedFieldsById: {},
+  },
+};
+const rowUi = sandbox.WatchLaterApp.ui.videoList.createVideoListUi({
+  state: rowState,
+  els: {},
+  PAGE_SIZE: 220,
+  normalizeTags: value => Array.isArray(value) ? value : [],
+  getStatus: () => "maybe",
+  getDecision: () => ({ status: "maybe", tags: ["manual"], note: "Review later" }),
+  setStatusAndAdvance() {},
+  openQuickPreview() {},
+  openVideoEditor() {},
+  render() {},
+});
+const videoRow = rowUi.createVideoRow({
+  videoId: "video-1",
+  index: 1,
+  title: "Fixture video",
+  channel: "Fixture channel",
+  duration: "4:00",
+  suggestedTags: ["docs"],
+  badges: ["HD"],
+});
+assert.equal(videoRow.dataset.videoId, "video-1");
+assert.equal(videoRow.dataset.status, "maybe");
+assert.equal(videoRow.classList.contains("is-current"), true);
+assert.equal(videoRow.children.length, 4);
+assert.equal(videoRow.children[3].children.length, 7, "video rows must retain all existing actions");
+
+const dashboardsUi = sandbox.WatchLaterApp.ui.dashboards.createDashboardsUi({
+  state: {},
+  els: {},
+  getStatus(videoId) {
+    return videoId === "kept" ? "keep" : "unreviewed";
+  },
+});
+assert.ok(Object.isFrozen(dashboardsUi), "created dashboards API must be immutable");
+assert.deepEqual(
+  { ...dashboardsUi.countStatuses([{ videoId: "kept" }, { videoId: "pending" }]) },
+  { unreviewed: 1, keep: 1, maybe: 0, delete: 0 },
+);
+
+const dialogsUi = sandbox.WatchLaterApp.ui.dialogs.createDialogsUi({ state: {}, els: {} });
+assert.ok(Object.isFrozen(dialogsUi), "created dialogs API must be immutable");
+const previewTag = dialogsUi.createPreviewTag("Suggested: docs", "tag");
+assert.equal(previewTag.textContent, "Suggested: docs");
+assert.equal(previewTag.className, "tag");
+
+function createUiElementStub(id = "") {
+  const children = [];
+  const classes = new Set();
+  return {
+    id,
+    children,
+    dataset: {},
+    style: {},
+    options: [],
+    value: "",
+    checked: false,
+    disabled: false,
+    hidden: false,
+    open: false,
+    textContent: "",
+    classList: {
+      add(...names) {
+        names.forEach(name => classes.add(name));
+      },
+      remove(...names) {
+        names.forEach(name => classes.delete(name));
+      },
+      toggle(name, force) {
+        if (force === undefined ? !classes.has(name) : force) classes.add(name);
+        else classes.delete(name);
+      },
+      contains(name) {
+        return classes.has(name);
+      },
+    },
+    addEventListener() {},
+    append(...items) {
+      children.push(...items);
+    },
+    appendChild(item) {
+      children.push(item);
+      return item;
+    },
+    replaceChildren(...items) {
+      children.splice(0, children.length, ...items);
+    },
+    querySelector() {
+      return createUiElementStub();
+    },
+    querySelectorAll() {
+      return [];
+    },
+    closest() {
+      return null;
+    },
+    focus() {},
+    blur() {},
+    showModal() {
+      this.open = true;
+    },
+    close() {
+      this.open = false;
+    },
+    remove() {},
+  };
+}
+
+const browserElements = new Map();
+const browserDocument = {
+  body: { offsetHeight: 0, appendChild() {} },
+  activeElement: null,
+  addEventListener() {},
+  createElement() {
+    return createUiElementStub();
+  },
+  getElementById(id) {
+    if (!browserElements.has(id)) browserElements.set(id, createUiElementStub(id));
+    return browserElements.get(id);
+  },
+  querySelector() {
+    return null;
+  },
+};
+const browserSmokeSandbox = {
+  document: browserDocument,
+  localStorage: {
+    getItem() {
+      return null;
+    },
+    setItem() {},
+  },
+  addEventListener() {},
+  clearInterval() {},
+  clearTimeout() {},
+  setInterval() {
+    return 1;
+  },
+  setTimeout() {
+    return 1;
+  },
+  requestAnimationFrame(callback) {
+    callback();
+  },
+  innerHeight: 1080,
+  scrollY: 0,
+  location: { origin: "null" },
+  CSS: { escape: value => String(value) },
+  confirm() {
+    return false;
+  },
+  prompt() {
+    return null;
+  },
+};
+browserSmokeSandbox.window = browserSmokeSandbox;
+vm.createContext(browserSmokeSandbox);
+assert.doesNotThrow(
+  () => vm.runInContext(source, browserSmokeSandbox),
+  "the extracted UI modules must initialize and complete an empty-state render",
+);
+assert.match(
+  browserElements.get("scopeLabel").textContent,
+  /No videos loaded/,
+  "the initialized UI must render the existing empty-state scope",
+);
 
 assert.equal(sandbox.WatchLaterApp.config.PAGE_SIZE, 220);
 assert.equal(sandbox.WatchLaterApp.config.STORAGE_KEY, "watchlater-triage-decisions-v1");

@@ -1,0 +1,155 @@
+(function registerDomUi(root) {
+  "use strict";
+
+  const ELEMENT_IDS = Object.freeze([
+    "fileInput",
+    "exportKeepMaybe",
+    "exportDeleteCandidates",
+    "exportSelected",
+    "exportVisible",
+    "exportTagged",
+    "exportDecisions",
+    "decisionsInput",
+    "exportWorkspace",
+    "workspaceInput",
+    "clearDecisions",
+    "searchInput",
+    "statusFilter",
+    "channelCombo",
+    "channelSearch",
+    "channelMenu",
+    "sortSelect",
+    "clearFilters",
+    "advancedFilters",
+    "minDurationInput",
+    "maxDurationInput",
+    "minAgeInput",
+    "maxAgeInput",
+    "minViewsInput",
+    "availabilityFilter",
+    "badgeFilter",
+    "suggestedTagFilter",
+    "noteFilter",
+    "tagModeSelect",
+    "savedViewSelect",
+    "saveView",
+    "deleteView",
+    "tagFilter",
+    "datasetViews",
+    "comparisonSummary",
+    "totalCount",
+    "visibleCount",
+    "keepCount",
+    "maybeCount",
+    "protectedCount",
+    "deleteCount",
+    "timeCoverage",
+    "timeBudgetHours",
+    "selectTimeShortlist",
+    "totalDuration",
+    "protectedDuration",
+    "reviewProgress",
+    "reviewProgressLabel",
+    "reviewProgressBar",
+    "budgetCoverage",
+    "timeByStatus",
+    "timeByChannel",
+    "timeByTag",
+    "timeShortlistSummary",
+    "timeShortlistItems",
+    "groupSummary",
+    "groupTypeFilter",
+    "videoGroups",
+    "showMoreGroups",
+    "scopeLabel",
+    "scopeHint",
+    "activeFilters",
+    "keepBulk",
+    "maybeBulk",
+    "deleteBulk",
+    "resetBulk",
+    "selectVisible",
+    "invertSelection",
+    "clearSelection",
+    "videoList",
+    "channelList",
+    "tagSummary",
+    "manageRules",
+    "ruleSummary",
+    "manageChannelRules",
+    "channelRuleSummary",
+    "stateSummary",
+    "undoBulk",
+    "historyList",
+    "quickPreviewDialog",
+    "quickPreviewTitle",
+    "closeQuickPreview",
+    "quickPreviewPlayer",
+    "quickPreviewThumb",
+    "quickPreviewMeta",
+    "quickPreviewProgress",
+    "quickPreviewTags",
+    "quickPreviewTimer",
+    "startPreviewTimer",
+    "quickPreviewTimerStatus",
+    "quickPreviewStatusActions",
+    "videoEditorDialog",
+    "videoEditorForm",
+    "videoEditorTitle",
+    "videoEditorSuggested",
+    "videoTagsInput",
+    "videoNoteInput",
+    "cancelVideoEditor",
+    "rulesDialog",
+    "ruleEditorForm",
+    "ruleList",
+    "ruleNameInput",
+    "ruleChannelInput",
+    "ruleChannels",
+    "rulePositiveInput",
+    "ruleNegativeInput",
+    "newRule",
+    "closeRules",
+    "channelRulesDialog",
+    "channelRuleEditorForm",
+    "channelRuleList",
+    "channelRuleChannelCombo",
+    "channelRuleChannelInput",
+    "channelRuleChannelMenu",
+    "channelRuleModeSelect",
+    "channelRuleTagInput",
+    "channelRuleProtectedInput",
+    "channelRulePreview",
+    "newChannelRule",
+    "applyAllChannelRules",
+    "applyChannelRule",
+    "closeChannelRules",
+    "toast",
+  ]);
+
+  function createDomRegistry(documentRef = root.document) {
+    if (!documentRef || typeof documentRef.getElementById !== "function") {
+      throw new Error("Cannot initialize the UI without a document.");
+    }
+
+    const elements = {};
+    const missing = [];
+    for (const id of ELEMENT_IDS) {
+      const element = documentRef.getElementById(id);
+      if (element) elements[id] = element;
+      else missing.push(id);
+    }
+
+    if (missing.length) {
+      throw new Error(`Missing required DOM elements: ${missing.join(", ")}`);
+    }
+    return Object.freeze(elements);
+  }
+
+  const app = root.WatchLaterApp ||= {};
+  app.ui ||= {};
+  app.ui.dom = Object.freeze({
+    ELEMENT_IDS,
+    createDomRegistry,
+  });
+})(globalThis);

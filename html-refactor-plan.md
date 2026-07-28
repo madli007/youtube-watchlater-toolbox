@@ -305,15 +305,15 @@ Vsak spodnji sklop naj bo samostojen commit; po vsakem se poženejo testi:
 
 Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 
-- [ ] `ui/dom.js`: enoten lookup/register vseh 125 DOM elementov ter zgodnja jasna napaka, če obvezen element manjka.
-- [ ] `ui/dialogs.js`: video editor, tag rules, channel rules in quick preview.
-- [ ] `ui/dashboards.js`: stats, time dashboard, import comparison, groups in sidebar summaries.
-- [ ] `ui/video-list.js`: render liste, posamezne vrstice, status gumbi in incremental rendering.
-- [ ] Iz `app.js` odstraniti UI funkcije šele po tem, ko novi modul deluje in je priklopljen.
-- [ ] Po vsakem modulu preveriti event handlerje in keyboard shortcuts.
-- [ ] Ne preimenovati obstoječih `id`, `data-*` atributov ali CSS razredov.
-- [ ] Za dinamično ustvarjene elemente dodati ciljne teste tam, kjer je mogoče testirati rezultat brez polnega browserja.
-- [ ] Ročno preveriti vse štiri dialoge, bulk akcije, kanalski meni in neskončno/inkrementalno prikazovanje.
+- [x] `ui/dom.js`: enoten lookup/register vseh 125 DOM elementov ter zgodnja jasna napaka, če obvezen element manjka.
+- [x] `ui/dialogs.js`: video editor, tag rules, channel rules in quick preview.
+- [x] `ui/dashboards.js`: stats, time dashboard, import comparison, groups in sidebar summaries.
+- [x] `ui/video-list.js`: render liste, posamezne vrstice, status gumbi in incremental rendering.
+- [x] Iz `app.js` odstraniti UI funkcije šele po tem, ko novi modul deluje in je priklopljen.
+- [x] Po vsakem modulu preveriti event handlerje in keyboard shortcuts.
+- [x] Ne preimenovati obstoječih `id`, `data-*` atributov ali CSS razredov.
+- [x] Za dinamično ustvarjene elemente dodati ciljne teste tam, kjer je mogoče testirati rezultat brez polnega browserja.
+- [ ] Ročno preveriti vse štiri dialoge, bulk akcije, kanalski meni in neskončno/inkrementalno prikazovanje. Lokalni `file://` browser smoke je bil 2026-07-28 blokiran z varnostno politiko browser orodja; avtomatski empty-state init/render in ciljni dinamični DOM testi so uspešni, polni ročni smoke ostaja del Podfaze 0.9.
 
 **Izhodni kriterij:** renderiranje in uporabniška interakcija sta ločena od domenskih izračunov, HTML pa še vedno določa isti DOM contract.
 

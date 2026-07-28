@@ -64,131 +64,151 @@
     const { createInitialState } = globalThis.WatchLaterApp.state;
     const state = createInitialState(persistence);
 
-    const els = {
-      fileInput: document.getElementById("fileInput"),
-      exportKeepMaybe: document.getElementById("exportKeepMaybe"),
-      exportDeleteCandidates: document.getElementById("exportDeleteCandidates"),
-      exportSelected: document.getElementById("exportSelected"),
-      exportVisible: document.getElementById("exportVisible"),
-      exportTagged: document.getElementById("exportTagged"),
-      exportDecisions: document.getElementById("exportDecisions"),
-      decisionsInput: document.getElementById("decisionsInput"),
-      exportWorkspace: document.getElementById("exportWorkspace"),
-      workspaceInput: document.getElementById("workspaceInput"),
-      clearDecisions: document.getElementById("clearDecisions"),
-      searchInput: document.getElementById("searchInput"),
-      statusFilter: document.getElementById("statusFilter"),
-      channelCombo: document.getElementById("channelCombo"),
-      channelSearch: document.getElementById("channelSearch"),
-      channelMenu: document.getElementById("channelMenu"),
-      sortSelect: document.getElementById("sortSelect"),
-      clearFilters: document.getElementById("clearFilters"),
-      advancedFilters: document.getElementById("advancedFilters"),
-      minDurationInput: document.getElementById("minDurationInput"),
-      maxDurationInput: document.getElementById("maxDurationInput"),
-      minAgeInput: document.getElementById("minAgeInput"),
-      maxAgeInput: document.getElementById("maxAgeInput"),
-      minViewsInput: document.getElementById("minViewsInput"),
-      availabilityFilter: document.getElementById("availabilityFilter"),
-      badgeFilter: document.getElementById("badgeFilter"),
-      suggestedTagFilter: document.getElementById("suggestedTagFilter"),
-      noteFilter: document.getElementById("noteFilter"),
-      tagModeSelect: document.getElementById("tagModeSelect"),
-      savedViewSelect: document.getElementById("savedViewSelect"),
-      saveView: document.getElementById("saveView"),
-      deleteView: document.getElementById("deleteView"),
-      tagFilter: document.getElementById("tagFilter"),
-      datasetViews: document.getElementById("datasetViews"),
-      comparisonSummary: document.getElementById("comparisonSummary"),
-      totalCount: document.getElementById("totalCount"),
-      visibleCount: document.getElementById("visibleCount"),
-      keepCount: document.getElementById("keepCount"),
-      maybeCount: document.getElementById("maybeCount"),
-      protectedCount: document.getElementById("protectedCount"),
-      deleteCount: document.getElementById("deleteCount"),
-      timeCoverage: document.getElementById("timeCoverage"),
-      timeBudgetHours: document.getElementById("timeBudgetHours"),
-      selectTimeShortlist: document.getElementById("selectTimeShortlist"),
-      totalDuration: document.getElementById("totalDuration"),
-      protectedDuration: document.getElementById("protectedDuration"),
-      reviewProgress: document.getElementById("reviewProgress"),
-      reviewProgressLabel: document.getElementById("reviewProgressLabel"),
-      reviewProgressBar: document.getElementById("reviewProgressBar"),
-      budgetCoverage: document.getElementById("budgetCoverage"),
-      timeByStatus: document.getElementById("timeByStatus"),
-      timeByChannel: document.getElementById("timeByChannel"),
-      timeByTag: document.getElementById("timeByTag"),
-      timeShortlistSummary: document.getElementById("timeShortlistSummary"),
-      timeShortlistItems: document.getElementById("timeShortlistItems"),
-      groupSummary: document.getElementById("groupSummary"),
-      groupTypeFilter: document.getElementById("groupTypeFilter"),
-      videoGroups: document.getElementById("videoGroups"),
-      showMoreGroups: document.getElementById("showMoreGroups"),
-      scopeLabel: document.getElementById("scopeLabel"),
-      scopeHint: document.getElementById("scopeHint"),
-      activeFilters: document.getElementById("activeFilters"),
-      keepBulk: document.getElementById("keepBulk"),
-      maybeBulk: document.getElementById("maybeBulk"),
-      deleteBulk: document.getElementById("deleteBulk"),
-      resetBulk: document.getElementById("resetBulk"),
-      selectVisible: document.getElementById("selectVisible"),
-      invertSelection: document.getElementById("invertSelection"),
-      clearSelection: document.getElementById("clearSelection"),
-      videoList: document.getElementById("videoList"),
-      channelList: document.getElementById("channelList"),
-      tagSummary: document.getElementById("tagSummary"),
-      manageRules: document.getElementById("manageRules"),
-      ruleSummary: document.getElementById("ruleSummary"),
-      manageChannelRules: document.getElementById("manageChannelRules"),
-      channelRuleSummary: document.getElementById("channelRuleSummary"),
-      stateSummary: document.getElementById("stateSummary"),
-      undoBulk: document.getElementById("undoBulk"),
-      historyList: document.getElementById("historyList"),
-      quickPreviewDialog: document.getElementById("quickPreviewDialog"),
-      quickPreviewTitle: document.getElementById("quickPreviewTitle"),
-      closeQuickPreview: document.getElementById("closeQuickPreview"),
-      quickPreviewPlayer: document.getElementById("quickPreviewPlayer"),
-      quickPreviewThumb: document.getElementById("quickPreviewThumb"),
-      quickPreviewMeta: document.getElementById("quickPreviewMeta"),
-      quickPreviewProgress: document.getElementById("quickPreviewProgress"),
-      quickPreviewTags: document.getElementById("quickPreviewTags"),
-      quickPreviewTimer: document.getElementById("quickPreviewTimer"),
-      startPreviewTimer: document.getElementById("startPreviewTimer"),
-      quickPreviewTimerStatus: document.getElementById("quickPreviewTimerStatus"),
-      quickPreviewStatusActions: document.getElementById("quickPreviewStatusActions"),
-      videoEditorDialog: document.getElementById("videoEditorDialog"),
-      videoEditorForm: document.getElementById("videoEditorForm"),
-      videoEditorTitle: document.getElementById("videoEditorTitle"),
-      videoEditorSuggested: document.getElementById("videoEditorSuggested"),
-      videoTagsInput: document.getElementById("videoTagsInput"),
-      videoNoteInput: document.getElementById("videoNoteInput"),
-      cancelVideoEditor: document.getElementById("cancelVideoEditor"),
-      rulesDialog: document.getElementById("rulesDialog"),
-      ruleEditorForm: document.getElementById("ruleEditorForm"),
-      ruleList: document.getElementById("ruleList"),
-      ruleNameInput: document.getElementById("ruleNameInput"),
-      ruleChannelInput: document.getElementById("ruleChannelInput"),
-      ruleChannels: document.getElementById("ruleChannels"),
-      rulePositiveInput: document.getElementById("rulePositiveInput"),
-      ruleNegativeInput: document.getElementById("ruleNegativeInput"),
-      newRule: document.getElementById("newRule"),
-      closeRules: document.getElementById("closeRules"),
-      channelRulesDialog: document.getElementById("channelRulesDialog"),
-      channelRuleEditorForm: document.getElementById("channelRuleEditorForm"),
-      channelRuleList: document.getElementById("channelRuleList"),
-      channelRuleChannelCombo: document.getElementById("channelRuleChannelCombo"),
-      channelRuleChannelInput: document.getElementById("channelRuleChannelInput"),
-      channelRuleChannelMenu: document.getElementById("channelRuleChannelMenu"),
-      channelRuleModeSelect: document.getElementById("channelRuleModeSelect"),
-      channelRuleTagInput: document.getElementById("channelRuleTagInput"),
-      channelRuleProtectedInput: document.getElementById("channelRuleProtectedInput"),
-      channelRulePreview: document.getElementById("channelRulePreview"),
-      newChannelRule: document.getElementById("newChannelRule"),
-      applyAllChannelRules: document.getElementById("applyAllChannelRules"),
-      applyChannelRule: document.getElementById("applyChannelRule"),
-      closeChannelRules: document.getElementById("closeChannelRules"),
-      toast: document.getElementById("toast"),
+    const els = globalThis.WatchLaterApp.ui.dom.createDomRegistry(document);
+    const uiContext = {
+      state,
+      els,
+      persistence,
+      PAGE_SIZE,
+      RULES,
+      updateDecisionDetails,
+      normalizeRule,
+      normalizeChannelRules,
+      normalizeChannelRule,
+      getChannelRuleDecision,
+      getChannelRuleImpact,
+      getCombinedChannelRuleImpact,
+      getProtectedChannelMatches,
+      splitInputValues,
+      normalizeTags,
+      areDecisionsEqual,
+      createSnapshotId,
+      buildVideoGroups,
+      chooseGroupWinner,
+      normalizeTimeBudgetHours,
+      calculateDurationStats,
+      getSortedDurationGroups,
+      buildTimeBudgetShortlist,
+      formatDuration,
+      filterChannelOptions,
+      getChannelOptionPage,
+      getFilteredVideos,
+      getStatus,
+      getDecision,
+      getVideoTags,
+      setStatus,
+      setStatusAndAdvance,
+      moveCurrent,
+      render,
+      showToast,
+      saveDecisions,
+      renderTagFilters,
+      getEffectiveRules,
+      refreshEnrichedVideos,
+      getAllChannelNames,
+      getAllTagNames,
+      groupCounts,
+      createCount,
+      handleFilterChange,
+      getTagCounts,
+      addHistoryEntry,
+      getActiveFilterSummary,
+      getInboxIds,
+      createChannelName,
+      restoreHistoryEntry,
     };
+    const dialogUi = globalThis.WatchLaterApp.ui.dialogs.createDialogsUi(uiContext);
+    Object.assign(uiContext, dialogUi);
+    const videoListUi = globalThis.WatchLaterApp.ui.videoList.createVideoListUi(uiContext);
+    Object.assign(uiContext, videoListUi);
+    const dashboardUi = globalThis.WatchLaterApp.ui.dashboards.createDashboardsUi(uiContext);
+    Object.assign(uiContext, dashboardUi);
+    const {
+      buildYouTubeEmbedUrl,
+      formatPreviewTime,
+      openQuickPreview,
+      renderQuickPreview,
+      createPreviewTag,
+      startPreviewSession,
+      stopPreviewSession,
+      closeQuickPreview,
+      initializePreviewPlayer,
+      sendPreviewCommand,
+      handlePreviewPlayerMessage,
+      updatePreviewCurrentTime,
+      flushPreviewProgress,
+      startPreviewDecisionTimer,
+      resetPreviewDecisionTimer,
+      tickPreviewDecisionTimer,
+      updatePreviewTimerUi,
+      setPreviewStatusAndAdvance,
+      moveQuickPreview,
+      openVideoEditor,
+      saveVideoEditor,
+      renderRuleSummary,
+      openRulesDialog,
+      renderChannelRuleSummary,
+      renderRuleChannelOptions,
+      renderRuleList,
+      editRule,
+      resetRuleEditor,
+      saveRuleEditor,
+      removeUserRule,
+      openChannelRulesDialog,
+      getChannelRuleChannelOptions,
+      openChannelRuleChannelMenu,
+      closeChannelRuleChannelMenu,
+      selectChannelRuleChannel,
+      renderChannelRuleChannelMenu,
+      renderChannelRuleList,
+      getChannelRuleDraft,
+      renderChannelRulePreview,
+      editChannelRule,
+      resetChannelRuleEditor,
+      saveChannelRuleEditor,
+      storeChannelRule,
+      removeChannelRule,
+      applyCurrentChannelRule,
+      applyAllPendingChannelRules,
+      applyChannelRules,
+      formatChannelRuleMode,
+    } = dialogUi;
+    const {
+      getRenderedVideos,
+      maybeRenderMore,
+      scrollCurrentIntoView,
+      ensureCurrentVisible,
+      renderVideoList,
+      createVideoRow,
+      createStatusButton,
+      createOpenButton,
+      createPreviewButton,
+      createEditVideoButton,
+    } = videoListUi;
+    const {
+      getCurrentVideoGroups,
+      renderVideoGroups,
+      createVideoGroupCard,
+      createGroupActionButton,
+      createGroupRecommendationButton,
+      selectVideoGroup,
+      applyVideoGroupStatus,
+      applyGroupWinner,
+      renderStats,
+      countStatuses,
+      updateTimeBudget,
+      handleTimeBudgetInput,
+      getCurrentTimeShortlist,
+      selectSuggestedShortlist,
+      renderTimeDashboard,
+      renderDurationGroups,
+      updateBulkLabels,
+      renderImportComparison,
+      renderSidebar,
+      renderChannelList,
+      renderTagSummary,
+      renderHistory,
+    } = dashboardUi;
 
     if (globalThis.__WATCHLATER_TEST__) {
       globalThis.WatchLaterTestApi = {
@@ -605,202 +625,6 @@
         .toLowerCase();
     }
 
-    function getCurrentVideoGroups() {
-      const videos = getFilteredVideos();
-      const cacheKey = videos.map(video => `${video.videoId}\u001f${video.title || ""}\u001f${video.channel || ""}`).join("\u001e");
-      if (state.groupCacheKey !== cacheKey) {
-        state.groupCacheKey = cacheKey;
-        state.groupCache = buildVideoGroups(videos);
-      }
-      return state.groupCache;
-    }
-
-    function renderVideoGroups() {
-      const visibleVideos = getFilteredVideos();
-      const allGroups = getCurrentVideoGroups();
-      const groupedIds = new Set(allGroups.flatMap(group => group.members.map(video => video.videoId)));
-      const groups = state.groupType === "all"
-        ? allGroups
-        : allGroups.filter(group => group.type === state.groupType);
-      const typeCounts = allGroups.reduce((counts, group) => {
-        counts[group.type] = (counts[group.type] || 0) + 1;
-        return counts;
-      }, {});
-
-      els.groupTypeFilter.value = state.groupType;
-      els.groupSummary.textContent = visibleVideos.length
-        ? `${allGroups.length} groups covering ${groupedIds.size} of ${visibleVideos.length} visible videos · ${typeCounts.series || 0} series · ${typeCounts.similar || 0} similar · ${typeCounts.duplicate || 0} probable duplicates.`
-        : "Import videos or change filters to find local title patterns.";
-
-      if (!groups.length) {
-        const empty = document.createElement("div");
-        empty.className = "empty";
-        empty.textContent = visibleVideos.length
-          ? "No groups of this type were detected in the current visible scope."
-          : "No visible videos to group.";
-        els.videoGroups.replaceChildren(empty);
-        els.showMoreGroups.hidden = true;
-        return;
-      }
-
-      const rendered = groups.slice(0, state.renderedGroupCount).map(createVideoGroupCard);
-      els.videoGroups.replaceChildren(...rendered);
-      els.showMoreGroups.hidden = rendered.length >= groups.length;
-      els.showMoreGroups.textContent = `Show more groups (${rendered.length} / ${groups.length})`;
-    }
-
-    function createVideoGroupCard(group) {
-      const card = document.createElement("article");
-      card.className = "video-group-card";
-      card.dataset.groupType = group.type;
-
-      const header = document.createElement("div");
-      header.className = "video-group-header";
-      const heading = document.createElement("h3");
-      heading.textContent = group.label;
-      const typeBadge = document.createElement("span");
-      typeBadge.className = "group-type-badge";
-      typeBadge.textContent = ({ series: "Series", similar: "Similar", duplicate: "Probable duplicate" })[group.type] || group.type;
-      heading.appendChild(typeBadge);
-      const count = document.createElement("strong");
-      count.textContent = `${group.members.length} videos`;
-      header.append(heading, count);
-
-      const reason = document.createElement("div");
-      reason.className = "scope-text";
-      reason.textContent = `${group.reason}. Review every member below before applying a group action.`;
-
-      const members = document.createElement("div");
-      members.className = "group-member-list";
-      for (const video of group.members) {
-        const row = document.createElement("div");
-        row.className = "group-member";
-        const index = document.createElement("span");
-        index.className = "playlist-index";
-        index.textContent = `#${video.index || video.playlistIndex || "?"}`;
-        const title = document.createElement("a");
-        title.className = "group-member-title";
-        title.href = video.cleanUrl || video.url || "#";
-        title.target = "_blank";
-        title.rel = "noreferrer";
-        title.textContent = video.title || "(untitled)";
-        title.title = [video.channel, video.uploaded, video.views].filter(Boolean).join(" · ");
-        const status = document.createElement("span");
-        status.className = "group-member-status";
-        status.textContent = getStatus(video.videoId);
-        row.append(index, title, status);
-        members.appendChild(row);
-      }
-
-      const actions = document.createElement("div");
-      actions.className = "video-group-actions";
-      actions.append(
-        createGroupActionButton("Select group", () => selectVideoGroup(group)),
-        createGroupActionButton("Keep all", () => applyVideoGroupStatus(group, "keep"), "keep-button"),
-        createGroupActionButton("Maybe all", () => applyVideoGroupStatus(group, "maybe"), "maybe-button"),
-        createGroupActionButton("Delete all", () => applyVideoGroupStatus(group, "delete"), "danger"),
-        createGroupRecommendationButton(group, "newest", "Keep newest only"),
-        createGroupRecommendationButton(group, "most-viewed", "Keep most viewed only"),
-      );
-      card.append(header, reason, members, actions);
-      return card;
-    }
-
-    function createGroupActionButton(label, handler, className = "") {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = label;
-      if (className) button.className = className;
-      button.addEventListener("click", handler);
-      return button;
-    }
-
-    function createGroupRecommendationButton(group, strategy, label) {
-      const winner = chooseGroupWinner(group, strategy);
-      const button = createGroupActionButton(label, () => applyGroupWinner(group, strategy));
-      button.disabled = !winner;
-      button.title = winner
-        ? `Keep “${winner.title || winner.videoId}” and mark the other group members delete`
-        : `No ${strategy === "newest" ? "upload age" : "view count"} data is available for this group`;
-      return button;
-    }
-
-    function selectVideoGroup(group) {
-      state.selectedIds = new Set(group.members.map(video => video.videoId));
-      state.currentId = group.members[0]?.videoId || state.currentId;
-      render();
-      showToast(`Selected ${group.members.length} videos from “${group.label}”.`);
-    }
-
-    function applyVideoGroupStatus(group, status) {
-      const changedIds = group.members
-        .map(video => video.videoId)
-        .filter(videoId => getStatus(videoId) !== status);
-      if (!changedIds.length) {
-        showToast(`Every video in this group is already ${status}.`);
-        return;
-      }
-      const protectedMatches = status === "delete"
-        ? getProtectedChannelMatches(state.videos, changedIds, state.channelRules)
-        : [];
-      if (status === "delete") {
-        const protectedChannels = Array.from(new Set(protectedMatches.map(match => match.channel)));
-        const warning = protectedMatches.length
-          ? `\n\nWarning: ${protectedMatches.length} videos belong to protected channels: ${protectedChannels.join(", ")}.`
-          : "";
-        if (!confirm(`Mark all ${changedIds.length} pending members of “${group.label}” as delete?${warning}`)) return;
-      }
-      if (!addHistoryEntry(`${group.label}: ${changedIds.length} group members → ${status}`, "similarity-group", changedIds)) {
-        showToast("Group change cancelled because the local safety snapshot could not be saved.");
-        return;
-      }
-      changedIds.forEach(videoId => setStatus(videoId, status, false));
-      saveDecisions();
-      state.selectedIds.clear();
-      render();
-      showToast(`Marked ${changedIds.length} group members as ${status}.`);
-    }
-
-    function applyGroupWinner(group, strategy) {
-      const winner = chooseGroupWinner(group, strategy);
-      if (!winner) {
-        showToast(`This group has no usable ${strategy === "newest" ? "upload age" : "view count"} data.`);
-        return;
-      }
-      const memberIds = group.members.map(video => video.videoId);
-      const loserIds = memberIds.filter(videoId => videoId !== winner.videoId);
-      const protectedMatches = getProtectedChannelMatches(state.videos, loserIds, state.channelRules);
-      const protectedChannels = Array.from(new Set(protectedMatches.map(match => match.channel)));
-      const warning = protectedMatches.length
-        ? `\n\nWarning: ${protectedMatches.length} videos that would be marked delete belong to protected channels: ${protectedChannels.join(", ")}.`
-        : "";
-      const strategyLabel = strategy === "newest" ? "newest" : "most viewed";
-      const ok = confirm([
-        `Keep only the ${strategyLabel} video in “${group.label}”?`,
-        "",
-        `Keep: ${winner.title || winner.videoId}`,
-        `Mark delete: ${loserIds.length} other group members.${warning}`,
-        "",
-        "A local undo snapshot will be created.",
-      ].join("\n"));
-      if (!ok) return;
-      const changedIds = memberIds.filter(videoId => getStatus(videoId) !== (videoId === winner.videoId ? "keep" : "delete"));
-      if (!changedIds.length) {
-        showToast("This recommendation is already applied.");
-        return;
-      }
-      if (!addHistoryEntry(`${group.label}: kept ${strategyLabel}, deleted ${loserIds.length}`, "similarity-group", changedIds)) {
-        showToast("Recommendation cancelled because the local safety snapshot could not be saved.");
-        return;
-      }
-      changedIds.forEach(videoId => setStatus(videoId, videoId === winner.videoId ? "keep" : "delete", false));
-      saveDecisions();
-      state.selectedIds.clear();
-      state.currentId = winner.videoId;
-      render();
-      showToast(`Kept “${winner.title || winner.videoId}” and marked ${loserIds.length} group members delete.`);
-    }
-
     function getSortedVideos(videos) {
       const sort = els.sortSelect.value;
       const copy = [...videos];
@@ -822,23 +646,6 @@
       return copy;
     }
 
-    function getRenderedVideos() {
-      return getFilteredVideos().slice(0, state.renderedCount);
-    }
-
-    function maybeRenderMore() {
-      if (!state.videos.length) return;
-      const nearBottom = window.innerHeight + window.scrollY > document.body.offsetHeight - 900;
-      if (!nearBottom) return;
-
-      const total = getFilteredVideos().length;
-      if (state.renderedCount < total) {
-        state.renderedCount += PAGE_SIZE;
-        renderVideoList();
-        renderStats();
-      }
-    }
-
     function render(options = {}) {
       ensureCurrentVisible();
       renderStats();
@@ -852,175 +659,6 @@
       if (options.scrollToCurrent) scrollCurrentIntoView();
     }
 
-    function scrollCurrentIntoView() {
-      if (!state.currentId) return;
-      window.requestAnimationFrame(() => {
-        const row = document.querySelector(`.video-row[data-video-id="${CSS.escape(state.currentId)}"]`);
-        row?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      });
-    }
-
-    function ensureCurrentVisible() {
-      const videos = getFilteredVideos();
-      if (!videos.length) {
-        state.currentId = "";
-        return;
-      }
-
-      if (!videos.some(video => video.videoId === state.currentId)) {
-        state.currentId = videos[0].videoId;
-      }
-    }
-
-    function renderStats() {
-      const total = state.videos.length;
-      const visible = getFilteredVideos().length;
-      const counts = countStatuses(state.videos);
-
-      els.totalCount.textContent = total;
-      els.visibleCount.textContent = visible;
-      els.keepCount.textContent = counts.keep;
-      els.maybeCount.textContent = counts.maybe;
-      els.protectedCount.textContent = counts.keep + counts.maybe;
-      els.deleteCount.textContent = counts.unreviewed + counts.delete;
-
-      const decisionCount = Object.keys(state.decisions).length;
-      const importedIds = new Set(state.videos.map(video => video.videoId));
-      const orphaned = Object.keys(state.decisions).filter(id => !importedIds.has(id)).length;
-      const lastImport = state.lastImport?.importedAt
-        ? ` Last import: ${new Date(state.lastImport.importedAt).toLocaleString()}.`
-        : "";
-      els.stateSummary.textContent = `${decisionCount} saved decisions. ${orphaned} orphaned decisions hidden from this import.${lastImport}`;
-    }
-
-    function countStatuses(videos) {
-      const counts = { unreviewed: 0, keep: 0, maybe: 0, delete: 0 };
-      for (const video of videos) counts[getStatus(video.videoId)]++;
-      return counts;
-    }
-
-    function updateTimeBudget() {
-      state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
-      els.timeBudgetHours.value = state.timeBudgetHours;
-      persistence.saveTimeBudgetHours(state.timeBudgetHours);
-      renderTimeDashboard();
-    }
-
-    function handleTimeBudgetInput() {
-      const hours = Number(els.timeBudgetHours.value);
-      if (!Number.isFinite(hours) || hours <= 0) return;
-      state.timeBudgetHours = Math.min(168, hours);
-      persistence.saveTimeBudgetHours(state.timeBudgetHours);
-      renderTimeDashboard();
-    }
-
-    function getCurrentTimeShortlist() {
-      return buildTimeBudgetShortlist(
-        getFilteredVideos(),
-        state.decisions,
-        state.timeBudgetHours * 3600,
-      );
-    }
-
-    function selectSuggestedShortlist() {
-      const shortlist = getCurrentTimeShortlist();
-      if (!shortlist.videos.length) {
-        showToast("No visible non-delete videos fit the weekly time budget.");
-        return;
-      }
-      state.selectedIds = new Set(shortlist.videos.map(video => video.videoId));
-      state.currentId = shortlist.videos[0].videoId;
-      render();
-      showToast(`Selected ${shortlist.videos.length} videos (${formatDuration(shortlist.totalSeconds)}).`);
-    }
-
-    function renderTimeDashboard() {
-      const stats = calculateDurationStats(state.videos, state.decisions);
-      const reviewPercent = stats.totalCount ? Math.round(stats.decidedCount / stats.totalCount * 100) : 0;
-      const weeklySeconds = state.timeBudgetHours * 3600;
-      const weeks = weeklySeconds ? stats.protectedSeconds / weeklySeconds : 0;
-      const shortlist = getCurrentTimeShortlist();
-
-      els.totalDuration.textContent = formatDuration(stats.totalSeconds);
-      els.protectedDuration.textContent = formatDuration(stats.protectedSeconds);
-      els.reviewProgress.textContent = `${reviewPercent}%`;
-      els.reviewProgressLabel.textContent = `Reviewed · ${formatDuration(stats.decidedSeconds)} of ${formatDuration(stats.totalSeconds)} decided`;
-      els.reviewProgressBar.style.width = `${reviewPercent}%`;
-      els.budgetCoverage.textContent = weeks < 0.1 ? "0" : weeks.toFixed(weeks >= 10 ? 0 : 1);
-      els.timeCoverage.textContent = state.videos.length
-        ? `Duration available for ${stats.knownCount} of ${stats.totalCount} videos${stats.unknownCount ? `; ${stats.unknownCount} unknown.` : "."}`
-        : "Import videos to calculate watch time.";
-      els.timeBudgetHours.value = state.timeBudgetHours;
-      els.selectTimeShortlist.disabled = !shortlist.videos.length;
-      els.timeShortlistSummary.textContent = shortlist.videos.length
-        ? `${shortlist.videos.length} visible non-delete videos · ${formatDuration(shortlist.totalSeconds)} of ${formatDuration(shortlist.budgetSeconds)}`
-        : "No visible non-delete videos fit the budget.";
-
-      const preview = shortlist.videos.slice(0, 5).map(video => {
-        const item = document.createElement("div");
-        item.textContent = `${video.title || "(untitled)"} · ${formatDuration(video.durationSeconds)}`;
-        return item;
-      });
-      if (shortlist.videos.length > preview.length) {
-        const more = document.createElement("div");
-        more.textContent = `…and ${shortlist.videos.length - preview.length} more.`;
-        preview.push(more);
-      }
-      els.timeShortlistItems.replaceChildren(...preview);
-
-      renderDurationGroups(els.timeByStatus, ["keep", "maybe", "delete", "unreviewed"].map(name => ({
-        name,
-        ...(stats.byStatus[name] || { count: 0, seconds: 0 }),
-      })));
-      renderDurationGroups(els.timeByChannel, getSortedDurationGroups(stats.byChannel).slice(0, 10));
-      renderDurationGroups(els.timeByTag, getSortedDurationGroups(stats.byTag).slice(0, 10));
-    }
-
-    function renderDurationGroups(container, groups) {
-      const rows = groups.length ? groups.map(group => {
-        const row = document.createElement("div");
-        row.className = "time-breakdown-row";
-        const name = document.createElement("span");
-        name.textContent = `${group.name} (${group.count})`;
-        const duration = document.createElement("strong");
-        duration.textContent = formatDuration(group.seconds);
-        row.append(name, duration);
-        return row;
-      }) : [Object.assign(document.createElement("div"), { className: "scope-text", textContent: "No data." })];
-      container.replaceChildren(...rows);
-    }
-
-    function updateBulkLabels() {
-      const selected = state.selectedIds.size;
-      const visible = getFilteredVideos().length;
-      const scope = selected || visible;
-      const scopeName = selected ? "selected" : "visible";
-
-      els.scopeLabel.textContent = state.videos.length ? `${scope} ${scopeName} videos` : "No videos loaded";
-      els.scopeHint.textContent = selected
-        ? "Bulk actions apply to selected videos."
-        : "Bulk actions apply to all visible filtered results. Shortcuts: p preview, k/m/d decide, j/↑/↓ move.";
-      els.activeFilters.textContent = `Filters: ${getActiveFilterSummary().join(", ") || "none"}`;
-
-      els.keepBulk.textContent = `Keep ${scopeName}`;
-      els.maybeBulk.textContent = `Maybe ${scopeName}`;
-      els.deleteBulk.textContent = `Delete ${scopeName}`;
-      els.exportSelected.textContent = selected ? `Export selected (${selected})` : "Export selected";
-      els.exportVisible.textContent = visible ? `Export visible (${visible})` : "Export visible";
-
-      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged, els.exportVisible].forEach(button => {
-        button.disabled = !state.videos.length;
-      });
-      els.exportSelected.disabled = !state.selectedIds.size;
-      els.exportVisible.disabled = !visible;
-      els.exportDecisions.disabled = !Object.keys(state.decisions).length;
-      els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length;
-      els.undoBulk.disabled = !state.history.some(entry => ["bulk-status", "channel-rule", "similarity-group"].includes(entry.action));
-    }
-
     function getDatasetViewIds(view) {
       const comparison = state.importComparison;
       if (!comparison.baselineAvailable || view === "all") return null;
@@ -1028,80 +666,6 @@
       if (view === "changed") return new Set(comparison.changedIds);
       if (view === "decided") return new Set(comparison.decidedIds);
       return null;
-    }
-
-    function renderImportComparison() {
-      const comparison = state.importComparison;
-      const inboxCount = comparison.baselineAvailable ? getInboxIds(comparison).length : 0;
-      const viewCounts = {
-        all: state.videos.length,
-        inbox: inboxCount,
-        new: comparison.newIds.length,
-        changed: comparison.changedIds.length,
-        decided: comparison.decidedIds.length,
-      };
-      const labels = {
-        all: "All",
-        inbox: "Inbox",
-        new: "New",
-        changed: "Metadata changed",
-        decided: "Already decided",
-      };
-
-      for (const button of els.datasetViews.querySelectorAll("[data-dataset-view]")) {
-        const view = button.dataset.datasetView;
-        button.textContent = `${labels[view]} ${viewCounts[view] ?? 0}`;
-        button.classList.toggle("is-active", state.datasetView === view);
-        button.disabled = view !== "all" && (!comparison.baselineAvailable || viewCounts[view] === 0);
-      }
-
-      if (!state.videos.length) {
-        els.comparisonSummary.textContent = "Import a second export to compare datasets.";
-        return;
-      }
-      if (!comparison.baselineAvailable) {
-        els.comparisonSummary.textContent = "No previous dataset was available. This import is now the local comparison baseline.";
-        return;
-      }
-
-      const previousName = comparison.previousImport?.fileName || "previous dataset";
-      const currentIds = new Set(state.videos.map(video => video.videoId));
-      const orphanedIds = Object.keys(state.decisions).filter(videoId => !currentIds.has(videoId));
-      const summary = document.createElement("div");
-      summary.textContent = `Compared with ${previousName}: ${comparison.newIds.length} new · ${comparison.removedVideos.length} no longer present · ${comparison.decidedIds.length} already decided · ${comparison.changedIds.length} metadata changed · ${orphanedIds.length} orphaned decisions.`;
-      els.comparisonSummary.replaceChildren(summary);
-
-      if (comparison.removedVideos.length || orphanedIds.length) {
-        const details = document.createElement("details");
-        const detailsSummary = document.createElement("summary");
-        detailsSummary.textContent = "Show removed videos and orphaned decisions";
-        const list = document.createElement("div");
-        list.className = "comparison-detail-list";
-        const visibleRemoved = comparison.removedVideos.slice(0, 50);
-        const visibleOrphaned = orphanedIds.slice(0, 50);
-        for (const video of visibleRemoved) {
-          const item = document.createElement("span");
-          item.textContent = `No longer present: ${video.title || video.videoId}${video.channel ? ` — ${video.channel}` : ""}`;
-          list.appendChild(item);
-        }
-        if (comparison.removedVideos.length > visibleRemoved.length) {
-          const item = document.createElement("span");
-          item.textContent = `…and ${comparison.removedVideos.length - visibleRemoved.length} more videos no longer present.`;
-          list.appendChild(item);
-        }
-        for (const videoId of visibleOrphaned) {
-          const item = document.createElement("span");
-          item.textContent = `Orphaned decision: ${videoId}`;
-          list.appendChild(item);
-        }
-        if (orphanedIds.length > visibleOrphaned.length) {
-          const item = document.createElement("span");
-          item.textContent = `…and ${orphanedIds.length - visibleOrphaned.length} more orphaned decisions.`;
-          list.appendChild(item);
-        }
-        details.append(detailsSummary, list);
-        els.comparisonSummary.appendChild(details);
-      }
     }
 
     function getInboxIds(comparison = state.importComparison) {
@@ -1282,926 +846,6 @@
         filters.push(`sort=${label}`);
       }
       return filters;
-    }
-
-    function renderVideoList() {
-      const videos = getRenderedVideos();
-      const total = getFilteredVideos().length;
-
-      if (!state.videos.length) {
-        els.videoList.innerHTML = '<div class="empty">No JSON imported yet.</div>';
-        return;
-      }
-
-      if (!videos.length) {
-        els.videoList.innerHTML = '<div class="empty">No videos match the current filters.</div>';
-        return;
-      }
-
-      els.videoList.replaceChildren(...videos.map(video => createVideoRow(video)));
-
-      if (videos.length < total) {
-        const more = document.createElement("button");
-        more.type = "button";
-        more.textContent = `Show more (${videos.length} / ${total})`;
-        more.addEventListener("click", () => {
-          state.renderedCount += PAGE_SIZE;
-          renderVideoList();
-          renderStats();
-        });
-        els.videoList.appendChild(more);
-      }
-    }
-
-    function createVideoRow(video) {
-      const status = getStatus(video.videoId);
-      const row = document.createElement("article");
-      row.className = "video-row";
-      if (state.currentId === video.videoId) row.classList.add("is-current");
-      row.dataset.status = status;
-      row.dataset.videoId = video.videoId;
-
-      const checkbox = document.createElement("input");
-      checkbox.className = "row-check";
-      checkbox.type = "checkbox";
-      checkbox.checked = state.selectedIds.has(video.videoId);
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) state.selectedIds.add(video.videoId);
-        else state.selectedIds.delete(video.videoId);
-        state.currentId = video.videoId;
-        render();
-      });
-
-      const thumb = document.createElement("img");
-      thumb.className = "thumb";
-      thumb.loading = "lazy";
-      thumb.alt = "";
-      thumb.src = video.thumbnailUrl || "";
-
-      const content = document.createElement("div");
-      const title = document.createElement("h2");
-      title.className = "video-title";
-      const link = document.createElement("a");
-      link.href = video.cleanUrl || video.url || "#";
-      link.target = "_blank";
-      link.rel = "noreferrer";
-      link.textContent = video.title || "(untitled)";
-      title.appendChild(link);
-
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      [`#${video.index || video.playlistIndex || "?"}`, video.channel, video.views, video.uploaded, video.duration].filter(Boolean).forEach((part, index) => {
-        const span = document.createElement("span");
-        if (index === 0) span.className = "playlist-index";
-        span.textContent = part;
-        meta.appendChild(span);
-      });
-
-      const tags = document.createElement("div");
-      tags.className = "tags";
-      if (state.importComparison.newIds.includes(video.videoId)) {
-        const badge = document.createElement("span");
-        badge.className = "import-badge";
-        badge.textContent = "New since last import";
-        tags.appendChild(badge);
-      }
-      if (state.importComparison.changedIds.includes(video.videoId)) {
-        const badge = document.createElement("span");
-        badge.className = "import-badge changed";
-        const fields = state.importComparison.changedFieldsById[video.videoId] || [];
-        badge.textContent = "Metadata changed";
-        badge.title = fields.length ? `Changed: ${fields.join(", ")}` : "Metadata changed since the previous import";
-        tags.appendChild(badge);
-      }
-      if (video.isUnavailable) {
-        const badge = document.createElement("span");
-        badge.className = "import-badge changed";
-        badge.textContent = "Unavailable";
-        tags.appendChild(badge);
-      }
-      normalizeTags(video.badges).forEach(value => {
-        const badge = document.createElement("span");
-        badge.className = "import-badge";
-        badge.textContent = value;
-        badge.title = "YouTube badge";
-        tags.appendChild(badge);
-      });
-      const decisionTags = getDecision(video.videoId).tags || [];
-      video.suggestedTags.forEach(tag => {
-        const chip = document.createElement("span");
-        chip.className = "tag";
-        chip.textContent = `Suggested: ${tag}`;
-        chip.title = "Suggested by a keyword rule";
-        tags.appendChild(chip);
-      });
-      decisionTags.forEach(tag => {
-        const chip = document.createElement("span");
-        chip.className = "tag manual-tag";
-        chip.textContent = `Manual: ${tag}`;
-        chip.title = "Added manually";
-        tags.appendChild(chip);
-      });
-
-      content.append(title, meta, tags);
-      const note = getDecision(video.videoId).note;
-      if (note) {
-        const noteElement = document.createElement("p");
-        noteElement.className = "video-note";
-        noteElement.textContent = note;
-        content.appendChild(noteElement);
-      }
-
-      const actions = document.createElement("div");
-      actions.className = "status-actions";
-      actions.append(
-        createStatusButton(video.videoId, "keep", status),
-        createStatusButton(video.videoId, "maybe", status),
-        createStatusButton(video.videoId, "delete", status),
-        createStatusButton(video.videoId, "unreviewed", status, "Reset"),
-        createEditVideoButton(video),
-        createPreviewButton(video),
-        createOpenButton(video),
-      );
-
-      row.addEventListener("click", event => {
-        if (event.target.closest("button, a, input")) return;
-        state.currentId = video.videoId;
-        render();
-      });
-
-      const checkWrap = document.createElement("div");
-      checkWrap.appendChild(checkbox);
-      if (state.currentId === video.videoId) {
-        const marker = document.createElement("span");
-        marker.className = "current-marker";
-        marker.textContent = "Now";
-        checkWrap.appendChild(marker);
-      }
-
-      row.append(checkWrap, thumb, content, actions);
-      return row;
-    }
-
-    function createStatusButton(videoId, status, currentStatus, label) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.dataset.actionStatus = status;
-      button.textContent = label || status[0].toUpperCase() + status.slice(1);
-      if (status === currentStatus) button.classList.add("is-active");
-      button.addEventListener("click", () => {
-        setStatusAndAdvance(videoId, status);
-      });
-      return button;
-    }
-
-    function createOpenButton(video) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Open";
-      button.addEventListener("click", () => {
-        window.open(video.cleanUrl || video.url, "_blank", "noreferrer");
-      });
-      return button;
-    }
-
-    function createPreviewButton(video) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Preview";
-      button.disabled = Boolean(video.isUnavailable);
-      button.title = video.isUnavailable ? "This video is unavailable." : "Preview this video (p)";
-      button.addEventListener("click", () => openQuickPreview(video.videoId));
-      return button;
-    }
-
-    function buildYouTubeEmbedUrl(videoId, startSeconds = 0, locationOrigin = "") {
-      const cleanId = String(videoId || "").trim();
-      if (!cleanId) return "";
-      const seconds = Math.max(0, Math.floor(Number(startSeconds) || 0));
-      const params = ["autoplay=1", "enablejsapi=1", "playsinline=1", "rel=0"];
-      if (seconds > 0) params.push(`start=${seconds}`);
-      if (/^https?:\/\//i.test(locationOrigin)) params.push(`origin=${encodeURIComponent(locationOrigin)}`);
-      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(cleanId)}?${params.join("&")}`;
-    }
-
-    function formatPreviewTime(seconds) {
-      const total = Math.max(0, Math.floor(Number(seconds) || 0));
-      const hours = Math.floor(total / 3600);
-      const minutes = Math.floor((total % 3600) / 60);
-      const remainder = total % 60;
-      return hours
-        ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
-        : `${minutes}:${String(remainder).padStart(2, "0")}`;
-    }
-
-    function openQuickPreview(videoId) {
-      const video = state.videos.find(candidate => candidate.videoId === videoId);
-      if (!video || video.isUnavailable) return;
-      if (state.previewVideoId && state.previewVideoId !== videoId) flushPreviewProgress();
-      state.previewVideoId = videoId;
-      state.currentId = videoId;
-      render();
-      renderQuickPreview(video);
-      if (!els.quickPreviewDialog.open) els.quickPreviewDialog.showModal();
-      startPreviewSession();
-    }
-
-    function renderQuickPreview(video) {
-      if (!video) return;
-      const savedSeconds = state.previewProgress[video.videoId] || 0;
-      const link = video.cleanUrl || video.url || `https://www.youtube.com/watch?v=${encodeURIComponent(video.videoId)}`;
-      els.quickPreviewTitle.textContent = video.title || "(untitled)";
-      els.quickPreviewTitle.href = link;
-      els.quickPreviewThumb.src = video.thumbnailUrl || "";
-      els.quickPreviewThumb.alt = video.title ? `Thumbnail for ${video.title}` : "Video thumbnail";
-      els.quickPreviewMeta.textContent = [video.channel, video.duration, video.views, video.uploaded].filter(Boolean).join(" · ");
-      els.quickPreviewProgress.textContent = savedSeconds
-        ? `Resuming from ${formatPreviewTime(savedSeconds)}. Playback position is saved locally.`
-        : "Playback position will be saved locally.";
-
-      const decision = getDecision(video.videoId);
-      const chips = [];
-      (video.suggestedTags || []).forEach(tag => chips.push(createPreviewTag(`Suggested: ${tag}`, "tag")));
-      (decision.tags || []).forEach(tag => chips.push(createPreviewTag(`Manual: ${tag}`, "tag manual-tag")));
-      els.quickPreviewTags.replaceChildren(...chips);
-      Array.from(els.quickPreviewStatusActions.querySelectorAll("[data-preview-status]")).forEach(button => {
-        button.classList.toggle("is-active", button.dataset.previewStatus === decision.status);
-      });
-
-      const origin = location.origin === "null" ? "" : location.origin;
-      els.quickPreviewPlayer.dataset.videoId = video.videoId;
-      state.previewPlayerReady = false;
-      els.quickPreviewPlayer.src = buildYouTubeEmbedUrl(video.videoId, savedSeconds, origin);
-      resetPreviewDecisionTimer();
-    }
-
-    function createPreviewTag(text, className) {
-      const chip = document.createElement("span");
-      chip.className = className;
-      chip.textContent = text;
-      return chip;
-    }
-
-    function startPreviewSession() {
-      stopPreviewSession(false);
-      state.previewCurrentTime = state.previewProgress[state.previewVideoId] || 0;
-      state.previewPlayerState = -1;
-      state.previewLastPersistAt = Date.now();
-      state.previewPollTimer = window.setInterval(() => {
-        sendPreviewCommand("getCurrentTime");
-        sendPreviewCommand("getPlayerState");
-        tickPreviewDecisionTimer();
-      }, 500);
-    }
-
-    function stopPreviewSession(shouldFlush = true) {
-      if (shouldFlush) flushPreviewProgress();
-      if (state.previewPollTimer !== null) window.clearInterval(state.previewPollTimer);
-      state.previewPollTimer = null;
-      state.previewCountdownActive = false;
-    }
-
-    function closeQuickPreview() {
-      stopPreviewSession();
-      state.previewVideoId = "";
-      state.previewCurrentTime = 0;
-      state.previewPlayerState = -1;
-      state.previewPlayerReady = false;
-      els.quickPreviewPlayer.src = "about:blank";
-      els.quickPreviewPlayer.dataset.videoId = "";
-      resetPreviewDecisionTimer();
-    }
-
-    function initializePreviewPlayer() {
-      if (!state.previewVideoId || els.quickPreviewPlayer.src === "about:blank") return;
-      state.previewPlayerReady = true;
-      els.quickPreviewPlayer.contentWindow?.postMessage(JSON.stringify({
-        event: "listening",
-        id: "quick-preview-player",
-        channel: "quick-preview",
-      }), "*");
-      sendPreviewCommand("addEventListener", ["onStateChange"]);
-      sendPreviewCommand("getCurrentTime");
-      sendPreviewCommand("getPlayerState");
-    }
-
-    function sendPreviewCommand(func, args = []) {
-      if (!state.previewVideoId) return;
-      els.quickPreviewPlayer.contentWindow?.postMessage(JSON.stringify({
-        event: "command",
-        func,
-        args,
-      }), "*");
-    }
-
-    function handlePreviewPlayerMessage(event) {
-      if (!state.previewVideoId || !state.previewPlayerReady || event.source !== els.quickPreviewPlayer.contentWindow) return;
-      if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/i.test(event.origin)) return;
-      let message = event.data;
-      if (typeof message === "string") {
-        try {
-          message = JSON.parse(message);
-        } catch (_error) {
-          return;
-        }
-      }
-      if (!message || typeof message !== "object") return;
-      const info = message.info && typeof message.info === "object" ? message.info : {};
-      if (Number.isFinite(Number(info.currentTime))) updatePreviewCurrentTime(Number(info.currentTime));
-      if (Number.isFinite(Number(info.playerState))) state.previewPlayerState = Number(info.playerState);
-      if (message.event === "onStateChange" && Number.isFinite(Number(message.info))) {
-        state.previewPlayerState = Number(message.info);
-      }
-    }
-
-    function updatePreviewCurrentTime(seconds) {
-      if (!state.previewVideoId || !Number.isFinite(seconds) || seconds < 0) return;
-      state.previewCurrentTime = seconds;
-      state.previewProgress[state.previewVideoId] = Math.floor(seconds);
-      els.quickPreviewProgress.textContent = `Current position ${formatPreviewTime(seconds)} · saved locally.`;
-      if (Date.now() - state.previewLastPersistAt >= 5000) flushPreviewProgress();
-    }
-
-    function flushPreviewProgress() {
-      if (state.previewVideoId && state.previewCurrentTime > 0) {
-        state.previewProgress[state.previewVideoId] = Math.floor(state.previewCurrentTime);
-      }
-      try {
-        if (!persistence.savePreviewProgress(state.previewProgress)) return false;
-        state.previewLastPersistAt = Date.now();
-        return true;
-      } catch (_error) {
-        return false;
-      }
-    }
-
-    function startPreviewDecisionTimer() {
-      state.previewCountdownRemaining = 30;
-      state.previewCountdownActive = true;
-      state.previewCountdownLastTick = performance.now();
-      sendPreviewCommand("playVideo");
-      updatePreviewTimerUi();
-    }
-
-    function resetPreviewDecisionTimer() {
-      state.previewCountdownRemaining = 30;
-      state.previewCountdownActive = false;
-      state.previewCountdownLastTick = 0;
-      updatePreviewTimerUi();
-    }
-
-    function tickPreviewDecisionTimer(now = performance.now()) {
-      if (!state.previewCountdownActive) return;
-      if (state.previewPlayerState === 1) {
-        const elapsed = Math.max(0, (now - state.previewCountdownLastTick) / 1000);
-        state.previewCountdownRemaining = Math.max(0, state.previewCountdownRemaining - elapsed);
-      }
-      state.previewCountdownLastTick = now;
-      if (state.previewCountdownRemaining <= 0) {
-        state.previewCountdownActive = false;
-        sendPreviewCommand("pauseVideo");
-        updatePreviewTimerUi();
-        els.quickPreviewStatusActions.querySelector('[data-preview-status="keep"]')?.focus();
-        showToast("30-second review complete. Choose Keep, Maybe, or Delete.");
-        return;
-      }
-      updatePreviewTimerUi();
-    }
-
-    function updatePreviewTimerUi() {
-      const ready = !state.previewCountdownActive && state.previewCountdownRemaining <= 0;
-      els.quickPreviewTimer.classList.toggle("is-ready", ready);
-      els.startPreviewTimer.textContent = state.previewCountdownActive ? "Restart 30 s review" : "Start 30 s review";
-      els.quickPreviewTimerStatus.textContent = ready
-        ? "Time to decide — playback is paused."
-        : state.previewCountdownActive
-          ? `${Math.ceil(state.previewCountdownRemaining)} s left${state.previewPlayerState === 1 ? "" : " · waiting for playback"}`
-          : "Timer counts only while the video is playing.";
-    }
-
-    function setPreviewStatusAndAdvance(status) {
-      const videoId = state.previewVideoId;
-      if (!videoId || !["keep", "maybe", "delete", "unreviewed"].includes(status)) return;
-      const before = getFilteredVideos();
-      const currentIndex = before.findIndex(video => video.videoId === videoId);
-      const preferredIds = before.slice(Math.max(0, currentIndex + 1)).concat(before.slice(0, Math.max(0, currentIndex)))
-        .map(video => video.videoId)
-        .filter(candidateId => candidateId !== videoId);
-      flushPreviewProgress();
-      setStatus(videoId, status);
-      const after = getFilteredVideos();
-      const afterIds = new Set(after.map(video => video.videoId));
-      const nextId = preferredIds.find(candidateId => afterIds.has(candidateId)) || after[0]?.videoId || "";
-      if (!nextId) {
-        els.quickPreviewDialog.close();
-        render();
-        showToast(`Marked the last matching video as ${status}.`);
-        return;
-      }
-      state.previewVideoId = nextId;
-      state.currentId = nextId;
-      render();
-      renderQuickPreview(state.videos.find(video => video.videoId === nextId));
-      startPreviewSession();
-    }
-
-    function moveQuickPreview(direction) {
-      const videos = getFilteredVideos();
-      const currentIndex = videos.findIndex(video => video.videoId === state.previewVideoId);
-      if (currentIndex < 0) return;
-      const nextIndex = Math.min(Math.max(currentIndex + direction, 0), videos.length - 1);
-      const next = videos[nextIndex];
-      if (!next || next.videoId === state.previewVideoId) return;
-      flushPreviewProgress();
-      state.previewVideoId = next.videoId;
-      state.currentId = next.videoId;
-      render();
-      renderQuickPreview(next);
-      startPreviewSession();
-    }
-
-    function createEditVideoButton(video) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Tags / note";
-      button.addEventListener("click", () => openVideoEditor(video.videoId));
-      return button;
-    }
-
-    function openVideoEditor(videoId) {
-      const video = state.videos.find(candidate => candidate.videoId === videoId);
-      if (!video) return;
-      const decision = getDecision(videoId);
-      state.editingVideoId = videoId;
-      state.currentId = videoId;
-      els.videoEditorTitle.textContent = `${video.title || "(untitled)"} · ${video.channel || "Unknown channel"}`;
-      els.videoTagsInput.value = (decision.tags || []).join(", ");
-      els.videoNoteInput.value = decision.note || "";
-      const suggested = (video.suggestedTags || []).map(tag => {
-        const chip = document.createElement("span");
-        chip.className = "tag";
-        chip.textContent = tag;
-        return chip;
-      });
-      if (!suggested.length) {
-        const empty = document.createElement("span");
-        empty.className = "scope-text";
-        empty.textContent = "No tags suggested by the current rules.";
-        suggested.push(empty);
-      }
-      els.videoEditorSuggested.replaceChildren(...suggested);
-      els.videoEditorDialog.showModal();
-      els.videoTagsInput.focus();
-    }
-
-    function saveVideoEditor(event) {
-      event.preventDefault();
-      const videoId = state.editingVideoId;
-      if (!videoId) return;
-      updateDecisionDetails(
-        state.decisions,
-        videoId,
-        splitInputValues(els.videoTagsInput.value),
-        els.videoNoteInput.value,
-      );
-      saveDecisions();
-      els.videoEditorDialog.close();
-      render();
-      showToast("Saved manual tags and note.");
-    }
-
-    function renderSidebar() {
-      renderChannelList();
-      renderTagSummary();
-      renderRuleSummary();
-      renderChannelRuleSummary();
-    }
-
-    function renderChannelList() {
-      const channels = groupCounts(state.videos, video => video.channel || "(unknown)")
-        .slice(0, 18);
-      els.channelList.replaceChildren(...channels.map(item => {
-        const button = document.createElement("button");
-        button.className = "channel-button";
-        button.type = "button";
-        button.title = item.name;
-        button.append(createChannelName(item.name), createCount(item.count));
-        button.addEventListener("click", () => {
-          state.activeChannels = new Set([item.name]);
-          els.channelSearch.value = "";
-          handleFilterChange();
-        });
-        return button;
-      }));
-    }
-
-    function renderTagSummary() {
-      const countsByTag = getTagCounts();
-      const counts = Object.keys(countsByTag).map(tag => ({
-        name: tag,
-        count: countsByTag[tag],
-      })).sort((a, b) => b.count - a.count);
-
-      els.tagSummary.replaceChildren(...counts.map(item => {
-        const button = document.createElement("button");
-        button.className = "channel-button";
-        button.type = "button";
-        button.innerHTML = `<span></span><strong>${item.count}</strong>`;
-        button.querySelector("span").textContent = item.name;
-        button.addEventListener("click", () => {
-          state.activeTags = new Set([item.name]);
-          handleFilterChange();
-        });
-        return button;
-      }));
-    }
-
-    function renderRuleSummary() {
-      const builtInCount = Object.keys(RULES).length;
-      const userCount = Object.keys(state.userRules).length;
-      els.ruleSummary.textContent = `${builtInCount} built-in rules · ${userCount} custom or overridden.`;
-    }
-
-    function openRulesDialog() {
-      renderRuleChannelOptions();
-      renderRuleList();
-      resetRuleEditor();
-      els.rulesDialog.showModal();
-    }
-
-    function renderChannelRuleSummary() {
-      const protectedCount = state.channelRules.filter(rule => rule.protected).length;
-      const pending = getCombinedChannelRuleImpact(state.videos, state.decisions, state.channelRules);
-      els.channelRuleSummary.textContent = `${state.channelRules.length} rules · ${protectedCount} protected channels · ${pending.affectedIds.length} videos with pending defaults.`;
-    }
-
-    function renderRuleChannelOptions() {
-      els.ruleChannels.replaceChildren(...getAllChannelNames().map(channel => {
-        const option = document.createElement("option");
-        option.value = channel;
-        return option;
-      }));
-    }
-
-    function renderRuleList() {
-      const effectiveRules = getEffectiveRules();
-      const names = Object.keys(effectiveRules).sort((a, b) => a.localeCompare(b));
-      const items = names.map(name => {
-        const rule = effectiveRules[name];
-        const isBuiltIn = Object.prototype.hasOwnProperty.call(RULES, name);
-        const isOverride = Object.prototype.hasOwnProperty.call(state.userRules, name);
-        const item = document.createElement("div");
-        item.className = "rule-item";
-        const content = document.createElement("div");
-        const title = document.createElement("strong");
-        title.textContent = name;
-        const meta = document.createElement("div");
-        meta.className = "rule-item-meta";
-        const source = isOverride ? (isBuiltIn ? "built-in override" : "custom") : "built-in";
-        const channel = rule.channel ? ` · channel: ${rule.channel}` : " · all channels";
-        meta.textContent = `${source} · ${rule.positive.length} positive · ${rule.negative.length} negative${channel}`;
-        content.append(title, meta);
-        const actions = document.createElement("div");
-        actions.className = "rule-item-actions";
-        const edit = document.createElement("button");
-        edit.type = "button";
-        edit.textContent = "Edit";
-        edit.addEventListener("click", () => editRule(name));
-        actions.appendChild(edit);
-        if (isOverride || !isBuiltIn) {
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.textContent = isBuiltIn ? "Restore" : "Remove";
-          remove.addEventListener("click", () => removeUserRule(name, isBuiltIn));
-          actions.appendChild(remove);
-        }
-        item.append(content, actions);
-        return item;
-      });
-      els.ruleList.replaceChildren(...items);
-    }
-
-    function editRule(name) {
-      const rule = getEffectiveRules()[name];
-      if (!rule) return;
-      state.editingRuleName = name;
-      els.ruleNameInput.value = name;
-      els.ruleNameInput.readOnly = true;
-      els.rulePositiveInput.value = rule.positive.join("\n");
-      els.ruleNegativeInput.value = rule.negative.join("\n");
-      els.ruleChannelInput.value = rule.channel;
-      els.rulePositiveInput.focus();
-    }
-
-    function resetRuleEditor() {
-      state.editingRuleName = "";
-      els.ruleNameInput.readOnly = false;
-      els.ruleNameInput.value = "";
-      els.rulePositiveInput.value = "";
-      els.ruleNegativeInput.value = "";
-      els.ruleChannelInput.value = "";
-      if (els.rulesDialog.open) els.ruleNameInput.focus();
-    }
-
-    function saveRuleEditor(event) {
-      event.preventDefault();
-      const name = els.ruleNameInput.value.trim();
-      const positive = splitInputValues(els.rulePositiveInput.value);
-      if (!name || !positive.length) {
-        showToast("A rule needs a tag name and at least one positive keyword.");
-        return;
-      }
-      state.userRules[name] = normalizeRule({
-        positive,
-        negative: splitInputValues(els.ruleNegativeInput.value),
-        channel: els.ruleChannelInput.value,
-      });
-      persistence.saveUserRules(state.userRules);
-      refreshEnrichedVideos();
-      state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
-      renderRuleList();
-      renderTagFilters();
-      render();
-      resetRuleEditor();
-      showToast(`Saved rule for “${name}”.`);
-    }
-
-    function removeUserRule(name, restoresBuiltIn) {
-      const action = restoresBuiltIn ? "restore the built-in rule" : "remove this custom rule";
-      if (!confirm(`Remove “${name}” and ${action}?`)) return;
-      delete state.userRules[name];
-      persistence.saveUserRules(state.userRules);
-      refreshEnrichedVideos();
-      state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
-      renderRuleList();
-      renderTagFilters();
-      render();
-      resetRuleEditor();
-      showToast(restoresBuiltIn ? `Restored built-in rule “${name}”.` : `Removed rule “${name}”.`);
-    }
-
-    function openChannelRulesDialog() {
-      renderChannelRuleList();
-      resetChannelRuleEditor();
-      els.channelRulesDialog.showModal();
-    }
-
-    function getChannelRuleChannelOptions() {
-      const channels = groupCounts(state.videos, video => video.channel || "(unknown)");
-      return filterChannelOptions(channels, els.channelRuleChannelInput.value);
-    }
-
-    function openChannelRuleChannelMenu() {
-      renderChannelRuleChannelMenu();
-      els.channelRuleChannelCombo.classList.add("is-open");
-    }
-
-    function closeChannelRuleChannelMenu() {
-      els.channelRuleChannelCombo.classList.remove("is-open");
-    }
-
-    function selectChannelRuleChannel(channel) {
-      els.channelRuleChannelInput.value = channel;
-      closeChannelRuleChannelMenu();
-      renderChannelRulePreview();
-    }
-
-    function renderChannelRuleChannelMenu() {
-      const page = getChannelOptionPage(
-        groupCounts(state.videos, video => video.channel || "(unknown)"),
-        els.channelRuleChannelInput.value,
-        24,
-      );
-      const visibleMatches = page.options;
-      const summary = document.createElement("div");
-      summary.className = "scope-text";
-      summary.textContent = page.totalCount > visibleMatches.length
-        ? `Showing first ${visibleMatches.length} of ${page.totalCount} matches. Keep typing to narrow the list.`
-        : `${page.totalCount} matching ${page.totalCount === 1 ? "channel" : "channels"}.`;
-
-      const options = visibleMatches.map(item => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "channel-option";
-        button.title = item.name;
-        button.append(createChannelName(item.name), createCount(item.count));
-        button.addEventListener("click", () => selectChannelRuleChannel(item.name));
-        return button;
-      });
-
-      if (!options.length) {
-        const empty = document.createElement("div");
-        empty.className = "scope-text";
-        empty.textContent = "No matching channels. You can still use the typed channel name.";
-        els.channelRuleChannelMenu.replaceChildren(summary, empty);
-        return;
-      }
-      els.channelRuleChannelMenu.replaceChildren(summary, ...options);
-    }
-
-    function renderChannelRuleList() {
-      const items = state.channelRules.map(rule => {
-        const impact = getChannelRuleImpact(state.videos, state.decisions, rule);
-        const item = document.createElement("div");
-        item.className = "rule-item";
-        const content = document.createElement("div");
-        const title = document.createElement("strong");
-        title.textContent = rule.channel;
-        const meta = document.createElement("div");
-        meta.className = "rule-item-meta";
-        const tag = rule.tag ? ` · tag: ${rule.tag}` : "";
-        const protection = rule.protected ? " · protected" : "";
-        meta.textContent = `${formatChannelRuleMode(rule.mode)}${tag}${protection} · ${impact.matchCount} matches · ${impact.affectedIds.length} pending`;
-        content.append(title, meta);
-        const actions = document.createElement("div");
-        actions.className = "rule-item-actions";
-        const edit = document.createElement("button");
-        edit.type = "button";
-        edit.textContent = "Edit";
-        edit.addEventListener("click", () => editChannelRule(rule.id));
-        const apply = document.createElement("button");
-        apply.type = "button";
-        apply.textContent = "Apply";
-        apply.disabled = !impact.affectedIds.length;
-        apply.addEventListener("click", () => applyChannelRules([rule], `channel rule for ${rule.channel}`));
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.textContent = "Remove";
-        remove.addEventListener("click", () => removeChannelRule(rule.id));
-        actions.append(edit, apply, remove);
-        item.append(content, actions);
-        return item;
-      });
-
-      if (!items.length) {
-        const empty = document.createElement("div");
-        empty.className = "scope-text";
-        empty.textContent = "No channel rules yet.";
-        items.push(empty);
-      }
-      els.channelRuleList.replaceChildren(...items);
-      els.applyAllChannelRules.disabled = !getCombinedChannelRuleImpact(state.videos, state.decisions, state.channelRules).affectedIds.length;
-    }
-
-    function getChannelRuleDraft() {
-      return normalizeChannelRule({
-        id: state.editingChannelRuleId,
-        channel: els.channelRuleChannelInput.value,
-        mode: els.channelRuleModeSelect.value,
-        tag: els.channelRuleTagInput.value,
-        protected: els.channelRuleProtectedInput.checked,
-      });
-    }
-
-    function renderChannelRulePreview() {
-      const alwaysKeep = els.channelRuleModeSelect.value === "always-keep";
-      if (alwaysKeep) els.channelRuleProtectedInput.checked = true;
-      els.channelRuleProtectedInput.disabled = alwaysKeep;
-      const rule = getChannelRuleDraft();
-      if (!rule) {
-        els.channelRulePreview.textContent = "Choose a channel to preview this rule.";
-        els.applyChannelRule.disabled = true;
-        return;
-      }
-      const impact = getChannelRuleImpact(state.videos, state.decisions, rule);
-      const protection = rule.protected
-        ? ` ${impact.matchCount} matching videos will trigger protected-channel delete warnings.`
-        : "";
-      els.channelRulePreview.textContent = `${impact.matchCount} matching videos. Applying now would change ${impact.statusChangeCount} statuses and add ${impact.tagAdditionCount} tags across ${impact.affectedIds.length} videos.${protection}`;
-      els.applyChannelRule.disabled = !impact.affectedIds.length;
-    }
-
-    function editChannelRule(ruleId) {
-      const rule = state.channelRules.find(candidate => candidate.id === ruleId);
-      if (!rule) return;
-      state.editingChannelRuleId = rule.id;
-      els.channelRuleChannelInput.value = rule.channel;
-      els.channelRuleModeSelect.value = rule.mode;
-      els.channelRuleTagInput.value = rule.tag;
-      els.channelRuleProtectedInput.checked = rule.protected;
-      renderChannelRulePreview();
-      els.channelRuleChannelInput.focus();
-    }
-
-    function resetChannelRuleEditor() {
-      state.editingChannelRuleId = "";
-      els.channelRuleChannelInput.value = "";
-      els.channelRuleModeSelect.value = "none";
-      els.channelRuleTagInput.value = "";
-      els.channelRuleProtectedInput.checked = false;
-      renderChannelRulePreview();
-      if (els.channelRulesDialog.open) els.channelRuleChannelInput.focus();
-    }
-
-    function saveChannelRuleEditor(event) {
-      event.preventDefault();
-      const rule = getChannelRuleDraft();
-      if (!rule) {
-        showToast("A channel rule needs a channel name.");
-        return;
-      }
-      const savedRule = storeChannelRule(rule);
-      renderChannelRuleList();
-      renderChannelRuleSummary();
-      renderChannelRulePreview();
-      showToast(`Saved channel rule for “${savedRule.channel}”. Review the preview before applying it.`);
-    }
-
-    function storeChannelRule(rule) {
-      const existingIndex = state.channelRules.findIndex(candidate =>
-        candidate.id === rule.id || candidate.channel.toLowerCase() === rule.channel.toLowerCase()
-      );
-      if (existingIndex >= 0) {
-        rule.id = state.channelRules[existingIndex].id;
-        state.channelRules.splice(existingIndex, 1, rule);
-      } else {
-        rule.id = createSnapshotId();
-        state.channelRules.push(rule);
-      }
-      state.channelRules = normalizeChannelRules(state.channelRules);
-      state.editingChannelRuleId = rule.id;
-      persistence.saveChannelRules(state.channelRules);
-      return state.channelRules.find(candidate => candidate.id === rule.id) || rule;
-    }
-
-    function removeChannelRule(ruleId) {
-      const rule = state.channelRules.find(candidate => candidate.id === ruleId);
-      if (!rule || !confirm(`Remove the channel rule for “${rule.channel}”? Applied decisions will not be changed.`)) return;
-      state.channelRules = state.channelRules.filter(candidate => candidate.id !== ruleId);
-      persistence.saveChannelRules(state.channelRules);
-      renderChannelRuleList();
-      renderChannelRuleSummary();
-      resetChannelRuleEditor();
-      showToast(`Removed channel rule for “${rule.channel}”.`);
-    }
-
-    function applyCurrentChannelRule() {
-      const rule = getChannelRuleDraft();
-      if (!rule) {
-        showToast("Choose a channel before applying a rule.");
-        return;
-      }
-      const savedRule = storeChannelRule(rule);
-      renderChannelRuleList();
-      renderChannelRuleSummary();
-      applyChannelRules([savedRule], `channel rule for ${savedRule.channel}`);
-    }
-
-    function applyAllPendingChannelRules() {
-      applyChannelRules(state.channelRules, `${state.channelRules.length} channel rules`);
-    }
-
-    function applyChannelRules(rules, label) {
-      const normalizedRules = normalizeChannelRules(rules);
-      const impact = getCombinedChannelRuleImpact(state.videos, state.decisions, normalizedRules);
-      if (!impact.affectedIds.length) {
-        showToast("These channel rules have no pending changes.");
-        return;
-      }
-      const ok = confirm([
-        `Apply ${label}?`,
-        "",
-        `Matching videos: ${impact.matchCount}`,
-        `Status changes: ${impact.statusChangeCount}`,
-        `Tags added: ${impact.tagAdditionCount}`,
-        `Affected videos: ${impact.affectedIds.length}`,
-        "",
-        "Existing statuses are preserved by default modes. An undo snapshot will be created.",
-      ].join("\n"));
-      if (!ok) return;
-      if (!addHistoryEntry(`Applied ${label} to ${impact.affectedIds.length} videos`, "channel-rule", impact.affectedIds)) {
-        showToast("Channel rule application cancelled because the local safety snapshot could not be saved.");
-        return;
-      }
-
-      const updatedAt = new Date().toISOString();
-      for (const rule of normalizedRules) {
-        for (const video of state.videos) {
-          if (String(video.channel || "").trim().toLowerCase() !== rule.channel.toLowerCase()) continue;
-          const current = getDecision(video.videoId);
-          const next = getChannelRuleDecision(current, rule, updatedAt);
-          if (!areDecisionsEqual(current, next)) state.decisions[video.videoId] = next;
-        }
-      }
-      saveDecisions();
-      state.selectedIds.clear();
-      renderTagFilters();
-      render();
-      if (els.channelRulesDialog.open) {
-        renderChannelRuleList();
-        renderChannelRulePreview();
-      }
-      showToast(`Applied channel rules to ${impact.affectedIds.length} videos. You can restore the safety snapshot from history.`);
-    }
-
-    function formatChannelRuleMode(mode) {
-      return ({
-        none: "No status default",
-        "default-keep": "Keep new/unreviewed",
-        "default-review": "Review new/unreviewed",
-        "always-keep": "Always keep",
-        "always-review": "Always review",
-      })[mode] || "No status default";
     }
 
     function groupCounts(items, getName) {
@@ -2761,34 +1405,6 @@
       state.selectedIds.clear();
       render();
       showToast(`Restored ${entry.affectedCount} decisions from snapshot.`);
-    }
-
-    function renderHistory() {
-      els.historyList.replaceChildren();
-      if (!state.history.length) {
-        const empty = document.createElement("div");
-        empty.className = "scope-text";
-        empty.textContent = "Workspace safety snapshots will appear here.";
-        els.historyList.appendChild(empty);
-        return;
-      }
-
-      for (const entry of state.history) {
-        const item = document.createElement("div");
-        item.className = "history-item";
-        const title = document.createElement("strong");
-        title.textContent = entry.description;
-        const meta = document.createElement("div");
-        meta.className = "history-meta";
-        const date = Date.parse(entry.createdAt);
-        meta.textContent = `${entry.affectedCount} decisions · ${Number.isFinite(date) ? new Date(date).toLocaleString() : "unknown time"}`;
-        const restore = document.createElement("button");
-        restore.type = "button";
-        restore.textContent = "Restore snapshot";
-        restore.addEventListener("click", () => restoreHistoryEntry(entry));
-        item.append(title, meta, restore);
-        els.historyList.appendChild(item);
-      }
     }
 
     function saveDecisions() {
