@@ -230,7 +230,7 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 - [x] Primerjati desktop, 980 px in 680 px responsive postavitev.
 - [x] Preveriti dialoge, video vrstice, status barve, sticky/sidebar obnašanje in focus stanja.
 - [x] Pognati oba testa.
-- [ ] Po deploymentu preveriti GitHub Pages asset URL.
+- [x] Po deploymentu preveriti GitHub Pages asset URL.
 
 **Izhodni kriterij:** HTML vsebuje samo `<link>` do enega CSS asseta, vizualni rezultat pa je nespremenjen.
 
