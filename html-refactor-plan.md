@@ -197,13 +197,13 @@ Prehod na ES module in lokalni strežnik se lahko oceni kot ločen prihodnji pro
 
 Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris korenskega entrypointa:
 
-- [ ] Uporabiti obstoječi `docs/` (oziroma ga ustvariti, če manjka), ohraniti `docs/channel-insights-redesign-plan.md` in vanj kopirati trenutni `index.html` brez vsebinskih sprememb.
-- [ ] Dodati `docs/.nojekyll`, ker stran ne potrebuje Jekyll obdelave.
-- [ ] Kopirati `assets/app-icon.png` v `docs/assets/app-icon.png`, da relativna pot deluje tudi, ko Pages objavlja samo vsebino `docs/`.
-- [ ] Testni entrypoint preusmeriti na `docs/index.html`.
-- [ ] Posodobiti README navodilo za lokalno odpiranje.
-- [ ] Pognati teste in lokalno odpreti `docs/index.html`.
-- [ ] Commitati prehodno stanje, v katerem obstajata oba identična entrypointa.
+- [x] Uporabiti obstoječi `docs/` (oziroma ga ustvariti, če manjka), ohraniti `docs/channel-insights-redesign-plan.md` in vanj kopirati trenutni `index.html` brez vsebinskih sprememb.
+- [x] Dodati `docs/.nojekyll`, ker stran ne potrebuje Jekyll obdelave.
+- [x] Kopirati `assets/app-icon.png` v `docs/assets/app-icon.png`, da relativna pot deluje tudi, ko Pages objavlja samo vsebino `docs/`.
+- [x] Testni entrypoint preusmeriti na `docs/index.html`.
+- [x] Posodobiti README navodilo za lokalno odpiranje.
+- [x] Pognati teste in lokalno odpreti `docs/index.html`.
+- [x] Commitati prehodno stanje, v katerem obstajata oba identična entrypointa.
 - [ ] V GitHubu spremeniti Pages source na `main` + `/docs`.
 - [ ] Počakati na uspešen Pages deployment in preveriti produkcijski URL, import ter refresh.
 - [ ] Šele po uspešni objavi odstraniti korenski `index.html`.

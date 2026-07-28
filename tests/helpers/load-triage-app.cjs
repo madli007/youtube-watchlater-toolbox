@@ -3,10 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
-const ENTRY_CANDIDATES = [
-  path.join(PROJECT_ROOT, "docs", "index.html"),
-  path.join(PROJECT_ROOT, "index.html"),
-];
+const ENTRY_PATH = path.join(PROJECT_ROOT, "docs", "index.html");
 
 function getAttribute(attributes, name) {
   const match = attributes.match(new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"));
@@ -108,12 +105,11 @@ function assertDomContract(html, scriptSources) {
 }
 
 function resolveTriageEntry() {
-  const entryPath = ENTRY_CANDIDATES.find(candidate => fs.existsSync(candidate));
   assert.ok(
-    entryPath,
-    `Triage entry HTML not found. Checked: ${ENTRY_CANDIDATES.join(", ")}`,
+    fs.existsSync(ENTRY_PATH),
+    `Triage entry HTML not found: ${ENTRY_PATH}`,
   );
-  return entryPath;
+  return ENTRY_PATH;
 }
 
 function loadTriageApp() {

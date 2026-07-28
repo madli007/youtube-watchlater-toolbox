@@ -4,7 +4,7 @@ Small local tools for exporting and triaging a large YouTube Watch Later playlis
 
 ## Watch Later Triage
 
-Open `index.html` in a browser, or publish this repository with GitHub Pages and open the page there.
+Open `docs/index.html` in a browser, or publish the repository's `docs/` folder with GitHub Pages and open the page there.
 
 The triage page:
 
@@ -51,16 +51,16 @@ Do not commit personal Watch Later exports. They are ignored by `.gitignore`:
 - `watchlater_reconciliation*.json`
 - `delete-urls*.txt`
 
-The public `index.html` file does not contain exported video data. It does contain generic and project-specific tag keywords.
+The public `docs/index.html` file does not contain exported video data. It does contain generic and project-specific tag keywords.
 
 ## GitHub Pages
 
-Because `index.html` is at the repository root, GitHub Pages can serve it directly.
+GitHub Pages serves the static application from the repository's `docs/` folder.
 
 In GitHub:
 
 1. Open repository settings.
 2. Go to `Pages`.
-3. Choose the branch.
-4. Choose `/ root` as the source folder.
+3. Choose `Deploy from a branch`.
+4. Choose the `main` branch and `/docs` as the source folder.
 5. Save.
