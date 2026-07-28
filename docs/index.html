@@ -415,6 +415,11 @@
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <!--
+    Classic scripts are intentionally ordered by dependency:
+    config -> domain -> persistence/state -> UI factories -> controller -> bootstrap.
+    Keep this order so the app also works when opened directly over file://.
+  -->
   <script src="./assets/js/config.js"></script>
   <script src="./assets/js/domain/decisions.js"></script>
   <script src="./assets/js/domain/import-comparison.js"></script>
@@ -429,6 +434,7 @@
   <script src="./assets/js/ui/dialogs.js"></script>
   <script src="./assets/js/ui/video-list.js"></script>
   <script src="./assets/js/ui/dashboards.js"></script>
+  <script src="./assets/js/triage-controller.js"></script>
   <script src="./assets/js/app.js"></script>
 </body>
 </html>

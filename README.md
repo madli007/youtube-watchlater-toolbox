@@ -33,6 +33,42 @@ After a run completes or stops, the userscript reloads the playlist and exports 
 
 No backend, npm install, database, or API service is required.
 
+## Project structure
+
+The published application lives entirely under `docs/`:
+
+```text
+docs/
+  index.html
+  assets/
+    css/app.css
+    js/
+      config.js
+      domain/              Pure decision, filter, grouping, time, and workspace logic
+      storage.js           The only direct localStorage boundary
+      browser-io.js        File reading and download boundary
+      state.js             Central state creation
+      ui/                  DOM registry and UI factories
+      triage-controller.js Application workflows and event handlers
+      app.js               Dependency composition and bootstrap
+```
+
+The JavaScript uses ordered classic scripts so `docs/index.html` remains usable over `file://`. The dependency order is documented beside the script tags in that file. ES modules are intentionally not used because they would require changing the direct local-opening workflow without providing a current product benefit.
+
+## Local running and tests
+
+Open `docs/index.html` directly in a browser. To test through HTTP instead, run a static server from the repository root and open its `/docs/` path.
+
+No dependency installation or build step is needed. Run the automated checks with:
+
+```text
+node tests/domain-modules.test.cjs
+node tests/state-storage.test.cjs
+node tests/triage-workspace.test.cjs
+node tests/bootstrap-architecture.test.cjs
+node tests/userscript-reconciliation.test.cjs
+```
+
 ## Privacy
 
 Do not commit personal Watch Later exports. They are ignored by `.gitignore`:

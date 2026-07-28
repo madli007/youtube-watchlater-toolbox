@@ -325,14 +325,14 @@ Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 
 **Namen:** dokončati strukturo šele, ko so vsi večji sklopi že stabilni.
 
-- [ ] V `app.js` pustiti samo sestavo odvisnosti, inicializacijo, vezavo globalnih dogodkov in zagon prvega renderja.
-- [ ] Dokumentirati vrstni red nalaganja skriptov v `docs/index.html`.
-- [ ] Preveriti, da med moduli ni krožnih odvisnosti.
-- [ ] Odstraniti začasne compatibility exporte, ki jih nič več ne uporablja.
-- [ ] Preveriti, da ni podvojenih helper funkcij ali neposrednih storage dostopov iz domenskih/UI modulov.
-- [ ] Izvesti statični pregled vseh relativnih asset poti.
-- [ ] Ponovno oceniti, ali prehod na ES module res prinaša korist; ne izvesti ga avtomatično v tej fazi.
-- [ ] Posodobiti README z dejansko strukturo, lokalnim zagonom, testi in GitHub Pages sourceom.
+- [x] V `app.js` pustiti samo sestavo odvisnosti, inicializacijo, vezavo globalnih dogodkov in zagon prvega renderja.
+- [x] Dokumentirati vrstni red nalaganja skriptov v `docs/index.html`.
+- [x] Preveriti, da med moduli ni krožnih odvisnosti.
+- [x] Odstraniti začasne compatibility exporte, ki jih nič več ne uporablja.
+- [x] Preveriti, da ni podvojenih helper funkcij ali neposrednih storage dostopov iz domenskih/UI modulov.
+- [x] Izvesti statični pregled vseh relativnih asset poti.
+- [x] Ponovno oceniti, ali prehod na ES module res prinaša korist; ne izvesti ga avtomatično v tej fazi.
+- [x] Posodobiti README z dejansko strukturo, lokalnim zagonom, testi in GitHub Pages sourceom.
 
 **Izhodni kriterij:** entrypoint je kratek in razumljiv, odvisnosti tečejo od app/UI sloja proti domain/storage sloju, ne obratno.
 

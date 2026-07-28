@@ -141,8 +141,5 @@
 
   app.storage = Object.freeze({
     createStorage,
-    readJson,
-    writeJson,
-    writeText,
   });
 })(globalThis);

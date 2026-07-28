@@ -6,7 +6,6 @@
     const {
       state,
       els,
-      persistence,
       buildVideoGroups,
       chooseGroupWinner,
       getProtectedChannelMatches,
@@ -22,6 +21,7 @@
     const setStatus = (...args) => context.setStatus(...args);
     const addHistoryEntry = (...args) => context.addHistoryEntry(...args);
     const saveDecisions = (...args) => context.saveDecisions(...args);
+    const saveTimeBudgetHours = (...args) => context.saveTimeBudgetHours(...args);
     const render = (...args) => context.render(...args);
     const showToast = (...args) => context.showToast(...args);
     const getActiveFilterSummary = (...args) => context.getActiveFilterSummary(...args);
@@ -262,7 +262,7 @@
     function updateTimeBudget() {
       state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
       els.timeBudgetHours.value = state.timeBudgetHours;
-      persistence.saveTimeBudgetHours(state.timeBudgetHours);
+      saveTimeBudgetHours(state.timeBudgetHours);
       renderTimeDashboard();
     }
 
@@ -270,7 +270,7 @@
       const hours = Number(els.timeBudgetHours.value);
       if (!Number.isFinite(hours) || hours <= 0) return;
       state.timeBudgetHours = Math.min(168, hours);
-      persistence.saveTimeBudgetHours(state.timeBudgetHours);
+      saveTimeBudgetHours(state.timeBudgetHours);
       renderTimeDashboard();
     }
 

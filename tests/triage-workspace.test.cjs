@@ -42,6 +42,7 @@ const expectedApplicationScripts = [
   "./assets/js/ui/dialogs.js",
   "./assets/js/ui/video-list.js",
   "./assets/js/ui/dashboards.js",
+  "./assets/js/triage-controller.js",
   "./assets/js/app.js",
 ];
 assert.equal(scripts.length, expectedApplicationScripts.length);

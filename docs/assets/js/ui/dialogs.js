@@ -6,7 +6,6 @@
     const {
       state,
       els,
-      persistence,
       RULES,
       updateDecisionDetails,
       normalizeRule,
@@ -31,6 +30,9 @@
     const render = (...args) => context.render(...args);
     const showToast = (...args) => context.showToast(...args);
     const saveDecisions = (...args) => context.saveDecisions(...args);
+    const savePreviewProgress = (...args) => context.savePreviewProgress(...args);
+    const saveUserRules = (...args) => context.saveUserRules(...args);
+    const saveChannelRules = (...args) => context.saveChannelRules(...args);
     const renderTagFilters = (...args) => context.renderTagFilters(...args);
     const getEffectiveRules = (...args) => context.getEffectiveRules(...args);
     const refreshEnrichedVideos = (...args) => context.refreshEnrichedVideos(...args);
@@ -194,7 +196,7 @@
         state.previewProgress[state.previewVideoId] = Math.floor(state.previewCurrentTime);
       }
       try {
-        if (!persistence.savePreviewProgress(state.previewProgress)) return false;
+        if (!savePreviewProgress(state.previewProgress)) return false;
         state.previewLastPersistAt = Date.now();
         return true;
       } catch (_error) {
@@ -429,7 +431,7 @@
         negative: splitInputValues(els.ruleNegativeInput.value),
         channel: els.ruleChannelInput.value,
       });
-      persistence.saveUserRules(state.userRules);
+      saveUserRules(state.userRules);
       refreshEnrichedVideos();
       state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
@@ -443,7 +445,7 @@
       const action = restoresBuiltIn ? "restore the built-in rule" : "remove this custom rule";
       if (!confirm(`Remove “${name}” and ${action}?`)) return;
       delete state.userRules[name];
-      persistence.saveUserRules(state.userRules);
+      saveUserRules(state.userRules);
       refreshEnrichedVideos();
       state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
@@ -633,7 +635,7 @@
       }
       state.channelRules = normalizeChannelRules(state.channelRules);
       state.editingChannelRuleId = rule.id;
-      persistence.saveChannelRules(state.channelRules);
+      saveChannelRules(state.channelRules);
       return state.channelRules.find(candidate => candidate.id === rule.id) || rule;
     }
 
@@ -641,7 +643,7 @@
       const rule = state.channelRules.find(candidate => candidate.id === ruleId);
       if (!rule || !confirm(`Remove the channel rule for “${rule.channel}”? Applied decisions will not be changed.`)) return;
       state.channelRules = state.channelRules.filter(candidate => candidate.id !== ruleId);
-      persistence.saveChannelRules(state.channelRules);
+      saveChannelRules(state.channelRules);
       renderChannelRuleList();
       renderChannelRuleSummary();
       resetChannelRuleEditor();
