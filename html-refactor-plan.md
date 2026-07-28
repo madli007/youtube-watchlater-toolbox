@@ -264,16 +264,16 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 
 Vsak spodnji sklop naj bo samostojen commit; po vsakem se poženejo testi:
 
-- [ ] `config.js`: velikostne meje, grouping stop words, vgrajena tag pravila in nespremenljivi ključi.
-- [ ] `domain/decisions.js`: normalizacija odločitev in tagov, statusne transformacije ter portable decisions.
-- [ ] `domain/import-comparison.js`: snapshoti, baseline, primerjava datasetov in normalizacija comparison rezultata.
-- [ ] `domain/filters.js`: normalizacija filtrov/saved views, parse age/views in čista filter predikata.
-- [ ] `domain/time-budget.js`: duration statistika, grouping statistike, shortlist in formatiranje časa.
-- [ ] `domain/grouping.js`: normalizacija naslovov, similarity, series/duplicate/similar groups in izbira zmagovalca.
-- [ ] `domain/workspace.js`: sestavljanje in validacija workspace payloadov brez file input/output dela.
-- [ ] Vsak modul izpostaviti prek enega kontroliranega `window.WatchLaterApp` namespacea, ne prek množice naključnih globalov.
-- [ ] Teste preusmeriti na eksplicitne module/API-je namesto na globalno zbirko funkcij iz monolita.
-- [ ] Za vsak modul dodati vsaj test normalnega primera in mejnega/invalid primera.
+- [x] `config.js`: velikostne meje, grouping stop words, vgrajena tag pravila in nespremenljivi ključi.
+- [x] `domain/decisions.js`: normalizacija odločitev in tagov, statusne transformacije ter portable decisions.
+- [x] `domain/import-comparison.js`: snapshoti, baseline, primerjava datasetov in normalizacija comparison rezultata.
+- [x] `domain/filters.js`: normalizacija filtrov/saved views, parse age/views in čista filter predikata.
+- [x] `domain/time-budget.js`: duration statistika, grouping statistike, shortlist in formatiranje časa.
+- [x] `domain/grouping.js`: normalizacija naslovov, similarity, series/duplicate/similar groups in izbira zmagovalca.
+- [x] `domain/workspace.js`: sestavljanje in validacija workspace payloadov brez file input/output dela.
+- [x] Vsak modul izpostaviti prek enega kontroliranega `window.WatchLaterApp` namespacea, ne prek množice naključnih globalov.
+- [x] Teste preusmeriti na eksplicitne module/API-je namesto na globalno zbirko funkcij iz monolita.
+- [x] Za vsak modul dodati vsaj test normalnega primera in mejnega/invalid primera.
 
 **Priporočen vrstni red:** config/normalizacija → decisions → import comparison → filters → time budget → grouping → workspace. Poznejši moduli uporabljajo več skupnih normalizacijskih funkcij, zato se s tem zmanjša krožno odvisnost.
 
@@ -380,6 +380,7 @@ Pomembne posledice:
 ### Avtomatsko
 
 ```powershell
+node tests\domain-modules.test.cjs
 node tests\triage-workspace.test.cjs
 node tests\userscript-reconciliation.test.cjs
 ```
