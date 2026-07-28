@@ -8,7 +8,12 @@ const {
   loadTriageApp,
 } = require("./helpers/load-triage-app.cjs");
 
-const { entryPath, html, source } = loadTriageApp();
+const {
+  entryPath,
+  html,
+  scripts,
+  source,
+} = loadTriageApp();
 assert.doesNotMatch(
   html,
   /<style\b/i,
@@ -21,7 +26,21 @@ assert.deepEqual(
   ["./assets/css/app.css"],
   "production HTML must link the single application stylesheet",
 );
-assert.match(html, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
+assert.equal(scripts.length, 1, "production HTML must load one application script");
+assert.equal(scripts[0].kind, "external", "production HTML must not contain an inline application script");
+assert.deepEqual(
+  getLinkedAssets(html, entryPath)
+    .filter(asset => asset.type === "JavaScript")
+    .map(asset => asset.reference),
+  ["./assets/js/app.js"],
+  "production HTML must link the single application script",
+);
+assert.match(
+  html,
+  /<script src=["']\.\/assets\/js\/app\.js["']><\/script>/i,
+  "application script must use a plain blocking script tag",
+);
+assert.match(source, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
 
 const fixtureEntryPath = path.join(__dirname, "fixtures", "loader-entry.html");
 const externalFixtureHtml = [

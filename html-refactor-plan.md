@@ -242,13 +242,13 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 
 **Namen:** odstraniti približno 3.975 vrstic JavaScripta iz HTML-ja, vendar še ne spreminjati njegove notranje zgradbe.
 
-- [ ] Ustvariti `docs/assets/js/app.js`.
-- [ ] Inline skript prenesti mehansko, brez preimenovanj, prestavljanja funkcij ali sprememb logike.
-- [ ] Na istem mestu ob koncu `<body>` uporabiti relativni `<script src="./assets/js/app.js"></script>`.
-- [ ] Ne dodati `type="module"`, `async` ali drugega načina izvajanja.
-- [ ] Testni helper preusmeriti na zunanji skript.
-- [ ] Dodati statični test, da produkcijski HTML nima več aplikacijskega inline skripta in da script asset obstaja.
-- [ ] Pognati vse assertions iz `triage-workspace.test.cjs` nad zunanjo datoteko.
+- [x] Ustvariti `docs/assets/js/app.js`.
+- [x] Inline skript prenesti mehansko, brez preimenovanj, prestavljanja funkcij ali sprememb logike.
+- [x] Na istem mestu ob koncu `<body>` uporabiti relativni `<script src="./assets/js/app.js"></script>`.
+- [x] Ne dodati `type="module"`, `async` ali drugega načina izvajanja.
+- [x] Testni helper preusmeriti na zunanji skript.
+- [x] Dodati statični test, da produkcijski HTML nima več aplikacijskega inline skripta in da script asset obstaja.
+- [x] Pognati vse assertions iz `triage-workspace.test.cjs` nad zunanjo datoteko.
 - [ ] Izvesti celoten ročni acceptance checklist iz Faze 0.
 - [ ] Preveriti neposredno lokalno odpiranje in GitHub Pages.
 
