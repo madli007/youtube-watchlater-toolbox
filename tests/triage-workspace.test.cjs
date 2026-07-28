@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const {
@@ -34,6 +35,9 @@ const expectedApplicationScripts = [
   "./assets/js/domain/time-budget.js",
   "./assets/js/domain/grouping.js",
   "./assets/js/domain/workspace.js",
+  "./assets/js/storage.js",
+  "./assets/js/browser-io.js",
+  "./assets/js/state.js",
   "./assets/js/app.js",
 ];
 assert.equal(scripts.length, expectedApplicationScripts.length);
@@ -52,6 +56,11 @@ assert.match(
   html,
   /<script src=["']\.\/assets\/js\/config\.js["']><\/script>[\s\S]*<script src=["']\.\/assets\/js\/app\.js["']><\/script>/i,
   "application modules must use plain blocking script tags",
+);
+assert.doesNotMatch(
+  fs.readFileSync(path.join(path.dirname(entryPath), "assets/js/app.js"), "utf8"),
+  /\b(?:localStorage|FileReader|Blob|createObjectURL|revokeObjectURL)\b/,
+  "the application orchestrator must use the replaceable storage and browser I/O boundaries",
 );
 assert.match(source, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
 

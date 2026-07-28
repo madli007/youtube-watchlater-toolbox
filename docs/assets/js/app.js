@@ -1,12 +1,4 @@
     const {
-      STORAGE_KEY,
-      HISTORY_STORAGE_KEY,
-      USER_RULES_STORAGE_KEY,
-      CHANNEL_RULES_STORAGE_KEY,
-      SAVED_VIEWS_STORAGE_KEY,
-      DATASET_BASELINE_STORAGE_KEY,
-      TIME_BUDGET_STORAGE_KEY,
-      PREVIEW_PROGRESS_STORAGE_KEY,
       PAGE_SIZE,
       BULK_CONFIRM_THRESHOLD,
       MAX_HISTORY_ENTRIES,
@@ -15,7 +7,6 @@
     const {
       ruleMatchesVideo,
       updateDecisionDetails,
-      normalizeUserRules,
       normalizeRule,
       normalizeChannelRules,
       normalizeChannelRule,
@@ -32,22 +23,17 @@
       areDecisionsEqual,
       createHistoryEntry,
       createSnapshotId,
-      normalizeHistory,
       mergeHistoryEntries,
       applyHistoryEntry,
     } = globalThis.WatchLaterApp.domain.decisions;
     const {
       dedupeVideos,
-      createEmptyImportComparison,
-      createVideoSnapshot,
       createDatasetBaseline,
       compareVideoDatasets,
-      normalizePlainObject,
     } = globalThis.WatchLaterApp.domain.importComparison;
     const {
       videoMatchesFilters,
       normalizeFilterState,
-      normalizeSavedViews,
       filterChannelOptions,
       getChannelOptionPage,
     } = globalThis.WatchLaterApp.domain.filters;
@@ -67,45 +53,16 @@
       parseWorkspacePayload,
       toWorkspaceVideo,
       normalizeWorkspaceUi,
-      normalizePreviewProgress,
     } = globalThis.WatchLaterApp.domain.workspace;
-
-    const state = {
-      videos: [],
-      decisions: loadDecisions(),
-      selectedIds: new Set(),
-      activeTags: new Set(),
-      activeChannels: new Set(),
-      renderedCount: PAGE_SIZE,
-      currentId: "",
-      history: loadHistory(),
-      userRules: normalizeUserRules(loadStoredObject(USER_RULES_STORAGE_KEY)),
-      channelRules: normalizeChannelRules(loadStoredArray(CHANNEL_RULES_STORAGE_KEY)),
-      savedViews: normalizeSavedViews(loadStoredArray(SAVED_VIEWS_STORAGE_KEY)),
-      activeSavedViewId: "",
-      lastImport: null,
-      datasetView: "all",
-      importComparison: createEmptyImportComparison(),
-      datasetBaseline: loadDatasetBaseline(),
-      editingVideoId: "",
-      editingRuleName: "",
-      editingChannelRuleId: "",
-      timeBudgetHours: normalizeTimeBudgetHours(localStorage.getItem(TIME_BUDGET_STORAGE_KEY)),
-      groupType: "all",
-      renderedGroupCount: 20,
-      groupCacheKey: "",
-      groupCache: [],
-      previewVideoId: "",
-      previewCurrentTime: 0,
-      previewPlayerState: -1,
-      previewPlayerReady: false,
-      previewProgress: normalizePreviewProgress(loadStoredObject(PREVIEW_PROGRESS_STORAGE_KEY)),
-      previewLastPersistAt: 0,
-      previewCountdownRemaining: 30,
-      previewCountdownActive: false,
-      previewCountdownLastTick: 0,
-      previewPollTimer: null,
-    };
+    const persistence = globalThis.WatchLaterApp.storage.createStorage();
+    const {
+      parseJsonText,
+      serializeJson,
+      readFileText,
+      downloadTextFile,
+    } = globalThis.WatchLaterApp.browserIo;
+    const { createInitialState } = globalThis.WatchLaterApp.state;
+    const state = createInitialState(persistence);
 
     const els = {
       fileInput: document.getElementById("fileInput"),
@@ -388,8 +345,8 @@
       if (!file) return;
 
       try {
-        const raw = await file.text();
-        const parsed = JSON.parse(raw);
+        const raw = await readFileText(file);
+        const parsed = parseJsonText(raw);
         const videos = Array.isArray(parsed) ? parsed : parsed.videos;
         if (!Array.isArray(videos)) throw new Error("Expected a JSON array of videos.");
 
@@ -948,7 +905,7 @@
     function updateTimeBudget() {
       state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
       els.timeBudgetHours.value = state.timeBudgetHours;
-      localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+      persistence.saveTimeBudgetHours(state.timeBudgetHours);
       renderTimeDashboard();
     }
 
@@ -956,7 +913,7 @@
       const hours = Number(els.timeBudgetHours.value);
       if (!Number.isFinite(hours) || hours <= 0) return;
       state.timeBudgetHours = Math.min(168, hours);
-      localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+      persistence.saveTimeBudgetHours(state.timeBudgetHours);
       renderTimeDashboard();
     }
 
@@ -1282,7 +1239,7 @@
         view,
       ].sort((a, b) => a.name.localeCompare(b.name));
       state.activeSavedViewId = view.id;
-      saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+      persistence.saveSavedViews(state.savedViews);
       renderSavedViews();
       showToast(`Saved view "${name}".`);
     }
@@ -1297,7 +1254,7 @@
       if (!view || !confirm(`Delete the saved view "${view.name}"?`)) return;
       state.savedViews = state.savedViews.filter(candidate => candidate.id !== view.id);
       state.activeSavedViewId = "";
-      saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
+      persistence.saveSavedViews(state.savedViews);
       renderSavedViews();
       showToast(`Deleted saved view "${view.name}".`);
     }
@@ -1670,7 +1627,7 @@
         state.previewProgress[state.previewVideoId] = Math.floor(state.previewCurrentTime);
       }
       try {
-        localStorage.setItem(PREVIEW_PROGRESS_STORAGE_KEY, JSON.stringify(normalizePreviewProgress(state.previewProgress)));
+        if (!persistence.savePreviewProgress(state.previewProgress)) return false;
         state.previewLastPersistAt = Date.now();
         return true;
       } catch (_error) {
@@ -1959,7 +1916,7 @@
         negative: splitInputValues(els.ruleNegativeInput.value),
         channel: els.ruleChannelInput.value,
       });
-      saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+      persistence.saveUserRules(state.userRules);
       refreshEnrichedVideos();
       state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
@@ -1973,7 +1930,7 @@
       const action = restoresBuiltIn ? "restore the built-in rule" : "remove this custom rule";
       if (!confirm(`Remove “${name}” and ${action}?`)) return;
       delete state.userRules[name];
-      saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
+      persistence.saveUserRules(state.userRules);
       refreshEnrichedVideos();
       state.activeTags = new Set(Array.from(state.activeTags).filter(tag => getAllTagNames().includes(tag)));
       renderRuleList();
@@ -2163,7 +2120,7 @@
       }
       state.channelRules = normalizeChannelRules(state.channelRules);
       state.editingChannelRuleId = rule.id;
-      saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
+      persistence.saveChannelRules(state.channelRules);
       return state.channelRules.find(candidate => candidate.id === rule.id) || rule;
     }
 
@@ -2171,7 +2128,7 @@
       const rule = state.channelRules.find(candidate => candidate.id === ruleId);
       if (!rule || !confirm(`Remove the channel rule for “${rule.channel}”? Applied decisions will not be changed.`)) return;
       state.channelRules = state.channelRules.filter(candidate => candidate.id !== ruleId);
-      saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
+      persistence.saveChannelRules(state.channelRules);
       renderChannelRuleList();
       renderChannelRuleSummary();
       resetChannelRuleEditor();
@@ -2571,8 +2528,8 @@
       if (!file) return;
 
       try {
-        const raw = await file.text();
-        const incoming = parseWorkspacePayload(JSON.parse(raw));
+        const raw = await readFileText(file);
+        const incoming = parseWorkspacePayload(parseJsonText(raw));
         const incomingIds = new Set(incoming.videos.map(video => String(video.videoId || "")).filter(Boolean));
         const decisionCount = Object.keys(incoming.decisions).length;
         const ok = confirm([
@@ -2621,10 +2578,10 @@
         ]);
 
         saveDecisions();
-        saveStoredJson(USER_RULES_STORAGE_KEY, state.userRules);
-        saveStoredJson(CHANNEL_RULES_STORAGE_KEY, state.channelRules);
-        saveStoredJson(SAVED_VIEWS_STORAGE_KEY, state.savedViews);
-        localStorage.setItem(TIME_BUDGET_STORAGE_KEY, String(state.timeBudgetHours));
+        persistence.saveUserRules(state.userRules);
+        persistence.saveChannelRules(state.channelRules);
+        persistence.saveSavedViews(state.savedViews);
+        persistence.saveTimeBudgetHours(state.timeBudgetHours);
         flushPreviewProgress();
         saveHistory();
         applyWorkspaceUi(incoming.ui);
@@ -2668,8 +2625,8 @@
       if (!file) return;
 
       try {
-        const raw = await file.text();
-        const parsed = JSON.parse(raw);
+        const raw = await readFileText(file);
+        const parsed = parseJsonText(raw);
         const incoming = parseDecisionsPayload(parsed);
         const preview = previewDecisionsMerge(incoming, state.decisions);
         const totalIncoming = Object.keys(incoming).length;
@@ -2735,15 +2692,7 @@
     }
 
     function downloadJson(filename, payload) {
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadTextFile(filename, serializeJson(payload));
       showToast(`Exported ${filename}.`);
     }
 
@@ -2842,79 +2791,16 @@
       }
     }
 
-    function loadDecisions() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      } catch (_error) {
-        return {};
-      }
-    }
-
     function saveDecisions() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.decisions));
-    }
-
-    function loadHistory() {
-      try {
-        return normalizeHistory(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]"));
-      } catch (_error) {
-        return [];
-      }
+      return persistence.saveDecisions(state.decisions);
     }
 
     function saveHistory() {
-      try {
-        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history));
-        return true;
-      } catch (_error) {
-        return false;
-      }
-    }
-
-    function loadStoredObject(key) {
-      try {
-        const value = JSON.parse(localStorage.getItem(key) || "{}");
-        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-      } catch (_error) {
-        return {};
-      }
-    }
-
-    function loadStoredArray(key) {
-      try {
-        const value = JSON.parse(localStorage.getItem(key) || "[]");
-        return Array.isArray(value) ? value : [];
-      } catch (_error) {
-        return [];
-      }
-    }
-
-    function saveStoredJson(key, value) {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-
-    function loadDatasetBaseline() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(DATASET_BASELINE_STORAGE_KEY) || "null");
-        if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.videos)) return null;
-        return {
-          schemaVersion: 1,
-          savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
-          lastImport: normalizePlainObject(parsed.lastImport),
-          videos: parsed.videos.map(createVideoSnapshot).filter(video => video.videoId),
-        };
-      } catch (_error) {
-        return null;
-      }
+      return persistence.saveHistory(state.history);
     }
 
     function saveDatasetBaseline(baseline) {
-      try {
-        localStorage.setItem(DATASET_BASELINE_STORAGE_KEY, JSON.stringify(baseline));
-        return true;
-      } catch (_error) {
-        return false;
-      }
+      return persistence.saveDatasetBaseline(baseline);
     }
 
     function handleShortcuts(event) {

@@ -285,15 +285,15 @@ Vsak spodnji sklop naj bo samostojen commit; po vsakem se poženejo testi:
 
 **Namen:** ločiti podatke od prikaza, ne da bi spremenili storage sheme.
 
-- [ ] `state.js`: centralna inicializacija state objekta in dokumentirana oblika njegovih polj.
-- [ ] `storage.js`: varni read/write wrapperji za `localStorage`, dataset baseline, history in preview progress.
-- [ ] Ohraniti vse trenutne storage ključe dobesedno enake.
-- [ ] Ohraniti workspace `schemaVersion` in decision export format nespremenjena.
-- [ ] Ločiti serializacijo podatkov od browser akcij `FileReader`, `Blob`, object URL in download linka.
-- [ ] Dodati teste za pokvarjen JSON, prazen storage, starejše normalizirane oblike in neuspel write.
-- [ ] Dodati round-trip test: workspace export → parse/import → semantično enako stanje.
-- [ ] Preveriti, da refresh po odločitvi še vedno obnovi podatke.
-- [ ] Preveriti undo/history in preview timestamp persistence.
+- [x] `state.js`: centralna inicializacija state objekta in dokumentirana oblika njegovih polj.
+- [x] `storage.js`: varni read/write wrapperji za `localStorage`, dataset baseline, history in preview progress.
+- [x] Ohraniti vse trenutne storage ključe dobesedno enake.
+- [x] Ohraniti workspace `schemaVersion` in decision export format nespremenjena.
+- [x] Ločiti serializacijo podatkov od browser akcij `FileReader`, `Blob`, object URL in download linka.
+- [x] Dodati teste za pokvarjen JSON, prazen storage, starejše normalizirane oblike in neuspel write.
+- [x] Dodati round-trip test: workspace export → parse/import → semantično enako stanje.
+- [x] Preveriti, da refresh po odločitvi še vedno obnovi podatke.
+- [x] Preveriti undo/history in preview timestamp persistence.
 
 **Izhodni kriterij:** domenska logika ne bere neposredno iz `localStorage`, I/O robovi pa so zbrani in zamenljivi v testih.
 
@@ -381,6 +381,7 @@ Pomembne posledice:
 
 ```powershell
 node tests\domain-modules.test.cjs
+node tests\state-storage.test.cjs
 node tests\triage-workspace.test.cjs
 node tests\userscript-reconciliation.test.cjs
 ```

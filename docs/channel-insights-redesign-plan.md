@@ -1063,7 +1063,7 @@ Checkbox Faze se označi šele, ko so končani vsi njeni podrejeni checkboxi in 
 - [x] **Podfaza 0.3 — CSS:** obstoječi CSS je mehansko prenesen v `docs/assets/css/app.css` in vizualno nespremenjen.
 - [x] **Podfaza 0.4 — JavaScript:** obstoječi inline skript je mehansko prenesen v `docs/assets/js/app.js`.
 - [x] **Podfaza 0.5 — domain moduli:** decisions, import comparison, filters, time budget, grouping in workspace imajo čiste testirane meje.
-- [ ] **Podfaza 0.6 — state/storage:** state, persistence in browser I/O so ločeni brez spremembe obstoječih ključev ali JSON shem.
+- [x] **Podfaza 0.6 — state/storage:** state, persistence in browser I/O so ločeni brez spremembe obstoječih ključev ali JSON shem.
 - [ ] **Podfaza 0.7 — UI moduli:** DOM, dialogs, dashboards in video list so postopno ekstrahirani z nespremenjenim DOM contractom.
 - [ ] **Podfaza 0.8 — bootstrap:** `app.js` je minimalen orkestrator brez krožnih odvisnosti in podvojenih helperjev.
 - [ ] **Podfaza 0.9 — stabilizacija:** avtomatski testi, workspace restore, lokalni zagon, responsive smoke test in produkcijski Pages URL so preverjeni.
