@@ -160,13 +160,13 @@ Prehod na ES module in lokalni strežnik se lahko oceni kot ločen prihodnji pro
 
 **Namen:** določiti, kaj mora po refaktorju ostati nespremenjeno.
 
-- [ ] Zapisati referenčni commit in potrditi čist oziroma razumljen `git status`.
-- [ ] Pognati `node tests/triage-workspace.test.cjs`.
-- [ ] Pognati `node tests/userscript-reconciliation.test.cjs`.
-- [ ] Narediti sintetični, neosebni minimalni JSON fixture za smoke teste.
-- [ ] Pred kakršnimkoli premikom lokalne strani ročno izvoziti workspace backup iz obstoječe aplikacije.
-- [ ] Zabeležiti kratek ročni acceptance checklist: import JSON, filtriranje, sprememba statusa, bulk undo, workspace export/import, preview, refresh in ohranitev podatkov.
-- [ ] Potrditi, da se deployment in refaktor nanašata samo na stran, ne na userscript.
+- [x] Zapisati referenčni commit in potrditi čist oziroma razumljen `git status`.
+- [x] Pognati `node tests/triage-workspace.test.cjs`.
+- [x] Pognati `node tests/userscript-reconciliation.test.cjs`.
+- [x] Narediti sintetični, neosebni minimalni JSON fixture za smoke teste.
+- [x] Pred kakršnimkoli premikom lokalne strani ročno izvoziti workspace backup iz obstoječe aplikacije.
+- [x] Zabeležiti kratek ročni acceptance checklist: import JSON, filtriranje, sprememba statusa, bulk undo, workspace export/import, preview, refresh in ohranitev podatkov.
+- [x] Potrditi, da se deployment in refaktor nanašata samo na stran, ne na userscript.
 
 **Izhodni kriterij:** obstaja ponovljiv baseline in varnostna kopija lokalnih podatkov.
 
