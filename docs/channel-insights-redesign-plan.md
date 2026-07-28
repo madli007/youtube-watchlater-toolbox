@@ -1046,7 +1046,7 @@ Te številke so cilji za profiliranje, ne avtomatsko zagotovljene konstante.
 
 ### Glavni tracker
 
-- [ ] **Faza 0:** strukturni refaktor in stabilizacija.
+- [x] **Faza 0:** strukturni refaktor in stabilizacija.
 - [ ] **Faza 1:** navigacija, Triage cleanup, akcijski meniji in dense video item.
 - [ ] **Faza 2:** osnovni Channel Insights.
 - [ ] **Faza 3:** series detection, group detail in manual merge/split.
@@ -1066,8 +1066,8 @@ Checkbox Faze se označi šele, ko so končani vsi njeni podrejeni checkboxi in 
 - [x] **Podfaza 0.6 — state/storage:** state, persistence in browser I/O so ločeni brez spremembe obstoječih ključev ali JSON shem.
 - [x] **Podfaza 0.7 — UI moduli:** DOM, dialogs, dashboards in video list so ekstrahirani z nespremenjenim DOM contractom; avtomatski init/render in ciljni dinamični DOM testi so zeleni, ročni end-to-end smoke pa je združen s končnim preverjanjem v Podfazi 0.9.
 - [x] **Podfaza 0.8 — bootstrap:** `app.js` je minimalen orkestrator brez krožnih odvisnosti in podvojenih helperjev.
-- [ ] **Podfaza 0.9 — stabilizacija:** avtomatski testi, workspace restore, lokalni zagon, responsive smoke test in produkcijski Pages URL so preverjeni.
-- [ ] **Izhodni gate Faze 0:** vsi checkboxi v `html-refactor-plan.md` so zaključeni ali je morebitni zavestno odloženi task dokumentiran kot neblokirajoč; Feature Faza 1 ne spreminja več korenskega monolita.
+- [x] **Podfaza 0.9 — stabilizacija:** avtomatski testi, workspace restore, lokalni zagon, responsive smoke test in produkcijski Pages URL so preverjeni; rezultati so v [`refactor-phase-0-stabilization.md`](refactor-phase-0-stabilization.md).
+- [x] **Izhodni gate Faze 0:** vsi checkboxi v `html-refactor-plan.md` so zaključeni ali je morebitni zavestno odloženi task dokumentiran kot neblokirajoč; Feature Faza 1 ne spreminja več korenskega monolita.
 
 Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih storage ključev ali sprememb grouping algoritma. Njena naloga je ustvariti varno strukturo za te feature reze.
 

@@ -342,16 +342,19 @@ Predlagan vrstni red od manj centralnih do bolj centralnih delov:
 
 **Namen:** potrditi, da je šlo za strukturni refaktor brez funkcionalnih regresij.
 
-- [ ] Pognati celoten testni sklop na čistem checkoutu.
-- [ ] Izvesti ročni acceptance checklist s sintetičnim fixturejem.
-- [ ] Uvoziti varnostni workspace in potrditi stanje po refreshu.
-- [ ] Preveriti desktop in oba obstoječa responsive breakpointa.
-- [ ] Preveriti neposredno lokalno odpiranje `docs/index.html`.
-- [ ] Preveriti produkcijski GitHub Pages URL in vse asset requeste brez 404.
-- [ ] Preveriti, da se `docs/assets/app-icon.png` pravilno naloži na produkcijskem URL-ju.
-- [ ] Preveriti, da v spremembah ni userscripta ali osebnih exportov.
-- [ ] Primerjati exportane JSON sheme pred/po refaktorju.
-- [ ] Dokumentirati morebitni preostali tehnični dolg kot ločene naloge, ne kot dodatek zadnjemu refaktorskemu commitu.
+- [x] Pognati celoten testni sklop na čistem checkoutu.
+- [x] Izvesti ročni acceptance checklist s sintetičnim fixturejem.
+- [x] Uvoziti varnostni workspace in potrditi stanje po refreshu.
+- [x] Preveriti desktop in oba obstoječa responsive breakpointa.
+- [x] Preveriti neposredno lokalno odpiranje `docs/index.html`.
+- [x] Preveriti produkcijski GitHub Pages URL in vse asset requeste brez 404.
+- [x] Preveriti, da se `docs/assets/app-icon.png` pravilno naloži na produkcijskem URL-ju.
+- [x] Preveriti, da v spremembah ni userscripta ali osebnih exportov.
+- [x] Primerjati exportane JSON sheme pred/po refaktorju.
+- [x] Dokumentirati morebitni preostali tehnični dolg kot ločene naloge, ne kot dodatek zadnjemu refaktorskemu commitu.
+
+Rezultati, meritve in omejitev avtomatiziranega `file://` preverjanja so zapisani
+v [`docs/refactor-phase-0-stabilization.md`](docs/refactor-phase-0-stabilization.md).
 
 **Končni kriterij:** uporabnik ne opazi spremembe vedenja, razvijalec pa dobi ločen HTML, CSS, domensko logiko, persistence, UI in bootstrap.
 
