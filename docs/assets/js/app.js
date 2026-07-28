@@ -1,36 +1,74 @@
-    const STORAGE_KEY = "watchlater-triage-decisions-v1";
-    const HISTORY_STORAGE_KEY = "watchlater-triage-history-v1";
-    const USER_RULES_STORAGE_KEY = "watchlater-triage-user-rules-v1";
-    const CHANNEL_RULES_STORAGE_KEY = "watchlater-triage-channel-rules-v1";
-    const SAVED_VIEWS_STORAGE_KEY = "watchlater-triage-saved-views-v1";
-    const DATASET_BASELINE_STORAGE_KEY = "watchlater-triage-dataset-baseline-v1";
-    const TIME_BUDGET_STORAGE_KEY = "watchlater-triage-time-budget-hours-v1";
-    const PREVIEW_PROGRESS_STORAGE_KEY = "watchlater-triage-preview-progress-v1";
-    const PAGE_SIZE = 220;
-    const BULK_CONFIRM_THRESHOLD = 100;
-    const MAX_HISTORY_ENTRIES = 20;
-    const GROUPING_STOP_WORDS = new Set([
-      "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "or", "the", "to", "vs", "with",
-      "del", "de", "der", "die", "das", "el", "la", "le", "les", "un", "una", "und", "y",
-      "official", "video", "audio", "hd", "uhd", "full",
-    ]);
-    const RULES = {
-      reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction", "episode reaction", "watching for the first time", "after show reacts", "#strugglenation", "blind wave", "reel rejects", "the normies", "holden & jen", "kat & sonny", "the 354 squad", "sean tanktop", "mary cherry", "just stef", "alyska"],
-      marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "spider-man", "spiderman", "captain america", "black panther", "ant-man", "wakanda", "avengers", "loki", "thor", "wanda", "deadpool", "x-men", "fantastic four", "moon knight", "hawkeye", "she-hulk", "doctor strange", "iron man", "secret invasion"],
-      starWars: ["star wars", "clone wars", "ahsoka", "maul", "andor", "kenobi", "jedi", "sith", "mandalorian", "bad batch", "rebels", "tales of the jedi"],
-      stargate: ["stargate", "sg-1", "sg1", "atlantis", "stargate atlantis"],
-      gameOfThrones: ["game of thrones", "house of the dragon", "hotd", "dunk and egg", "a knight of the seven kingdoms", "asoiaf", "alt shift x"],
-      dragonBall: ["dragon ball", "dbz", "dbs", "goku", "vegeta", "frieza"],
-      chess: ["chess", "gothamchess", "anna cramling", "gmhikaru", "hikaru", "magnus", "magnus carlsen", "eric rosen"],
-      gaming: ["gaming", "gameplay", "let's play", "forza", "rocket league", "lethamyr", "assassin's creed", "metro", "geoguessr", "minecraft", "gta", "league of legends", "valorant", "cs2", "counter-strike", "xqc", "squid game"],
-      vfx: ["vfx", "cgi", "corridor crew", "vfx artists", "artists react", "bad & great", "bad and great"],
-      politics: ["trump", "obama", "biden", "ukraine", "russia", "putin", "maga", "democrat", "republican", "election", "politics", "political", "nato", "congress", "parliament", "daily show", "last week tonight", "john oliver", "legal eagle", "destiny", "vlad vexler", "brian tyler cohen"],
-      moviesTv: ["movie", "film", "season", "episode", "series", "netflix", "hbo", "max", "trailer", "recap", "finale", "pilot", "lost", "one piece", "breaking bad", "rush hour", "men in black"],
-      music: ["music", "song", "sing", "sings", "cover", "vocal", "guitar", "piano", "band", "live performance", "lyrics", "eurovision"],
-      travel: ["travel", "truck vlog", "slovenia", "romania", "austria", "honest guide", "europe hits different", "trucking vlogs"],
-      dev: ["javascript", "typescript", "programming", "developer", "coding", "software", "openai", "google developers", "unreal engine", "cursor", "claude", "github", "database", "api", "frontend", "backend"],
-      asmr: ["asmr"],
-    };
+    const {
+      STORAGE_KEY,
+      HISTORY_STORAGE_KEY,
+      USER_RULES_STORAGE_KEY,
+      CHANNEL_RULES_STORAGE_KEY,
+      SAVED_VIEWS_STORAGE_KEY,
+      DATASET_BASELINE_STORAGE_KEY,
+      TIME_BUDGET_STORAGE_KEY,
+      PREVIEW_PROGRESS_STORAGE_KEY,
+      PAGE_SIZE,
+      BULK_CONFIRM_THRESHOLD,
+      MAX_HISTORY_ENTRIES,
+      RULES,
+    } = globalThis.WatchLaterApp.config;
+    const {
+      ruleMatchesVideo,
+      updateDecisionDetails,
+      normalizeUserRules,
+      normalizeRule,
+      normalizeChannelRules,
+      normalizeChannelRule,
+      getChannelRuleDecision,
+      getChannelRuleImpact,
+      getCombinedChannelRuleImpact,
+      getProtectedChannelMatches,
+      splitInputValues,
+      parseDecisionsPayload,
+      previewDecisionsMerge,
+      getPortableDecisions,
+      normalizeDecision,
+      normalizeTags,
+      areDecisionsEqual,
+      createHistoryEntry,
+      createSnapshotId,
+      normalizeHistory,
+      mergeHistoryEntries,
+      applyHistoryEntry,
+    } = globalThis.WatchLaterApp.domain.decisions;
+    const {
+      dedupeVideos,
+      createEmptyImportComparison,
+      createVideoSnapshot,
+      createDatasetBaseline,
+      compareVideoDatasets,
+      normalizePlainObject,
+    } = globalThis.WatchLaterApp.domain.importComparison;
+    const {
+      videoMatchesFilters,
+      normalizeFilterState,
+      normalizeSavedViews,
+      filterChannelOptions,
+      getChannelOptionPage,
+    } = globalThis.WatchLaterApp.domain.filters;
+    const {
+      normalizeTimeBudgetHours,
+      calculateDurationStats,
+      getSortedDurationGroups,
+      buildTimeBudgetShortlist,
+      formatDuration,
+    } = globalThis.WatchLaterApp.domain.timeBudget;
+    const {
+      buildVideoGroups,
+      chooseGroupWinner,
+    } = globalThis.WatchLaterApp.domain.grouping;
+    const {
+      buildWorkspacePayload,
+      parseWorkspacePayload,
+      toWorkspaceVideo,
+      normalizeWorkspaceUi,
+      normalizePreviewProgress,
+    } = globalThis.WatchLaterApp.domain.workspace;
 
     const state = {
       videos: [],
@@ -197,44 +235,6 @@
 
     if (globalThis.__WATCHLATER_TEST__) {
       globalThis.WatchLaterTestApi = {
-        buildWorkspacePayload,
-        parseWorkspacePayload,
-        createHistoryEntry,
-        applyHistoryEntry,
-        normalizeHistory,
-        compareVideoDatasets,
-        createDatasetBaseline,
-        normalizeImportComparison,
-        normalizeUserRules,
-        ruleMatchesVideo,
-        normalizeChannelRules,
-        normalizeChannelRule,
-        getChannelRuleDecision,
-        getChannelRuleImpact,
-        getCombinedChannelRuleImpact,
-        getProtectedChannelMatches,
-        channelMatchesQuery,
-        filterChannelOptions,
-        getChannelOptionPage,
-        updateDecisionDetails,
-        getPortableDecisions,
-        normalizeFilterState,
-        normalizeSavedViews,
-        parseApproximateAgeDays,
-        parseApproximateViewCount,
-        videoMatchesFilters,
-        normalizeTimeBudgetHours,
-        calculateDurationStats,
-        getSortedDurationGroups,
-        buildTimeBudgetShortlist,
-        formatDuration,
-        normalizeGroupingTitle,
-        normalizeDuplicateTitle,
-        getSeriesSignature,
-        calculateTitleSimilarity,
-        buildVideoGroups,
-        chooseGroupWinner,
-        normalizePreviewProgress,
         buildYouTubeEmbedUrl,
         formatPreviewTime,
       };
@@ -450,15 +450,6 @@
       }
     }
 
-    function dedupeVideos(videos) {
-      const byId = new Map();
-      for (const video of videos) {
-        if (!video || !video.videoId) continue;
-        byId.set(video.videoId, video);
-      }
-      return Array.from(byId.values());
-    }
-
     function enrichVideo(video) {
       const suggestedTags = getSuggestedTags(video);
       return {
@@ -491,20 +482,6 @@
         Object.entries(RULES).map(([name, keywords]) => [name, normalizeRule({ positive: keywords })]),
       );
       return { ...builtInRules, ...state.userRules };
-    }
-
-    function ruleMatchesVideo(video, rule) {
-      const normalized = normalizeRule(rule);
-      if (!normalized.positive.length) return false;
-      const channel = String(video?.channel || "").trim().toLowerCase();
-      if (normalized.channel && channel !== normalized.channel.toLowerCase()) return false;
-      const haystack = [video?.title, video?.channel, video?.searchText]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const hasPositive = normalized.positive.some(keyword => haystack.includes(keyword.toLowerCase()));
-      const hasNegative = normalized.negative.some(keyword => haystack.includes(keyword.toLowerCase()));
-      return hasPositive && !hasNegative;
     }
 
     function refreshEnrichedVideos() {
@@ -656,104 +633,6 @@
       }));
     }
 
-    function videoMatchesFilters(video, decision, rawFilters) {
-      const filters = normalizeFilterState(rawFilters);
-      const suggestedTags = normalizeTags(video?.suggestedTags);
-      const allTags = Array.from(new Set([...suggestedTags, ...normalizeTags(decision?.tags)]));
-      const query = filters.search.toLowerCase();
-      const searchText = [
-        video?.searchText,
-        video?.title,
-        video?.channel,
-        video?.views,
-        video?.uploaded,
-        video?.duration,
-        allTags.join(" "),
-        decision?.note,
-      ].filter(Boolean).join(" ").toLowerCase();
-
-      if (query && !searchText.includes(query)) return false;
-      if (filters.status !== "all" && normalizeDecision(decision || {}).status !== filters.status) return false;
-      if (filters.channels.length && !filters.channels.includes(String(video?.channel || "(unknown)"))) return false;
-      if (filters.tags.length) {
-        const matches = filters.tags.map(tag => allTags.includes(tag));
-        if (filters.tagMode === "and" ? matches.some(match => !match) : !matches.some(Boolean)) return false;
-      }
-
-      const durationSeconds = finiteNumberOrNull(video?.durationSeconds);
-      if (filters.minDurationMinutes !== "" && (durationSeconds === null || durationSeconds < Number(filters.minDurationMinutes) * 60)) return false;
-      if (filters.maxDurationMinutes !== "" && (durationSeconds === null || durationSeconds > Number(filters.maxDurationMinutes) * 60)) return false;
-
-      const ageDays = parseApproximateAgeDays(video?.uploaded);
-      if (filters.minAgeDays !== "" && (ageDays === null || ageDays < Number(filters.minAgeDays))) return false;
-      if (filters.maxAgeDays !== "" && (ageDays === null || ageDays > Number(filters.maxAgeDays))) return false;
-
-      const viewCount = finiteNumberOrNull(video?.viewCountApprox) ?? parseApproximateViewCount(video?.views);
-      if (filters.minViews !== "" && (viewCount === null || viewCount < Number(filters.minViews))) return false;
-      if (filters.availability === "available" && video?.isUnavailable) return false;
-      if (filters.availability === "unavailable" && !video?.isUnavailable) return false;
-
-      const badges = normalizeTags(video?.badges);
-      if (filters.badge === "any" && !badges.length) return false;
-      if (filters.badge === "none" && badges.length) return false;
-      if (filters.badge.startsWith("badge:") && !badges.includes(filters.badge.slice(6))) return false;
-      if (filters.suggestedTag === "yes" && !suggestedTags.length) return false;
-      if (filters.suggestedTag === "no" && suggestedTags.length) return false;
-      const hasNote = Boolean(String(decision?.note || "").trim());
-      if (filters.note === "yes" && !hasNote) return false;
-      if (filters.note === "no" && hasNote) return false;
-      return true;
-    }
-
-    function finiteNumberOrNull(value) {
-      if (value === null || value === undefined || value === "") return null;
-      const number = Number(value);
-      return Number.isFinite(number) ? number : null;
-    }
-
-    function parseApproximateAgeDays(value, now = Date.now()) {
-      const text = String(value || "").trim().toLowerCase();
-      if (!text) return null;
-      if (/\b(today|danes|just now|zdaj)\b/.test(text)) return 0;
-      if (/\b(yesterday|vceraj|v\u010Deraj)\b/.test(text)) return 1;
-
-      const match = text.match(/(\d+(?:[.,]\d+)?)\s*([^\d\s]+)/u);
-      if (match) {
-        const amount = Number(match[1].replace(",", "."));
-        const unit = match[2];
-        const factors = [
-          [/^(?:s|sec|secs|second|seconds|sekund)/, 1 / 86400],
-          [/^(?:mo|month|months|mesec|mesece|mesecev)/, 30.4375],
-          [/^(?:m|min|mins|minute|minutes|minut)/, 1 / 1440],
-          [/^(?:h|hr|hrs|hour|hours|ur)/, 1 / 24],
-          [/^(?:d|day|days|dan|dne|dnev)/, 1],
-          [/^(?:w|week|weeks|teden|tedna|tednov)/, 7],
-          [/^(?:y|yr|yrs|year|years|leto|leti|leta)/, 365.25],
-        ];
-        const factor = factors.find(([pattern]) => pattern.test(unit))?.[1];
-        if (factor !== undefined) return amount * factor;
-      }
-
-      const timestamp = Date.parse(value);
-      if (!Number.isFinite(timestamp)) return null;
-      return Math.max(0, (now - timestamp) / 86400000);
-    }
-
-    function parseApproximateViewCount(value) {
-      const text = String(value || "").trim().toLowerCase();
-      const numberText = text.match(/[\d.,]+/)?.[0];
-      if (!numberText) return null;
-      const normalized = numberText.includes(",") && numberText.includes(".")
-        ? numberText.replace(/\./g, "").replace(",", ".")
-        : numberText.replace(",", ".");
-      const number = Number(normalized);
-      if (!Number.isFinite(number)) return null;
-      if (/(?:tis|k)\b/.test(text)) return Math.round(number * 1000);
-      if (/(?:mio|m|million|millions)\b/.test(text)) return Math.round(number * 1000000);
-      if (/(?:billion|billions|b)\b/.test(text)) return Math.round(number * 1000000000);
-      return Math.round(number);
-    }
-
     function getVideoTags(video) {
       return Array.from(new Set([
         ...(video.suggestedTags || []),
@@ -767,264 +646,6 @@
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-    }
-
-    function normalizeGroupingTitle(value) {
-      return String(value || "")
-        .normalize("NFKD")
-        .replace(/\p{M}+/gu, "")
-        .toLowerCase()
-        .replace(/&/g, " and ")
-        .replace(/[^\p{L}\p{N}#]+/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    function normalizeDuplicateTitle(value) {
-      return normalizeGroupingTitle(value)
-        .replace(/\b(?:official|music|lyric|lyrics|video|audio|hd|hq|uhd|4k|8k|1080p|720p|reupload|reuploaded|remaster|remastered)\b/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    function getSeriesSignature(video) {
-      const title = normalizeGroupingTitle(video?.title);
-      if (!title) return null;
-      const patterns = [
-        { regex: /\bs(?:eason)?\s*0*(\d{1,3})\s*e(?:p(?:isode)?)?\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\b0*(\d{1,3})\s*x\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\bseason\s*0*(\d{1,3})\s*(?:episode|ep)\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\b(?:episode|ep|part|pt|chapter)\s*#?\s*0*(\d{1,4})\b/u, episode: 1 },
-        { regex: /(?:^|\s)#\s*0*(\d{1,4})\b/u, episode: 1 },
-      ];
-
-      let match = null;
-      let pattern = null;
-      for (const candidate of patterns) {
-        match = title.match(candidate.regex);
-        if (match) {
-          pattern = candidate;
-          break;
-        }
-      }
-
-      if (!match) {
-        const trailing = title.match(/\b0*(\d{1,3})\s*$/u);
-        const number = trailing ? Number(trailing[1]) : null;
-        if (!trailing || (number >= 1900 && number <= 2099)) return null;
-        match = trailing;
-        pattern = { regex: /\b0*(\d{1,3})\s*$/u, episode: 1 };
-      }
-
-      const base = title.replace(pattern.regex, " ").replace(/\s+/g, " ").trim();
-      const meaningful = getSimilarityTokens(base);
-      if (!base || !meaningful.length || base.length < 3) return null;
-      const channel = normalizeGroupingTitle(video?.channel) || "unknown channel";
-      return {
-        key: `${channel}|${base}`,
-        base,
-        season: pattern.season ? Number(match[pattern.season]) : 0,
-        episode: pattern.episode ? Number(match[pattern.episode]) : 0,
-      };
-    }
-
-    function getSimilarityTokens(value) {
-      return Array.from(new Set(normalizeDuplicateTitle(value)
-        .split(" ")
-        .filter(token => token.length >= 2 && !/^\d+$/u.test(token) && !GROUPING_STOP_WORDS.has(token))));
-    }
-
-    function calculateTitleSimilarity(left, right) {
-      const leftTokens = Array.isArray(left) ? left : getSimilarityTokens(left);
-      const rightTokens = Array.isArray(right) ? right : getSimilarityTokens(right);
-      if (!leftTokens.length || !rightTokens.length) return 0;
-      const rightSet = new Set(rightTokens);
-      const intersection = leftTokens.filter(token => rightSet.has(token)).length;
-      if (intersection < 2) return 0;
-      const dice = (2 * intersection) / (leftTokens.length + rightTokens.length);
-      const containment = intersection / Math.min(leftTokens.length, rightTokens.length);
-      const balance = Math.min(leftTokens.length, rightTokens.length) / Math.max(leftTokens.length, rightTokens.length);
-      return Math.max(dice, containment * (0.75 + 0.25 * balance));
-    }
-
-    function createGroupId(type, members) {
-      const source = `${type}:${members.map(video => video.videoId).sort().join("|")}`;
-      let hash = 2166136261;
-      for (let index = 0; index < source.length; index++) {
-        hash ^= source.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return `${type}-${(hash >>> 0).toString(36)}`;
-    }
-
-    function getRepresentativeTitle(members) {
-      return [...members]
-        .map(video => String(video.title || "").trim())
-        .filter(Boolean)
-        .sort((a, b) => a.length - b.length || a.localeCompare(b))[0] || "Untitled group";
-    }
-
-    function formatGroupLabel(value) {
-      const text = String(value || "").trim();
-      return text ? text[0].toUpperCase() + text.slice(1) : "Untitled group";
-    }
-
-    function getCommonTitleWords(members) {
-      const tokenLists = members.map(video => getSimilarityTokens(video.title));
-      if (!tokenLists.length) return "";
-      const common = tokenLists[0].filter(token => tokenLists.every(tokens => tokens.includes(token)));
-      return common.slice(0, 8).join(" ");
-    }
-
-    function buildSeriesGroups(videos) {
-      const buckets = new Map();
-      for (const video of videos) {
-        const signature = getSeriesSignature(video);
-        if (!signature) continue;
-        if (!buckets.has(signature.key)) buckets.set(signature.key, []);
-        buckets.get(signature.key).push({ video, signature });
-      }
-      const groups = [];
-      for (const items of buckets.values()) {
-        if (items.length < 2) continue;
-        items.sort((a, b) => a.signature.season - b.signature.season
-          || a.signature.episode - b.signature.episode
-          || (a.video.index || 0) - (b.video.index || 0));
-        const members = items.map(item => item.video);
-        groups.push({
-          type: "series",
-          label: formatGroupLabel(items[0].signature.base),
-          reason: `Same channel and episode/title-number pattern`,
-          members,
-        });
-      }
-      return groups;
-    }
-
-    function buildDuplicateGroups(videos) {
-      const buckets = new Map();
-      for (const video of videos) {
-        const fingerprint = normalizeDuplicateTitle(video.title);
-        const tokens = fingerprint.split(" ").filter(Boolean);
-        if (fingerprint.length < 8 || tokens.length < 2) continue;
-        if (!buckets.has(fingerprint)) buckets.set(fingerprint, []);
-        buckets.get(fingerprint).push(video);
-      }
-      return Array.from(buckets.entries())
-        .filter(([, members]) => members.length >= 2)
-        .map(([, members]) => {
-          const channels = new Set(members.map(video => normalizeGroupingTitle(video.channel)).filter(Boolean));
-          return {
-            type: "duplicate",
-            label: getRepresentativeTitle(members),
-            reason: channels.size > 1
-              ? `Same normalized title across ${channels.size} channels; possible reupload`
-              : "Same normalized title; possible duplicate or reupload",
-            members: [...members].sort((a, b) => (a.index || 0) - (b.index || 0)),
-          };
-        });
-    }
-
-    function buildSimilarTitleGroups(videos) {
-      const channelBuckets = new Map();
-      for (const video of videos) {
-        const channel = normalizeGroupingTitle(video.channel) || "unknown channel";
-        const tokens = getSimilarityTokens(video.title);
-        if (tokens.length < 3) continue;
-        if (!channelBuckets.has(channel)) channelBuckets.set(channel, []);
-        channelBuckets.get(channel).push({ video, tokens });
-      }
-
-      const groups = [];
-      for (const items of channelBuckets.values()) {
-        if (items.length < 2) continue;
-        const parent = items.map((_, index) => index);
-        const find = index => {
-          let current = index;
-          while (parent[current] !== current) {
-            parent[current] = parent[parent[current]];
-            current = parent[current];
-          }
-          return current;
-        };
-        const union = (left, right) => {
-          const leftRoot = find(left);
-          const rightRoot = find(right);
-          if (leftRoot !== rightRoot) parent[rightRoot] = leftRoot;
-        };
-        const inverted = new Map();
-        items.forEach((item, index) => item.tokens.forEach(token => {
-          if (!inverted.has(token)) inverted.set(token, []);
-          inverted.get(token).push(index);
-        }));
-        const pairKeys = new Set();
-        for (const indexes of inverted.values()) {
-          if (indexes.length > Math.max(40, Math.ceil(items.length * 0.4))) continue;
-          for (let left = 0; left < indexes.length; left++) {
-            for (let right = left + 1; right < indexes.length; right++) {
-              pairKeys.add(`${indexes[left]}:${indexes[right]}`);
-            }
-          }
-        }
-        for (const key of pairKeys) {
-          const [left, right] = key.split(":").map(Number);
-          if (calculateTitleSimilarity(items[left].tokens, items[right].tokens) >= 0.74) union(left, right);
-        }
-        const components = new Map();
-        items.forEach((item, index) => {
-          const root = find(index);
-          if (!components.has(root)) components.set(root, []);
-          components.get(root).push(item.video);
-        });
-        for (const members of components.values()) {
-          if (members.length < 2) continue;
-          members.sort((a, b) => (a.index || 0) - (b.index || 0));
-          groups.push({
-            type: "similar",
-            label: formatGroupLabel(getCommonTitleWords(members) || getRepresentativeTitle(members)),
-            reason: "Strong title-word overlap within the same channel",
-            members,
-          });
-        }
-      }
-      return groups;
-    }
-
-    function buildVideoGroups(videos) {
-      const uniqueVideos = dedupeVideos(Array.isArray(videos) ? videos : []).filter(video => video?.videoId);
-      const candidates = [
-        ...buildDuplicateGroups(uniqueVideos),
-        ...buildSeriesGroups(uniqueVideos),
-        ...buildSimilarTitleGroups(uniqueVideos),
-      ];
-      const typePriority = { duplicate: 0, series: 1, similar: 2 };
-      const byMembers = new Map();
-      for (const candidate of candidates) {
-        const memberKey = candidate.members.map(video => video.videoId).sort().join("|");
-        const existing = byMembers.get(memberKey);
-        if (!existing || typePriority[candidate.type] < typePriority[existing.type]) byMembers.set(memberKey, candidate);
-      }
-      return Array.from(byMembers.values())
-        .map(group => ({ ...group, id: createGroupId(group.type, group.members) }))
-        .sort((a, b) => typePriority[a.type] - typePriority[b.type]
-          || b.members.length - a.members.length
-          || a.label.localeCompare(b.label));
-    }
-
-    function chooseGroupWinner(group, strategy) {
-      const members = Array.isArray(group?.members) ? group.members.filter(video => video?.videoId) : [];
-      if (!members.length) return null;
-      const ranked = members.map((video, order) => {
-        const value = strategy === "most-viewed"
-          ? (finiteNumberOrNull(video.viewCountApprox) ?? parseApproximateViewCount(video.views))
-          : parseApproximateAgeDays(video.uploaded);
-        return { video, order, value };
-      }).filter(item => item.value !== null && Number.isFinite(item.value));
-      if (!ranked.length) return null;
-      ranked.sort((a, b) => strategy === "most-viewed"
-        ? b.value - a.value || a.order - b.order
-        : a.value - b.value || a.order - b.order);
-      return ranked[0].video;
     }
 
     function getCurrentVideoGroups() {
@@ -1324,108 +945,6 @@
       return counts;
     }
 
-    function normalizeTimeBudgetHours(value) {
-      const hours = Number(value);
-      if (!Number.isFinite(hours) || hours <= 0) return 2;
-      return Math.min(168, Math.max(0.25, Math.round(hours * 4) / 4));
-    }
-
-    function getMappedDecision(decisions, videoId) {
-      return normalizeDecision(decisions?.[videoId] || {});
-    }
-
-    function calculateDurationStats(videos, decisions) {
-      const summary = {
-        totalCount: 0,
-        knownCount: 0,
-        unknownCount: 0,
-        totalSeconds: 0,
-        decidedCount: 0,
-        decidedSeconds: 0,
-        protectedSeconds: 0,
-        byStatus: {},
-        byChannel: {},
-        byTag: {},
-      };
-
-      for (const video of Array.isArray(videos) ? videos : []) {
-        if (!video?.videoId) continue;
-        summary.totalCount++;
-        const decision = getMappedDecision(decisions, video.videoId);
-        const status = decision.status;
-        const seconds = finiteNumberOrNull(video.durationSeconds);
-        if (status !== "unreviewed") summary.decidedCount++;
-        if (seconds === null || seconds < 0) {
-          summary.unknownCount++;
-          continue;
-        }
-
-        summary.knownCount++;
-        summary.totalSeconds += seconds;
-        if (status !== "unreviewed") summary.decidedSeconds += seconds;
-        if (status === "keep" || status === "maybe") summary.protectedSeconds += seconds;
-        addDurationGroup(summary.byStatus, status, seconds);
-        addDurationGroup(summary.byChannel, String(video.channel || "(unknown)"), seconds);
-        const tags = Array.from(new Set([
-          ...normalizeTags(video.suggestedTags),
-          ...normalizeTags(decision.tags),
-        ]));
-        tags.forEach(tag => addDurationGroup(summary.byTag, tag, seconds));
-      }
-
-      return summary;
-    }
-
-    function addDurationGroup(groups, name, seconds) {
-      if (!groups[name]) groups[name] = { count: 0, seconds: 0 };
-      groups[name].count++;
-      groups[name].seconds += seconds;
-    }
-
-    function getSortedDurationGroups(groups) {
-      return Object.entries(groups || {})
-        .map(([name, value]) => ({ name, count: value.count, seconds: value.seconds }))
-        .sort((a, b) => b.seconds - a.seconds || b.count - a.count || a.name.localeCompare(b.name));
-    }
-
-    function buildTimeBudgetShortlist(videos, decisions, budgetSeconds) {
-      const budget = Math.max(0, Number(budgetSeconds) || 0);
-      const priorities = { keep: 0, maybe: 1, unreviewed: 2 };
-      const candidates = (Array.isArray(videos) ? videos : [])
-        .map((video, order) => ({
-          video,
-          order,
-          status: getMappedDecision(decisions, video?.videoId).status,
-          seconds: finiteNumberOrNull(video?.durationSeconds),
-        }))
-        .filter(item => item.video?.videoId
-          && item.seconds !== null
-          && item.seconds > 0
-          && !item.video.isUnavailable
-          && item.status !== "delete")
-        .sort((a, b) => (priorities[a.status] ?? 3) - (priorities[b.status] ?? 3)
-          || a.seconds - b.seconds
-          || a.order - b.order);
-      const selected = [];
-      let totalSeconds = 0;
-      for (const candidate of candidates) {
-        if (totalSeconds + candidate.seconds > budget) continue;
-        selected.push(candidate.video);
-        totalSeconds += candidate.seconds;
-      }
-      return { videos: selected, totalSeconds, budgetSeconds: budget };
-    }
-
-    function formatDuration(seconds) {
-      const totalMinutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
-      const days = Math.floor(totalMinutes / 1440);
-      const hours = Math.floor((totalMinutes % 1440) / 60);
-      const minutes = totalMinutes % 60;
-      if (days) return `${days}d ${hours}h`;
-      if (hours) return `${hours}h ${minutes}m`;
-      return `${minutes}m`;
-    }
-
     function updateTimeBudget() {
       state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
       els.timeBudgetHours.value = state.timeBudgetHours;
@@ -1628,141 +1147,8 @@
       }
     }
 
-    function createEmptyImportComparison() {
-      return {
-        baselineAvailable: false,
-        comparedAt: "",
-        previousImport: null,
-        currentImport: null,
-        newIds: [],
-        removedVideos: [],
-        decidedIds: [],
-        changedIds: [],
-        changedFieldsById: {},
-        orphanedDecisionIds: [],
-      };
-    }
-
-    function createVideoSnapshot(video) {
-      const rawDurationSeconds = video?.durationSeconds;
-      return {
-        videoId: String(video?.videoId || ""),
-        title: String(video?.title || ""),
-        channel: String(video?.channel || ""),
-        channelUrl: String(video?.channelUrl || ""),
-        duration: String(video?.duration || ""),
-        durationSeconds: rawDurationSeconds !== null && rawDurationSeconds !== "" && Number.isFinite(Number(rawDurationSeconds))
-          ? Number(rawDurationSeconds)
-          : null,
-        badges: normalizeTags(video?.badges).sort(),
-        isUnavailable: Boolean(video?.isUnavailable),
-      };
-    }
-
-    function createDatasetBaseline(videos, lastImport) {
-      return {
-        schemaVersion: 1,
-        savedAt: new Date().toISOString(),
-        lastImport: normalizePlainObject(lastImport),
-        videos: dedupeVideos(Array.isArray(videos) ? videos : [])
-          .map(createVideoSnapshot)
-          .filter(video => video.videoId),
-      };
-    }
-
-    function getChangedMetadataFields(previousVideo, currentVideo) {
-      const previous = createVideoSnapshot(previousVideo);
-      const current = createVideoSnapshot(currentVideo);
-      const fields = ["title", "channel", "channelUrl", "duration", "durationSeconds", "badges", "isUnavailable"];
-      return fields.filter(field => JSON.stringify(previous[field]) !== JSON.stringify(current[field]));
-    }
-
-    function compareVideoDatasets(previousVideos, currentVideos, decisions = {}, previousImport = null, currentImport = null) {
-      const comparison = createEmptyImportComparison();
-      comparison.currentImport = normalizePlainObject(currentImport);
-      comparison.previousImport = normalizePlainObject(previousImport);
-      comparison.comparedAt = new Date().toISOString();
-      comparison.baselineAvailable = Array.isArray(previousVideos);
-      if (!comparison.baselineAvailable) return comparison;
-
-      const previousById = new Map(dedupeVideos(previousVideos).map(video => [String(video.videoId), video]));
-      const currentById = new Map(dedupeVideos(Array.isArray(currentVideos) ? currentVideos : []).map(video => [String(video.videoId), video]));
-      comparison.newIds = Array.from(currentById.keys()).filter(videoId => !previousById.has(videoId));
-      comparison.removedVideos = Array.from(previousById.entries())
-        .filter(([videoId]) => !currentById.has(videoId))
-        .map(([, video]) => createVideoSnapshot(video));
-      comparison.decidedIds = Array.from(currentById.keys())
-        .filter(videoId => Object.prototype.hasOwnProperty.call(decisions || {}, videoId));
-
-      for (const [videoId, currentVideo] of currentById) {
-        const previousVideo = previousById.get(videoId);
-        if (!previousVideo) continue;
-        const changedFields = getChangedMetadataFields(previousVideo, currentVideo);
-        if (!changedFields.length) continue;
-        comparison.changedIds.push(videoId);
-        comparison.changedFieldsById[videoId] = changedFields;
-      }
-
-      comparison.orphanedDecisionIds = Object.keys(decisions || {}).filter(videoId => !currentById.has(videoId));
-      return comparison;
-    }
-
-    function normalizeImportComparison(value) {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return createEmptyImportComparison();
-      const removedVideos = Array.isArray(value.removedVideos)
-        ? value.removedVideos.map(createVideoSnapshot).filter(video => video.videoId)
-        : [];
-      const changedFieldsById = {};
-      if (value.changedFieldsById && typeof value.changedFieldsById === "object" && !Array.isArray(value.changedFieldsById)) {
-        for (const [videoId, fields] of Object.entries(value.changedFieldsById)) {
-          changedFieldsById[videoId] = normalizeTags(fields);
-        }
-      }
-      return {
-        baselineAvailable: Boolean(value.baselineAvailable),
-        comparedAt: typeof value.comparedAt === "string" ? value.comparedAt : "",
-        previousImport: normalizePlainObject(value.previousImport),
-        currentImport: normalizePlainObject(value.currentImport),
-        newIds: normalizeTags(value.newIds),
-        removedVideos,
-        decidedIds: normalizeTags(value.decidedIds),
-        changedIds: normalizeTags(value.changedIds),
-        changedFieldsById,
-        orphanedDecisionIds: normalizeTags(value.orphanedDecisionIds),
-      };
-    }
-
     function getInboxIds(comparison = state.importComparison) {
       return comparison.newIds.filter(videoId => getStatus(videoId) === "unreviewed");
-    }
-
-    function normalizeFilterState(value) {
-      const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-      const numberInput = input => {
-        if (input === "" || input === null || input === undefined) return "";
-        const number = Number(input);
-        return Number.isFinite(number) && number >= 0 ? String(number) : "";
-      };
-      return {
-        search: typeof source.search === "string" ? source.search : "",
-        status: ["all", "unreviewed", "keep", "maybe", "delete"].includes(source.status) ? source.status : "all",
-        channels: normalizeTags(source.channels || (source.channel && source.channel !== "all" ? [source.channel] : [])),
-        tags: normalizeTags(source.tags || (source.tag && source.tag !== "all" ? [source.tag] : [])),
-        tagMode: source.tagMode === "and" ? "and" : "or",
-        sort: ["index", "index-desc", "channel", "duration-desc", "views-desc", "title"].includes(source.sort) ? source.sort : "index",
-        datasetView: ["all", "inbox", "new", "changed", "decided"].includes(source.datasetView) ? source.datasetView : "all",
-        minDurationMinutes: numberInput(source.minDurationMinutes),
-        maxDurationMinutes: numberInput(source.maxDurationMinutes),
-        minAgeDays: numberInput(source.minAgeDays),
-        maxAgeDays: numberInput(source.maxAgeDays),
-        minViews: numberInput(source.minViews),
-        availability: ["all", "available", "unavailable"].includes(source.availability) ? source.availability : "all",
-        badge: typeof source.badge === "string" && (source.badge === "all" || source.badge === "any" || source.badge === "none" || source.badge.startsWith("badge:"))
-          ? source.badge
-          : "all",
-        suggestedTag: ["all", "yes", "no"].includes(source.suggestedTag) ? source.suggestedTag : "all",
-        note: ["all", "yes", "no"].includes(source.note) ? source.note : "all",
-      };
     }
 
     function captureFilterState() {
@@ -2131,18 +1517,6 @@
       return button;
     }
 
-    function normalizePreviewProgress(value) {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-      const normalized = {};
-      for (const [videoId, rawSeconds] of Object.entries(value)) {
-        const cleanId = String(videoId || "").trim();
-        const seconds = Number(rawSeconds);
-        if (!cleanId || !Number.isFinite(seconds) || seconds <= 0) continue;
-        normalized[cleanId] = Math.min(604800, Math.max(0, Math.floor(seconds)));
-      }
-      return normalized;
-    }
-
     function buildYouTubeEmbedUrl(videoId, startSeconds = 0, locationOrigin = "") {
       const cleanId = String(videoId || "").trim();
       if (!cleanId) return "";
@@ -2437,19 +1811,6 @@
       els.videoEditorDialog.close();
       render();
       showToast("Saved manual tags and note.");
-    }
-
-    function updateDecisionDetails(decisions, videoId, tags, note, updatedAt = new Date().toISOString()) {
-      const current = normalizeDecision(decisions[videoId] || {});
-      const next = {
-        ...current,
-        tags: normalizeTags(tags),
-        note: String(note || "").trim(),
-        updatedAt,
-      };
-      if (next.status === "unreviewed" && !next.tags.length && !next.note) delete decisions[videoId];
-      else decisions[videoId] = next;
-      return next;
     }
 
     function renderSidebar() {
@@ -2912,41 +2273,6 @@
       return filterChannelOptions(channels, els.channelSearch.value);
     }
 
-    function filterChannelOptions(channels, query) {
-      if (!String(query || "").trim()) return channels;
-      const normalizedQuery = normalizeSearchText(query);
-      return channels
-        .filter(item => channelMatchesQuery(item.name, query))
-        .sort((a, b) => {
-          const exactDifference = Number(normalizeSearchText(b.name) === normalizedQuery)
-            - Number(normalizeSearchText(a.name) === normalizedQuery);
-          return exactDifference || b.count - a.count || a.name.localeCompare(b.name);
-        });
-    }
-
-    function getChannelOptionPage(channels, query, limit = 24) {
-      const matches = filterChannelOptions(channels, query);
-      const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 24;
-      return {
-        totalCount: matches.length,
-        options: matches.slice(0, safeLimit),
-      };
-    }
-
-    function channelMatchesQuery(channel, query) {
-      const normalizedChannel = normalizeSearchText(channel);
-      const tokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
-      return tokens.every(token => normalizedChannel.includes(token));
-    }
-
-    function normalizeSearchText(value) {
-      return String(value || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim();
-    }
-
     function openChannelMenu() {
       renderChannelMenu();
       els.channelCombo.classList.add("is-open");
@@ -3240,59 +2566,6 @@
       downloadJson(`watchlater_workspace_${getDateStamp()}.json`, payload);
     }
 
-    function buildWorkspacePayload(workspace, exportedAt = new Date().toISOString()) {
-      return {
-        schemaVersion: 1,
-        exportedAt,
-        source: "youtube-watchlater-triage",
-        mode: "workspace-snapshot",
-        workspace: {
-          videos: Array.isArray(workspace.videos) ? workspace.videos : [],
-          decisions: getPortableDecisions(workspace.decisions),
-          userRules: normalizeUserRules(workspace.userRules),
-          channelRules: normalizeChannelRules(workspace.channelRules),
-          savedViews: normalizeSavedViews(workspace.savedViews),
-          lastImport: normalizePlainObject(workspace.lastImport),
-          importComparison: normalizeImportComparison(workspace.importComparison),
-          history: normalizeHistory(workspace.history),
-          timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
-          previewProgress: normalizePreviewProgress(workspace.previewProgress),
-          ui: normalizeWorkspaceUi(workspace.ui),
-        },
-      };
-    }
-
-    function parseWorkspacePayload(payload) {
-      if (!payload || typeof payload !== "object" || payload.mode !== "workspace-snapshot") {
-        throw new Error("Expected a workspace snapshot JSON file.");
-      }
-      if (payload.schemaVersion !== 1) {
-        throw new Error(`Unsupported workspace schema version: ${payload.schemaVersion ?? "missing"}.`);
-      }
-
-      const workspace = payload.workspace;
-      if (!workspace || typeof workspace !== "object" || !Array.isArray(workspace.videos)) {
-        throw new Error("Workspace snapshot is missing its video dataset.");
-      }
-      if (!workspace.decisions || typeof workspace.decisions !== "object" || Array.isArray(workspace.decisions)) {
-        throw new Error("Workspace snapshot is missing its decisions map.");
-      }
-
-      return {
-        videos: workspace.videos.filter(video => video && typeof video === "object"),
-        decisions: getPortableDecisions(workspace.decisions),
-        userRules: normalizeUserRules(workspace.userRules),
-        channelRules: normalizeChannelRules(workspace.channelRules),
-        savedViews: normalizeSavedViews(workspace.savedViews),
-        lastImport: normalizePlainObject(workspace.lastImport),
-        importComparison: normalizeImportComparison(workspace.importComparison),
-        history: normalizeHistory(workspace.history),
-        timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
-        previewProgress: normalizePreviewProgress(workspace.previewProgress),
-        ui: normalizeWorkspaceUi(workspace.ui),
-      };
-    }
-
     async function importWorkspaceFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -3368,11 +2641,6 @@
       }
     }
 
-    function toWorkspaceVideo(video) {
-      const { suggestedTags: _suggestedTags, searchText: _searchText, ...portable } = video;
-      return portable;
-    }
-
     function getWorkspaceUiState() {
       return {
         ...captureFilterState(),
@@ -3393,167 +2661,6 @@
 
     function hasOption(select, value) {
       return Array.from(select.options).some(option => option.value === value);
-    }
-
-    function normalizeWorkspaceUi(ui) {
-      const source = ui && typeof ui === "object" && !Array.isArray(ui) ? ui : {};
-      return {
-        ...normalizeFilterState(source),
-        savedViewId: typeof source.savedViewId === "string" ? source.savedViewId : "",
-        selectedIds: Array.isArray(source.selectedIds) ? source.selectedIds.map(String) : [],
-        currentId: typeof source.currentId === "string" ? source.currentId : "",
-      };
-    }
-
-    function normalizeUserRules(rules) {
-      if (!rules || typeof rules !== "object" || Array.isArray(rules)) return {};
-      const normalized = {};
-      for (const [name, rule] of Object.entries(rules)) {
-        const cleanName = String(name || "").trim();
-        if (!cleanName || (!Array.isArray(rule) && (!rule || typeof rule !== "object"))) continue;
-        const cleanRule = normalizeRule(rule);
-        if (!cleanRule.positive.length) continue;
-        normalized[cleanName] = cleanRule;
-      }
-      return normalized;
-    }
-
-    function normalizeRule(rule) {
-      if (Array.isArray(rule)) {
-        return { positive: normalizeTags(rule), negative: [], channel: "" };
-      }
-      const source = rule && typeof rule === "object" && !Array.isArray(rule) ? rule : {};
-      return {
-        positive: normalizeTags(source.positive || source.keywords),
-        negative: normalizeTags(source.negative),
-        channel: typeof source.channel === "string" ? source.channel.trim() : "",
-      };
-    }
-
-    function normalizeChannelRules(rules) {
-      const source = Array.isArray(rules)
-        ? rules
-        : (rules && typeof rules === "object" ? Object.values(rules) : []);
-      const byChannel = new Map();
-      source.forEach((rule, index) => {
-        const normalized = normalizeChannelRule(rule, index);
-        if (normalized) byChannel.set(normalized.channel.toLowerCase(), normalized);
-      });
-      return Array.from(byChannel.values()).sort((a, b) => a.channel.localeCompare(b.channel));
-    }
-
-    function normalizeChannelRule(rule, index = 0) {
-      if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
-      const channel = String(rule.channel || "").trim();
-      if (!channel) return null;
-      const validModes = new Set(["none", "default-keep", "default-review", "always-keep", "always-review"]);
-      const mode = validModes.has(rule.mode) ? rule.mode : "none";
-      const tag = normalizeTags([rule.tag || rule.defaultTag])[0] || "";
-      return {
-        id: String(rule.id || `channel-rule-${index}-${channel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "channel"}`),
-        channel,
-        mode,
-        tag,
-        protected: Boolean(rule.protected || mode === "always-keep"),
-      };
-    }
-
-    function getChannelRuleDecision(decision, rule, updatedAt = new Date().toISOString()) {
-      const current = normalizeDecision(decision || {});
-      const normalizedRule = normalizeChannelRule(rule);
-      if (!normalizedRule) return current;
-      let status = current.status;
-      if (normalizedRule.mode === "always-keep") status = "keep";
-      if (normalizedRule.mode === "always-review") status = "maybe";
-      if (normalizedRule.mode === "default-keep" && current.status === "unreviewed") status = "keep";
-      if (normalizedRule.mode === "default-review" && current.status === "unreviewed") status = "maybe";
-      const tags = normalizedRule.tag && !current.tags.includes(normalizedRule.tag)
-        ? [...current.tags, normalizedRule.tag]
-        : current.tags;
-      if (status === current.status && tags === current.tags) return current;
-      return { ...current, status, tags, updatedAt };
-    }
-
-    function getChannelRuleImpact(videos, decisions, rule) {
-      const normalizedRule = normalizeChannelRule(rule);
-      const impact = {
-        matchCount: 0,
-        statusChangeCount: 0,
-        tagAdditionCount: 0,
-        affectedIds: [],
-      };
-      if (!normalizedRule || !Array.isArray(videos)) return impact;
-      const channel = normalizedRule.channel.toLowerCase();
-      for (const video of videos) {
-        if (!video?.videoId || String(video.channel || "").trim().toLowerCase() !== channel) continue;
-        impact.matchCount++;
-        const current = normalizeDecision(decisions?.[video.videoId] || {});
-        const next = getChannelRuleDecision(current, normalizedRule, "preview");
-        const statusChanged = current.status !== next.status;
-        const tagAdded = next.tags.length > current.tags.length;
-        if (statusChanged) impact.statusChangeCount++;
-        if (tagAdded) impact.tagAdditionCount++;
-        if (statusChanged || tagAdded) impact.affectedIds.push(video.videoId);
-      }
-      return impact;
-    }
-
-    function getCombinedChannelRuleImpact(videos, decisions, rules) {
-      const combined = {
-        matchCount: 0,
-        statusChangeCount: 0,
-        tagAdditionCount: 0,
-        affectedIds: [],
-      };
-      const affectedIds = new Set();
-      for (const rule of normalizeChannelRules(rules)) {
-        const impact = getChannelRuleImpact(videos, decisions, rule);
-        combined.matchCount += impact.matchCount;
-        combined.statusChangeCount += impact.statusChangeCount;
-        combined.tagAdditionCount += impact.tagAdditionCount;
-        impact.affectedIds.forEach(videoId => affectedIds.add(videoId));
-      }
-      combined.affectedIds = Array.from(affectedIds);
-      return combined;
-    }
-
-    function getProtectedChannelMatches(videos, videoIds, rules) {
-      const protectedChannels = new Set(normalizeChannelRules(rules)
-        .filter(rule => rule.protected)
-        .map(rule => rule.channel.toLowerCase()));
-      if (!protectedChannels.size) return [];
-      const scopedIds = new Set(videoIds || []);
-      return (Array.isArray(videos) ? videos : [])
-        .filter(video => scopedIds.has(video.videoId) && protectedChannels.has(String(video.channel || "").trim().toLowerCase()))
-        .map(video => ({ videoId: video.videoId, channel: String(video.channel || "").trim() }));
-    }
-
-    function splitInputValues(value) {
-      return normalizeTags(String(value || "").split(/[,\n]+/));
-    }
-
-    function normalizeSavedViews(views) {
-      if (!Array.isArray(views)) return [];
-      const seen = new Set();
-      return views
-        .filter(view => view && typeof view === "object" && !Array.isArray(view))
-        .map((view, index) => {
-          const name = String(view.name || "").trim();
-          const fallbackId = `saved-view-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "view"}`;
-          return {
-            id: String(view.id || fallbackId),
-            name,
-            filters: normalizeFilterState(view.filters),
-            createdAt: typeof view.createdAt === "string" ? view.createdAt : "",
-            updatedAt: typeof view.updatedAt === "string" ? view.updatedAt : "",
-          };
-        })
-        .filter(view => view.name && !seen.has(view.id) && seen.add(view.id))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    function normalizePlainObject(value) {
-      return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : null;
     }
 
     async function importDecisionsFile(event) {
@@ -3604,93 +2711,6 @@
       } finally {
         event.target.value = "";
       }
-    }
-
-    function parseDecisionsPayload(payload) {
-      if (!payload || typeof payload !== "object") {
-        throw new Error("Expected a decisions export JSON object.");
-      }
-
-      const decisions = payload.decisions || payload;
-      if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) {
-        throw new Error("Expected a decisions map keyed by videoId.");
-      }
-
-      return getPortableDecisions(decisions);
-    }
-
-    function previewDecisionsMerge(incoming, current) {
-      const merged = { ...current };
-      const stats = {
-        newCount: 0,
-        updatedCount: 0,
-        skippedCount: 0,
-        conflictCount: 0,
-        merged,
-      };
-
-      for (const [videoId, incomingDecision] of Object.entries(incoming)) {
-        const currentDecision = current[videoId] ? normalizeDecision(current[videoId]) : null;
-
-        if (!currentDecision) {
-          merged[videoId] = incomingDecision;
-          stats.newCount++;
-          continue;
-        }
-
-        const differs = !areDecisionsEqual(incomingDecision, currentDecision);
-        if (differs) stats.conflictCount++;
-
-        const incomingTime = getDecisionTime(incomingDecision);
-        const currentTime = getDecisionTime(currentDecision);
-        if (incomingTime > currentTime) {
-          merged[videoId] = incomingDecision;
-          stats.updatedCount++;
-        } else {
-          merged[videoId] = currentDecision;
-          stats.skippedCount++;
-        }
-      }
-
-      return stats;
-    }
-
-    function getPortableDecisions(decisions) {
-      const portable = {};
-      for (const [videoId, decision] of Object.entries(decisions || {})) {
-        if (!videoId || !decision || typeof decision !== "object") continue;
-        const normalized = normalizeDecision(decision);
-        if (normalized.status === "unreviewed" && !normalized.tags.length && !normalized.note.trim()) continue;
-        portable[videoId] = normalized;
-      }
-      return portable;
-    }
-
-    function normalizeDecision(decision) {
-      const validStatuses = new Set(["keep", "maybe", "delete", "archive", "unreviewed"]);
-      const status = validStatuses.has(decision.status) ? decision.status : "unreviewed";
-      return {
-        status,
-        tags: normalizeTags(decision.tags),
-        note: typeof decision.note === "string" ? decision.note : "",
-        updatedAt: typeof decision.updatedAt === "string" ? decision.updatedAt : "",
-      };
-    }
-
-    function normalizeTags(tags) {
-      if (!Array.isArray(tags)) return [];
-      return Array.from(new Set(tags
-        .map(tag => String(tag || "").trim())
-        .filter(Boolean)));
-    }
-
-    function areDecisionsEqual(a, b) {
-      return JSON.stringify(normalizeDecision(a)) === JSON.stringify(normalizeDecision(b));
-    }
-
-    function getDecisionTime(decision) {
-      const time = Date.parse(decision.updatedAt || "");
-      return Number.isFinite(time) ? time : 0;
     }
 
     function toExportVideo(video, decision) {
@@ -3762,69 +2782,6 @@
       if (saveHistory()) return true;
       state.history = state.history.filter(candidate => candidate.id !== entry.id);
       return false;
-    }
-
-    function createHistoryEntry(description, action, beforeDecisions, createdAt = new Date().toISOString(), id = "") {
-      const normalizedDecisions = normalizeBeforeDecisions(beforeDecisions);
-      return {
-        id: id || createSnapshotId(),
-        createdAt,
-        description: String(description || "Workspace change"),
-        action: String(action || "change"),
-        affectedCount: Object.keys(normalizedDecisions).length,
-        beforeDecisions: normalizedDecisions,
-      };
-    }
-
-    function createSnapshotId() {
-      if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-      return `snapshot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    }
-
-    function normalizeBeforeDecisions(decisions) {
-      const normalized = {};
-      if (!decisions || typeof decisions !== "object" || Array.isArray(decisions)) return normalized;
-      for (const [videoId, decision] of Object.entries(decisions)) {
-        if (!videoId) continue;
-        normalized[videoId] = decision === null ? null : normalizeDecision(decision);
-      }
-      return normalized;
-    }
-
-    function normalizeHistory(history) {
-      if (!Array.isArray(history)) return [];
-      return history
-        .filter(entry => entry && typeof entry === "object" && !Array.isArray(entry))
-        .map(entry => createHistoryEntry(
-          entry.description,
-          entry.action,
-          entry.beforeDecisions,
-          typeof entry.createdAt === "string" ? entry.createdAt : "",
-          typeof entry.id === "string" ? entry.id : "",
-        ))
-        .filter(entry => Object.keys(entry.beforeDecisions).length)
-        .slice(0, MAX_HISTORY_ENTRIES);
-    }
-
-    function mergeHistoryEntries(history) {
-      const seen = new Set();
-      const merged = [];
-      for (const entry of normalizeHistory(history)) {
-        if (seen.has(entry.id)) continue;
-        seen.add(entry.id);
-        merged.push(entry);
-        if (merged.length >= MAX_HISTORY_ENTRIES) break;
-      }
-      return merged;
-    }
-
-    function applyHistoryEntry(decisions, entry) {
-      const restored = { ...getPortableDecisions(decisions) };
-      for (const [videoId, previousDecision] of Object.entries(entry.beforeDecisions || {})) {
-        if (previousDecision === null) delete restored[videoId];
-        else restored[videoId] = normalizeDecision(previousDecision);
-      }
-      return restored;
     }
 
     function undoLastBulkChange() {

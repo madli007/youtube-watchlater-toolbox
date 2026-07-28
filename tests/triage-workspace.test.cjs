@@ -26,19 +26,32 @@ assert.deepEqual(
   ["./assets/css/app.css"],
   "production HTML must link the single application stylesheet",
 );
-assert.equal(scripts.length, 1, "production HTML must load one application script");
-assert.equal(scripts[0].kind, "external", "production HTML must not contain an inline application script");
+const expectedApplicationScripts = [
+  "./assets/js/config.js",
+  "./assets/js/domain/decisions.js",
+  "./assets/js/domain/import-comparison.js",
+  "./assets/js/domain/filters.js",
+  "./assets/js/domain/time-budget.js",
+  "./assets/js/domain/grouping.js",
+  "./assets/js/domain/workspace.js",
+  "./assets/js/app.js",
+];
+assert.equal(scripts.length, expectedApplicationScripts.length);
+assert.ok(
+  scripts.every(script => script.kind === "external"),
+  "production HTML must not contain an inline application script",
+);
 assert.deepEqual(
   getLinkedAssets(html, entryPath)
     .filter(asset => asset.type === "JavaScript")
     .map(asset => asset.reference),
-  ["./assets/js/app.js"],
-  "production HTML must link the single application script",
+  expectedApplicationScripts,
+  "production HTML must load config, domain modules, and the application orchestrator in dependency order",
 );
 assert.match(
   html,
-  /<script src=["']\.\/assets\/js\/app\.js["']><\/script>/i,
-  "application script must use a plain blocking script tag",
+  /<script src=["']\.\/assets\/js\/config\.js["']><\/script>[\s\S]*<script src=["']\.\/assets\/js\/app\.js["']><\/script>/i,
+  "application modules must use plain blocking script tags",
 );
 assert.match(source, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
 
@@ -99,11 +112,38 @@ const sandbox = {
 
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
+assert.ok(sandbox.WatchLaterApp, "controlled application namespace not exposed");
+assert.deepEqual(
+  Object.keys(sandbox.WatchLaterApp.domain),
+  ["decisions", "importComparison", "filters", "timeBudget", "grouping", "workspace"],
+);
+assert.ok(
+  Object.values(sandbox.WatchLaterApp.domain).every(Object.isFrozen),
+  "domain module APIs must be immutable",
+);
 assert.ok(sandbox.WatchLaterTestApi, "triage test API not exposed");
+const {
+  decisions: decisionsApi,
+  importComparison: importComparisonApi,
+  filters: filtersApi,
+  timeBudget: timeBudgetApi,
+  grouping: groupingApi,
+  workspace: workspaceApi,
+} = sandbox.WatchLaterApp.domain;
 sandbox.testApi = sandbox.WatchLaterTestApi;
 
+assert.equal(sandbox.WatchLaterApp.config.PAGE_SIZE, 220);
+assert.equal(sandbox.WatchLaterApp.config.STORAGE_KEY, "watchlater-triage-decisions-v1");
+assert.equal(decisionsApi.normalizeDecision({ status: "invalid" }).status, "unreviewed");
+assert.deepEqual([...decisionsApi.normalizeTags("not-an-array")], []);
+assert.equal(importComparisonApi.normalizeImportComparison(null).baselineAvailable, false);
+assert.deepEqual([...filtersApi.normalizeSavedViews("not-an-array")], []);
+assert.equal(timeBudgetApi.normalizeTimeBudgetHours("invalid"), 2);
+assert.deepEqual([...groupingApi.buildVideoGroups(null)], []);
+assert.throws(() => workspaceApi.parseWorkspacePayload(null), /workspace snapshot/i);
+
 const exportedAt = "2026-07-19T12:00:00.000Z";
-const workspace = sandbox.testApi.buildWorkspacePayload({
+const workspace = workspaceApi.buildWorkspacePayload({
   videos: [{ videoId: "one", title: "One" }],
   decisions: {
     one: { status: "keep", tags: ["manual", "manual"], note: "Later", updatedAt: exportedAt },
@@ -160,7 +200,7 @@ assert.deepEqual([...workspace.workspace.importComparison.newIds], ["one"]);
 assert.equal(workspace.workspace.timeBudgetHours, 3.5);
 assert.deepEqual({ ...workspace.workspace.previewProgress }, { one: 83 });
 
-const parsed = sandbox.testApi.parseWorkspacePayload(workspace);
+const parsed = workspaceApi.parseWorkspacePayload(workspace);
 assert.equal(parsed.videos[0].videoId, "one");
 assert.equal(parsed.decisions.one.status, "keep");
 assert.equal(parsed.ui.status, "keep");
@@ -180,15 +220,15 @@ assert.equal(parsed.savedViews[0].filters.minDurationMinutes, "10");
 assert.equal(parsed.timeBudgetHours, 3.5);
 assert.deepEqual({ ...parsed.previewProgress }, { one: 83 });
 assert.throws(
-  () => sandbox.testApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
+  () => workspaceApi.parseWorkspacePayload({ mode: "decisions-export", schemaVersion: 1 }),
   /workspace snapshot/i,
 );
 assert.throws(
-  () => sandbox.testApi.parseWorkspacePayload({ mode: "workspace-snapshot", schemaVersion: 2 }),
+  () => workspaceApi.parseWorkspacePayload({ mode: "workspace-snapshot", schemaVersion: 2 }),
   /schema version/i,
 );
 
-const historyEntry = sandbox.testApi.createHistoryEntry(
+const historyEntry = decisionsApi.createHistoryEntry(
   "2 visible → delete",
   "bulk-status",
   {
@@ -198,7 +238,7 @@ const historyEntry = sandbox.testApi.createHistoryEntry(
   exportedAt,
   "snapshot-1",
 );
-const restored = sandbox.testApi.applyHistoryEntry({
+const restored = decisionsApi.applyHistoryEntry({
   one: { status: "delete", tags: [], note: "", updatedAt: exportedAt },
   two: { status: "delete", tags: [], note: "", updatedAt: exportedAt },
   three: { status: "maybe", tags: [], note: "", updatedAt: exportedAt },
@@ -213,7 +253,7 @@ const oversizedHistory = Array.from({ length: 25 }, (_, index) => ({
   ...historyEntry,
   id: `snapshot-${index}`,
 }));
-assert.equal(sandbox.testApi.normalizeHistory(oversizedHistory).length, 20);
+assert.equal(decisionsApi.normalizeHistory(oversizedHistory).length, 20);
 
 const previousVideos = [
   { videoId: "same", title: "Original", channel: "Channel", durationSeconds: 60, views: "10 views" },
@@ -223,7 +263,7 @@ const currentVideos = [
   { videoId: "same", title: "Renamed", channel: "Channel", durationSeconds: 60, views: "20 views" },
   { videoId: "new", title: "New", channel: "Fresh" },
 ];
-const comparison = sandbox.testApi.compareVideoDatasets(
+const comparison = importComparisonApi.compareVideoDatasets(
   previousVideos,
   currentVideos,
   {
@@ -242,30 +282,30 @@ assert.deepEqual([...comparison.changedIds], ["same"]);
 assert.deepEqual([...comparison.changedFieldsById.same], ["title"]);
 assert.deepEqual([...comparison.orphanedDecisionIds], ["orphan"]);
 
-const volatileOnly = sandbox.testApi.compareVideoDatasets(
+const volatileOnly = importComparisonApi.compareVideoDatasets(
   [{ videoId: "same", title: "Stable", views: "10 views", uploaded: "1 day ago" }],
   [{ videoId: "same", title: "Stable", views: "99 views", uploaded: "2 days ago" }],
 );
 assert.deepEqual([...volatileOnly.changedIds], []);
 
-const baseline = sandbox.testApi.createDatasetBaseline(currentVideos, { fileName: "current.json" });
+const baseline = importComparisonApi.createDatasetBaseline(currentVideos, { fileName: "current.json" });
 assert.equal(baseline.schemaVersion, 1);
 assert.equal(baseline.videos.length, 2);
 assert.equal(baseline.videos[0].views, undefined);
 
 const channelRule = { positive: ["documentary"], negative: ["trailer"], channel: "Channel" };
-assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", channel: "Channel" }, channelRule), true);
-assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Documentary trailer", channel: "Channel" }, channelRule), false);
-assert.equal(sandbox.testApi.ruleMatchesVideo({ title: "Great documentary", channel: "Elsewhere" }, channelRule), false);
+assert.equal(decisionsApi.ruleMatchesVideo({ title: "Great documentary", channel: "Channel" }, channelRule), true);
+assert.equal(decisionsApi.ruleMatchesVideo({ title: "Documentary trailer", channel: "Channel" }, channelRule), false);
+assert.equal(decisionsApi.ruleMatchesVideo({ title: "Great documentary", channel: "Elsewhere" }, channelRule), false);
 
-const normalizedChannelRules = sandbox.testApi.normalizeChannelRules([
+const normalizedChannelRules = decisionsApi.normalizeChannelRules([
   { channel: "Channel A", mode: "default-keep", tag: "favorite", protected: true },
   { channel: "channel a", mode: "always-review" },
   { channel: "", mode: "always-keep" },
 ]);
 assert.equal(normalizedChannelRules.length, 1);
 assert.equal(normalizedChannelRules[0].mode, "always-review");
-assert.equal(sandbox.testApi.normalizeChannelRule({ channel: "Always", mode: "always-keep" }).protected, true);
+assert.equal(decisionsApi.normalizeChannelRule({ channel: "Always", mode: "always-keep" }).protected, true);
 
 const channelVideos = [
   { videoId: "new", channel: "Channel A" },
@@ -275,7 +315,7 @@ const channelVideos = [
 const channelDecisions = {
   decided: { status: "delete", tags: [], note: "", updatedAt: exportedAt },
 };
-const defaultRuleImpact = sandbox.testApi.getChannelRuleImpact(channelVideos, channelDecisions, {
+const defaultRuleImpact = decisionsApi.getChannelRuleImpact(channelVideos, channelDecisions, {
   channel: "channel a",
   mode: "default-keep",
   tag: "favorite",
@@ -285,31 +325,31 @@ assert.equal(defaultRuleImpact.matchCount, 2);
 assert.equal(defaultRuleImpact.statusChangeCount, 1);
 assert.equal(defaultRuleImpact.tagAdditionCount, 2);
 assert.deepEqual([...defaultRuleImpact.affectedIds], ["new", "decided"]);
-const defaultExisting = sandbox.testApi.getChannelRuleDecision(channelDecisions.decided, {
+const defaultExisting = decisionsApi.getChannelRuleDecision(channelDecisions.decided, {
   channel: "Channel A",
   mode: "default-keep",
 }, exportedAt);
 assert.equal(defaultExisting.status, "delete");
-const alwaysReview = sandbox.testApi.getChannelRuleDecision(channelDecisions.decided, {
+const alwaysReview = decisionsApi.getChannelRuleDecision(channelDecisions.decided, {
   channel: "Channel A",
   mode: "always-review",
 }, exportedAt);
 assert.equal(alwaysReview.status, "maybe");
-const protectedMatches = sandbox.testApi.getProtectedChannelMatches(channelVideos, ["new", "other"], [
+const protectedMatches = decisionsApi.getProtectedChannelMatches(channelVideos, ["new", "other"], [
   { channel: "Channel A", protected: true },
 ]);
 assert.deepEqual([...protectedMatches].map(match => match.videoId), ["new"]);
 
 const detailDecisions = {};
-sandbox.testApi.updateDecisionDetails(detailDecisions, "one", ["manual", "manual"], "Watch later", exportedAt);
+decisionsApi.updateDecisionDetails(detailDecisions, "one", ["manual", "manual"], "Watch later", exportedAt);
 assert.equal(detailDecisions.one.status, "unreviewed");
 assert.deepEqual([...detailDecisions.one.tags], ["manual"]);
 assert.equal(detailDecisions.one.note, "Watch later");
-assert.equal(Object.keys(sandbox.testApi.getPortableDecisions(detailDecisions)).length, 1);
-sandbox.testApi.updateDecisionDetails(detailDecisions, "one", [], "", exportedAt);
+assert.equal(Object.keys(decisionsApi.getPortableDecisions(detailDecisions)).length, 1);
+decisionsApi.updateDecisionDetails(detailDecisions, "one", [], "", exportedAt);
 assert.equal(detailDecisions.one, undefined);
 
-const legacyFilters = sandbox.testApi.normalizeFilterState({
+const legacyFilters = filtersApi.normalizeFilterState({
   channel: "Channel A",
   tag: "dev",
   minViews: "1000",
@@ -320,10 +360,10 @@ assert.deepEqual([...legacyFilters.tags], ["dev"]);
 assert.equal(legacyFilters.minViews, "1000");
 assert.equal(legacyFilters.availability, "unavailable");
 
-assert.equal(sandbox.testApi.parseApproximateAgeDays("pred 2 dnevoma"), 2);
-assert.equal(sandbox.testApi.parseApproximateAgeDays("3 weeks ago"), 21);
-assert.equal(sandbox.testApi.parseApproximateViewCount("1,4 tis. ogledov"), 1400);
-assert.equal(sandbox.testApi.parseApproximateViewCount("2.5M views"), 2500000);
+assert.equal(filtersApi.parseApproximateAgeDays("pred 2 dnevoma"), 2);
+assert.equal(filtersApi.parseApproximateAgeDays("3 weeks ago"), 21);
+assert.equal(filtersApi.parseApproximateViewCount("1,4 tis. ogledov"), 1400);
+assert.equal(filtersApi.parseApproximateViewCount("2.5M views"), 2500000);
 
 const filterVideo = {
   videoId: "filter-one",
@@ -337,7 +377,7 @@ const filterVideo = {
   suggestedTags: ["dev"],
 };
 const filterDecision = { status: "maybe", tags: ["manual"], note: "Watch this" };
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+assert.equal(filtersApi.videoMatchesFilters(filterVideo, filterDecision, {
   status: "maybe",
   channels: ["Channel A", "Channel B"],
   tags: ["dev", "manual"],
@@ -351,39 +391,39 @@ assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
   suggestedTag: "yes",
   note: "yes",
 }), true);
-assert.equal(sandbox.testApi.channelMatchesQuery("Čudežni Kanal", "cude kanal"), true);
+assert.equal(filtersApi.channelMatchesQuery("Čudežni Kanal", "cude kanal"), true);
 assert.deepEqual(
-  [...sandbox.testApi.filterChannelOptions([
+  [...filtersApi.filterChannelOptions([
     { name: "Linus Tech Tips", count: 2 },
     { name: "TechAltar", count: 1 },
   ], "lin tech")].map(item => item.name),
   ["Linus Tech Tips"],
 );
-const channelOptionPage = sandbox.testApi.getChannelOptionPage(
+const channelOptionPage = filtersApi.getChannelOptionPage(
   Array.from({ length: 100 }, (_, index) => ({ name: `Channel ${index}`, count: 100 - index })),
   "channel",
   24,
 );
 assert.equal(channelOptionPage.totalCount, 100);
 assert.equal(channelOptionPage.options.length, 24);
-const exactChannelFirst = sandbox.testApi.filterChannelOptions([
+const exactChannelFirst = filtersApi.filterChannelOptions([
   { name: "Channel Extra", count: 100 },
   { name: "Channel", count: 1 },
 ], "channel");
 assert.equal(exactChannelFirst[0].name, "Channel");
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+assert.equal(filtersApi.videoMatchesFilters(filterVideo, filterDecision, {
   tags: ["dev", "missing"],
   tagMode: "and",
 }), false);
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+assert.equal(filtersApi.videoMatchesFilters(filterVideo, filterDecision, {
   tags: ["dev", "missing"],
   tagMode: "or",
 }), true);
-assert.equal(sandbox.testApi.videoMatchesFilters(filterVideo, filterDecision, {
+assert.equal(filtersApi.videoMatchesFilters(filterVideo, filterDecision, {
   minViews: 2000,
 }), false);
 
-const normalizedViews = sandbox.testApi.normalizeSavedViews([
+const normalizedViews = filtersApi.normalizeSavedViews([
   { id: "podcasts", name: "Podcasts", filters: { minDurationMinutes: 30, tags: ["podcast"] } },
   { name: "Legacy" },
 ]);
@@ -391,14 +431,14 @@ assert.equal(normalizedViews.length, 2);
 assert.equal(normalizedViews.find(view => view.id === "podcasts").filters.minDurationMinutes, "30");
 assert.deepEqual([...normalizedViews.find(view => view.id === "podcasts").filters.tags], ["podcast"]);
 
-assert.equal(sandbox.testApi.normalizeTimeBudgetHours("2.6"), 2.5);
-assert.equal(sandbox.testApi.normalizeTimeBudgetHours(0), 2);
-assert.equal(sandbox.testApi.normalizeTimeBudgetHours(999), 168);
-assert.equal(sandbox.testApi.formatDuration(90 * 60), "1h 30m");
+assert.equal(timeBudgetApi.normalizeTimeBudgetHours("2.6"), 2.5);
+assert.equal(timeBudgetApi.normalizeTimeBudgetHours(0), 2);
+assert.equal(timeBudgetApi.normalizeTimeBudgetHours(999), 168);
+assert.equal(timeBudgetApi.formatDuration(90 * 60), "1h 30m");
 assert.equal(sandbox.testApi.formatPreviewTime(83), "1:23");
 assert.equal(sandbox.testApi.formatPreviewTime(3723), "1:02:03");
 assert.deepEqual(
-  { ...sandbox.testApi.normalizePreviewProgress({ one: 12.8, zero: 0, bad: "nope" }) },
+  { ...workspaceApi.normalizePreviewProgress({ one: 12.8, zero: 0, bad: "nope" }) },
   { one: 12 },
 );
 assert.equal(
@@ -421,7 +461,7 @@ const durationDecisions = {
   maybe: { status: "maybe" },
   delete: { status: "delete" },
 };
-const durationStats = sandbox.testApi.calculateDurationStats(durationVideos, durationDecisions);
+const durationStats = timeBudgetApi.calculateDurationStats(durationVideos, durationDecisions);
 assert.equal(durationStats.totalCount, 7);
 assert.equal(durationStats.knownCount, 6);
 assert.equal(durationStats.unknownCount, 1);
@@ -432,7 +472,7 @@ assert.equal(durationStats.byChannel.A.seconds, 70 * 60);
 assert.equal(durationStats.byTag.dev.seconds, 70 * 60);
 assert.equal(durationStats.byTag.manual.seconds, 20 * 60);
 
-const shortlist = sandbox.testApi.buildTimeBudgetShortlist(durationVideos, durationDecisions, 60 * 60);
+const shortlist = timeBudgetApi.buildTimeBudgetShortlist(durationVideos, durationDecisions, 60 * 60);
 assert.deepEqual([...shortlist.videos].map(video => video.videoId), ["keep-short", "maybe", "unreviewed"]);
 assert.equal(shortlist.totalSeconds, 60 * 60);
 assert.equal([...shortlist.videos].some(video => video.videoId === "delete"), false);
@@ -447,7 +487,7 @@ const groupedVideos = [
   { videoId: "duplicate-2", title: "Great Song - Official Video", channel: "Archive", index: 6 },
   { videoId: "unrelated", title: "Completely unrelated topic", channel: "Other", index: 7 },
 ];
-const groups = sandbox.testApi.buildVideoGroups(groupedVideos);
+const groups = groupingApi.buildVideoGroups(groupedVideos);
 const seriesGroup = groups.find(group => group.type === "series"
   && group.members.some(video => video.videoId === "series-1"));
 const similarGroup = groups.find(group => group.type === "similar"
@@ -460,13 +500,13 @@ assert.ok(similarGroup, "similar titles on the same channel should form a group"
 assert.ok(duplicateGroup, "normalized identical titles should form a probable duplicate group");
 assert.deepEqual([...duplicateGroup.members].map(video => video.videoId), ["duplicate-1", "duplicate-2"]);
 assert.equal(groups.some(group => group.members.some(video => video.videoId === "unrelated")), false);
-assert.ok(sandbox.testApi.calculateTitleSimilarity(
+assert.ok(groupingApi.calculateTitleSimilarity(
   "JavaScript Async Await Tutorial for Beginners",
   "JavaScript Async Await Guide for Beginners",
 ) >= 0.74);
-assert.equal(sandbox.testApi.normalizeDuplicateTitle("Great Song (Official Video) [4K]"), "great song");
-assert.equal(sandbox.testApi.chooseGroupWinner(seriesGroup, "newest").videoId, "series-2");
-assert.equal(sandbox.testApi.chooseGroupWinner(seriesGroup, "most-viewed").videoId, "series-2");
-assert.equal(sandbox.testApi.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
+assert.equal(groupingApi.normalizeDuplicateTitle("Great Song (Official Video) [4K]"), "great song");
+assert.equal(groupingApi.chooseGroupWinner(seriesGroup, "newest").videoId, "series-2");
+assert.equal(groupingApi.chooseGroupWinner(seriesGroup, "most-viewed").videoId, "series-2");
+assert.equal(groupingApi.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
 
 console.log("triage workspace test passed");
