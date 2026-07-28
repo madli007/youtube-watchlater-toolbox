@@ -249,8 +249,8 @@ Najvarnejši deployment vrstni red je prehodno podvajanje, ne takojšen izbris k
 - [x] Testni helper preusmeriti na zunanji skript.
 - [x] Dodati statični test, da produkcijski HTML nima več aplikacijskega inline skripta in da script asset obstaja.
 - [x] Pognati vse assertions iz `triage-workspace.test.cjs` nad zunanjo datoteko.
-- [ ] Izvesti celoten ročni acceptance checklist iz Faze 0.
-- [ ] Preveriti neposredno lokalno odpiranje in GitHub Pages.
+- [x] Izvesti celoten ročni acceptance checklist iz Faze 0.
+- [x] Preveriti neposredno lokalno odpiranje in GitHub Pages.
 
 **Izhodni kriterij:** `docs/index.html` je pretežno semantični markup, vedenje pa je enako kot pred ekstrakcijo.
 
