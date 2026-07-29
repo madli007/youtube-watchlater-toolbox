@@ -1198,7 +1198,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.5 — Insights → Triage filter bridge
 
-- [ ] **Slice 2.5 zaključen**
+- [x] **Slice 2.5 zaključen**
 - **Cilj:** klik matrix celice ali `View videos` odpre pravilen Triage scope.
 - **Prizadeto:** `domain/filters.js`, `ui/navigation.js`, `ui/insights-view.js`, `ui/triage-view.js`, `app.js`.
 - **Podatki:** obstoječi FilterState; channel key se pretvori v trenutno display ime/ime filtra.

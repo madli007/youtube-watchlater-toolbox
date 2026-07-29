@@ -60,6 +60,7 @@
     "insightsChannelDetail",
     "insightsDetailTitle",
     "insightsDetailMeta",
+    "insightsViewVideos",
     "insightsDetailBacklog",
     "insightsDetailDecision",
     "insightsStaleDays",

@@ -7,6 +7,7 @@
   const { normalizeDecision } = app.domain.decisions;
   const {
     finiteNumberOrNull,
+    getApproximateAgeBucket,
     normalizeSearchText,
     parseApproximateAgeDays,
     parseApproximateViewCount,
@@ -52,14 +53,7 @@
   }
 
   function getAgeBucket(ageDays) {
-    const age = finiteNumberOrNull(ageDays);
-    if (age === null || age < 0) return "unknown";
-    if (age < 8) return "0-7d";
-    if (age < 31) return "8-30d";
-    if (age < 91) return "1-3m";
-    if (age < 183) return "3-6m";
-    if (age < 366) return "6-12m";
-    return "1y+";
+    return getApproximateAgeBucket(ageDays);
   }
 
   function normalizeIdentityText(value) {

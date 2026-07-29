@@ -18,7 +18,11 @@ vm.runInContext(
 
 const {
   VIEW_NAMES,
+  parseHashParams,
   parseViewHash,
+  parseNavigationHash,
+  buildInsightsHash,
+  buildTriageHash,
   createNavigationUi,
 } = sandbox.WatchLaterApp.ui.navigation;
 
@@ -29,6 +33,28 @@ assert.equal(parseViewHash("#groups?type=series"), "groups");
 assert.equal(parseViewHash("#TRIAGE?status=keep"), "triage");
 assert.equal(parseViewHash(""), "triage");
 assert.equal(parseViewHash("#unknown"), "triage");
+assert.deepEqual(
+  JSON.parse(JSON.stringify(parseHashParams("#triage?channels=Channel%20A&ageBucket=6-12m"))),
+  { channels: "Channel A", ageBucket: "6-12m" },
+);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(parseNavigationHash("#insights?channel=url%3A%40alpha"))),
+  {
+    view: "insights",
+    hasQuery: true,
+    channelKey: "url:@alpha",
+    triage: null,
+  },
+);
+assert.equal(buildInsightsHash("url:@alpha"), "#insights?channel=url%3A%40alpha");
+assert.equal(
+  buildTriageHash({
+    channelName: "Channel A",
+    ageBucket: "6-12m",
+    status: "maybe",
+  }),
+  "#triage?channels=Channel%20A&ageBucket=6-12m&status=maybe",
+);
 
 function createElement(view = "") {
   const attributes = new Map();
@@ -84,12 +110,31 @@ const els = {
 };
 const state = { activeView: "triage" };
 let renderCount = 0;
+let appliedRouteFilters = null;
 const navigation = createNavigationUi({
   state,
   els,
   window: windowStub,
   renderActiveView() {
     renderCount++;
+  },
+  getInsightsModel() {
+    return {
+      channels: [{ channelKey: "url:@alpha", channelName: "Alpha" }],
+    };
+  },
+  captureFilterState() {
+    return { status: "maybe" };
+  },
+  buildInsightsTriageFilters(current, options) {
+    return {
+      ...current,
+      channels: [options.channelName || "Alpha"],
+      ageBucket: options.ageBucket || "",
+    };
+  },
+  applyFilterState(filters) {
+    appliedRouteFilters = filters;
   },
 });
 
@@ -127,6 +172,32 @@ assert.equal(els.groupsView.hidden, true);
 windowStub.location.hash = "#not-a-view";
 windowListeners.hashchange();
 assert.equal(state.activeView, "triage");
+
+navigation.navigateToInsightsChannel("url:@alpha");
+assert.equal(windowStub.location.hash, "#insights?channel=url%3A%40alpha");
+windowListeners.hashchange();
+assert.equal(state.selectedChannelKey, "url:@alpha");
+
+navigation.navigateToTriageFromInsights({
+  channelKey: "url:@alpha",
+  channelName: "Alpha",
+  ageBucket: "6-12m",
+});
+assert.equal(
+  windowStub.location.hash,
+  "#triage?channels=Alpha&ageBucket=6-12m&status=maybe",
+);
+windowListeners.hashchange();
+assert.deepEqual(appliedRouteFilters, {
+  status: "maybe",
+  channels: ["Alpha"],
+  ageBucket: "6-12m",
+});
+
+windowStub.location.hash = "#insights?channel=url%3A%40alpha";
+windowListeners.hashchange();
+assert.equal(state.activeView, "insights");
+assert.equal(state.selectedChannelKey, "url:@alpha", "Back must restore the Insights selection");
 
 loadTriageApp();
 

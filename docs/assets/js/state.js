@@ -28,6 +28,8 @@
       selectedIds: new Set(),
       activeTags: new Set(),
       activeChannels: new Set(),
+      activeAgeBucket: "",
+      activeAgeAnchorAt: "",
       activeView: "triage",
       datasetRevision: 0,
       decisionRevision: 0,

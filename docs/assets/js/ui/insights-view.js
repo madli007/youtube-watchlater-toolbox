@@ -88,6 +88,12 @@
       getInsightsModel,
       formatDuration,
       saveInsightsSettings = () => false,
+      navigateToInsightsChannel = channelKey => {
+        state.selectedChannelKey = channelKey;
+        renderedMatrixSignature = "";
+        renderInsights();
+      },
+      navigateToTriageFromInsights = () => {},
       now = () => Date.now(),
       document: documentRef = root.document,
     } = context;
@@ -224,7 +230,7 @@
       };
     }
 
-    function createHeatCell(cell, maximum) {
+    function createHeatCell(cell, maximum, row) {
       const tableCell = documentRef.createElement("td");
       tableCell.className = "insights-heat-cell";
       tableCell.style.setProperty(
@@ -232,12 +238,19 @@
         getHeatOpacity(cell.scaleValue, maximum),
       );
       const content = getMeasuredCellContent(cell);
-      tableCell.append(...createValueContent(content.primary, content.secondary));
-      tableCell.setAttribute(
+      const button = documentRef.createElement("button");
+      button.type = "button";
+      button.className = "insights-heat-button";
+      button.dataset.channelKey = row.channelKey;
+      button.dataset.channelName = row.channelName;
+      button.dataset.ageBucket = cell.key;
+      button.append(...createValueContent(content.primary, content.secondary));
+      button.setAttribute(
         "aria-label",
-        `${AGE_BUCKET_LABELS[cell.key]}: ${content.accessible}`,
+        `View ${AGE_BUCKET_LABELS[cell.key]} videos from ${row.channelName} in Triage: ${content.accessible}`,
       );
-      tableCell.title = tableCell.getAttribute("aria-label");
+      button.title = button.getAttribute("aria-label");
+      tableCell.append(button);
       return tableCell;
     }
 
@@ -300,7 +313,7 @@
         ? row.rowMaximum
         : renderedMatrix.globalMaximum;
       for (const cell of row.cells) {
-        tableRow.append(createHeatCell(cell, maximum));
+        tableRow.append(createHeatCell(cell, maximum, row));
       }
       tableRow.append(createTotalCell(row));
 
@@ -351,6 +364,7 @@
       els.insightsWorkspace.classList.toggle("has-detail", true);
       els.insightsChannelDetail.hidden = false;
       els.insightsDetailTitle.textContent = detail.channelName;
+      els.insightsViewVideos.title = `View ${detail.channelName} videos in Triage`;
       els.insightsDetailMeta.textContent = `${formatCount(detail.totalCount)} videos · ${detail.knownDurationCount
         ? `${formatDuration(detail.totalDurationSeconds)} known watch time`
         : "watch time unknown"} · average age ${formatApproximateAge(detail.averageAgeDays)}`;
@@ -610,12 +624,24 @@
         saveInsightsSettings(state.insightsSettings);
         renderSelectedChannel(getInsightsModel());
       });
+      els.insightsViewVideos.addEventListener("click", () => {
+        if (!state.selectedChannelKey) return;
+        navigateToTriageFromInsights({
+          channelKey: state.selectedChannelKey,
+        });
+      });
       els.insightsMatrixBody.addEventListener("click", event => {
         const button = event.target.closest("[data-channel-key]");
         if (!button) return;
-        state.selectedChannelKey = button.dataset.channelKey;
-        renderedMatrixSignature = "";
-        renderInsights();
+        if (button.dataset.ageBucket) {
+          navigateToTriageFromInsights({
+            channelKey: button.dataset.channelKey,
+            channelName: button.dataset.channelName,
+            ageBucket: button.dataset.ageBucket,
+          });
+          return;
+        }
+        navigateToInsightsChannel(button.dataset.channelKey);
       });
     }
 

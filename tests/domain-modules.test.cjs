@@ -135,6 +135,61 @@ assert.equal(filters.videoMatchesFilters(
   { status: "keep", tags: ["manual"], note: "Useful" },
   { status: "keep", channels: ["Channel A"], tags: ["dev", "manual"], tagMode: "and" },
 ), true);
+assert.deepEqual(
+  plain(["0-7d", "8-30d", "1-3m", "3-6m", "6-12m", "1y+"]
+    .map(key => [key, filters.getAgeBucketFilter(key)])),
+  [
+    ["0-7d", { minAgeDays: "0", maxAgeDays: "7", label: "0–7 days" }],
+    ["8-30d", { minAgeDays: "8", maxAgeDays: "30", label: "8–30 days" }],
+    ["1-3m", { minAgeDays: "31", maxAgeDays: "90", label: "1–3 months" }],
+    ["3-6m", { minAgeDays: "91", maxAgeDays: "182", label: "3–6 months" }],
+    ["6-12m", { minAgeDays: "183", maxAgeDays: "365", label: "6–12 months" }],
+    ["1y+", { minAgeDays: "366", maxAgeDays: "", label: "1 year or older" }],
+  ],
+);
+const bridgedFilters = filters.buildInsightsTriageFilters(
+  { status: "maybe", tags: ["manual"], availability: "available" },
+  {
+    channelKey: "url:@alpha",
+    ageBucket: "6-12m",
+    channels: [{ channelKey: "url:@alpha", channelName: "Alpha" }],
+  },
+);
+assert.deepEqual(plain(bridgedFilters.channels), ["Alpha"]);
+assert.equal(bridgedFilters.status, "maybe");
+assert.deepEqual(plain(bridgedFilters.tags), ["manual"]);
+assert.equal(bridgedFilters.availability, "available");
+assert.equal(bridgedFilters.ageBucket, "6-12m");
+assert.equal(bridgedFilters.minAgeDays, "183");
+assert.equal(bridgedFilters.maxAgeDays, "365");
+assert.equal(filters.videoMatchesFilters(
+  { channel: "Alpha", uploaded: "12 months ago", suggestedTags: ["manual"] },
+  { status: "maybe" },
+  bridgedFilters,
+), true);
+assert.equal(filters.videoMatchesFilters(
+  { channel: "Alpha", uploaded: "2 years ago", suggestedTags: ["manual"] },
+  { status: "maybe" },
+  bridgedFilters,
+), false, "the 6–12 month bridge must exclude 1y+ videos");
+const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+assert.equal(filters.videoMatchesFilters(
+  { channel: "Alpha", uploaded: "12 months ago" },
+  {},
+  filters.buildInsightsTriageFilters({}, {
+    channelName: "Alpha",
+    ageBucket: "6-12m",
+    ageAnchorAt: thirtyDaysAgo,
+  }),
+), false, "relative ages must advance from the import/export anchor just as Insights facts do");
+assert.equal(filters.videoMatchesFilters(
+  { channel: "Alpha", uploaded: "" },
+  {},
+  filters.buildInsightsTriageFilters({}, {
+    channelName: "Alpha",
+    ageBucket: "unknown",
+  }),
+), true);
 assert.deepEqual(plain(filters.normalizeSavedViews("not-an-array")), []);
 assert.deepEqual(plain(filters.getAdvancedFilterEntries({
   tags: ["dev", "manual"],

@@ -667,8 +667,30 @@
       white-space: nowrap;
     }
 
-    .insights-heat-cell {
+    .insights-table td.insights-heat-cell {
+      padding: 0;
       background: rgb(110 198 255 / var(--heat, 0));
+    }
+
+    .insights-heat-button {
+      width: 100%;
+      min-height: 54px;
+      padding: 9px 8px;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+    }
+
+    .insights-heat-button:hover {
+      background: rgb(255 255 255 / 0.08);
+    }
+
+    .insights-heat-button:focus-visible {
+      position: relative;
+      z-index: 1;
+      outline: 3px solid var(--accent);
+      outline-offset: -3px;
     }
 
     .insights-cell-value {
@@ -721,6 +743,10 @@
       position: sticky;
       top: 0;
       z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
       padding: 16px;
       background: #1d222a;
       border-bottom: 1px solid var(--border);
@@ -737,6 +763,15 @@
       color: var(--muted);
       font-size: 11px;
       line-height: 1.45;
+    }
+
+    .insights-detail-header > button {
+      flex: 0 0 auto;
+      color: #081015;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 750;
+      white-space: nowrap;
     }
 
     .insights-detail-block {

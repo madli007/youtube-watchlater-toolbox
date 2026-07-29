@@ -131,6 +131,7 @@ const elementNames = [
   "insightsChannelDetail",
   "insightsDetailTitle",
   "insightsDetailMeta",
+  "insightsViewVideos",
   "insightsDetailBacklog",
   "insightsDetailDecision",
   "insightsStaleDays",
@@ -159,6 +160,7 @@ const state = {
 };
 let model = insights.createEmptyInsightsModel();
 let savedInsightsSettings = null;
+let triageNavigation = null;
 const view = createInsightsViewUi({
   state,
   els,
@@ -169,6 +171,13 @@ const view = createInsightsViewUi({
   saveInsightsSettings(value) {
     savedInsightsSettings = value;
     return true;
+  },
+  navigateToInsightsChannel(channelKey) {
+    state.selectedChannelKey = channelKey;
+    view.renderInsights();
+  },
+  navigateToTriageFromInsights(options) {
+    triageNavigation = options;
   },
   now: () => new Date("2026-07-01T12:00:00.000Z").getTime(),
   document: {
@@ -231,7 +240,15 @@ assert.equal(state.insightsMeasure, "watch-time");
 assert.equal(watchTimeMeasureButton.getAttribute("aria-pressed"), "true");
 assert.match(els.insightsMatrixCaption.textContent, /^Known watch time/);
 const firstAgeCell = els.insightsMatrixBody.children[0].children[1];
-assert.equal(firstAgeCell.children[0].textContent, "\u2014");
+assert.equal(firstAgeCell.children[0].children[0].textContent, "\u2014");
+assert.equal(firstAgeCell.children[0].dataset.ageBucket, "0-7d");
+assert.match(firstAgeCell.children[0].getAttribute("aria-label"), /^View 0 to 7 days videos/);
+els.insightsMatrixBody.listeners.click({ target: firstAgeCell.children[0] });
+assert.deepEqual(JSON.parse(JSON.stringify(triageNavigation)), {
+  channelKey: "name:unknowns",
+  channelName: "Unknowns",
+  ageBucket: "0-7d",
+});
 
 const channelButton = els.insightsMatrixBody.children[0].children[0].children[0];
 els.insightsMatrixBody.listeners.click({ target: channelButton });
@@ -240,6 +257,11 @@ assert.match(els.insightsSelectedChannel.textContent, /^Selected: Unknowns/);
 assert.equal(els.insightsChannelDetail.hidden, false);
 assert.equal(els.insightsWorkspace.classList.contains("has-detail"), true);
 assert.equal(els.insightsDetailTitle.textContent, "Unknowns");
+assert.equal(els.insightsViewVideos.title, "View Unknowns videos in Triage");
+els.insightsViewVideos.listeners.click();
+assert.deepEqual(JSON.parse(JSON.stringify(triageNavigation)), {
+  channelKey: "name:unknowns",
+});
 assert.match(
   els.insightsDetailBacklog.getAttribute("aria-label"),
   /^Unknowns has 100% of backlog videos/,
@@ -303,6 +325,7 @@ assert.match(html, /id=["']insightsMatrix["'][^>]*aria-labelledby=["']insightsMa
 assert.match(html, /<table class=["']insights-table["']>/i);
 assert.match(html, /id=["']insightsShowAll["']/i);
 assert.match(html, /id=["']insightsChannelDetail["'][^>]*aria-labelledby=["']insightsDetailTitle["']/i);
+assert.match(html, /id=["']insightsViewVideos["'][^>]*>View videos</i);
 assert.match(html, /id=["']insightsStaleDays["']/i);
 assert.match(html, /id=["']insightsDetailPersistence["']/i);
 assert.doesNotMatch(

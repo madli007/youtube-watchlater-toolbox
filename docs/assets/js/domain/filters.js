@@ -5,6 +5,61 @@
   app.domain ||= {};
     const { normalizeDecision, normalizeTags } = app.domain.decisions;
 
+    const AGE_BUCKET_FILTERS = Object.freeze({
+      "0-7d": Object.freeze({ minAgeDays: "0", maxAgeDays: "7", label: "0–7 days" }),
+      "8-30d": Object.freeze({ minAgeDays: "8", maxAgeDays: "30", label: "8–30 days" }),
+      "1-3m": Object.freeze({ minAgeDays: "31", maxAgeDays: "90", label: "1–3 months" }),
+      "3-6m": Object.freeze({ minAgeDays: "91", maxAgeDays: "182", label: "3–6 months" }),
+      "6-12m": Object.freeze({ minAgeDays: "183", maxAgeDays: "365", label: "6–12 months" }),
+      "1y+": Object.freeze({ minAgeDays: "366", maxAgeDays: "", label: "1 year or older" }),
+      unknown: Object.freeze({ minAgeDays: "", maxAgeDays: "", label: "Unknown age" }),
+    });
+
+    function getApproximateAgeBucket(ageDays) {
+      const age = finiteNumberOrNull(ageDays);
+      if (age === null || age < 0) return "unknown";
+      if (age < 8) return "0-7d";
+      if (age < 31) return "8-30d";
+      if (age < 91) return "1-3m";
+      if (age < 183) return "3-6m";
+      if (age < 366) return "6-12m";
+      return "1y+";
+    }
+
+    function getAgeBucketFilter(bucketKey) {
+      const bucket = AGE_BUCKET_FILTERS[String(bucketKey || "")];
+      return bucket ? { ...bucket } : null;
+    }
+
+    function resolveChannelFilterName(channelKey, channels) {
+      const key = String(channelKey || "").trim();
+      if (!key) return "";
+      const match = (Array.isArray(channels) ? channels : [])
+        .find(channel => String(channel?.channelKey || "") === key);
+      return String(match?.channelName || "").trim();
+    }
+
+    function buildInsightsTriageFilters(currentFilters, options = {}) {
+      const filters = normalizeFilterState(currentFilters);
+      const channelName = String(options.channelName || "").trim()
+        || resolveChannelFilterName(options.channelKey, options.channels);
+      const bucketKey = String(options.ageBucket || "");
+      const ageBucket = getAgeBucketFilter(bucketKey);
+      const status = options.status === undefined ? filters.status : options.status;
+
+      return normalizeFilterState({
+        ...filters,
+        status,
+        channels: channelName ? [channelName] : filters.channels,
+        ...(ageBucket ? {
+          ageBucket: bucketKey,
+          ageAnchorAt: options.ageAnchorAt || filters.ageAnchorAt,
+          minAgeDays: ageBucket.minAgeDays,
+          maxAgeDays: ageBucket.maxAgeDays,
+        } : {}),
+      });
+    }
+
     function videoMatchesFilters(video, decision, rawFilters) {
       const filters = normalizeFilterState(rawFilters);
       const suggestedTags = normalizeTags(video?.suggestedTags);
@@ -33,9 +88,20 @@
       if (filters.minDurationMinutes !== "" && (durationSeconds === null || durationSeconds < Number(filters.minDurationMinutes) * 60)) return false;
       if (filters.maxDurationMinutes !== "" && (durationSeconds === null || durationSeconds > Number(filters.maxDurationMinutes) * 60)) return false;
 
-      const ageDays = parseApproximateAgeDays(video?.uploaded);
-      if (filters.minAgeDays !== "" && (ageDays === null || ageDays < Number(filters.minAgeDays))) return false;
-      if (filters.maxAgeDays !== "" && (ageDays === null || ageDays > Number(filters.maxAgeDays))) return false;
+      const ageAnchorTimestamp = Date.parse(filters.ageAnchorAt);
+      const ageAtAnchor = parseApproximateAgeDays(
+        video?.uploaded,
+        Number.isFinite(ageAnchorTimestamp) ? ageAnchorTimestamp : Date.now(),
+      );
+      const ageDays = ageAtAnchor === null || !Number.isFinite(ageAnchorTimestamp)
+        ? ageAtAnchor
+        : ageAtAnchor + Math.max(0, (Date.now() - ageAnchorTimestamp) / 86400000);
+      if (filters.ageBucket) {
+        if (getApproximateAgeBucket(ageDays) !== filters.ageBucket) return false;
+      } else {
+        if (filters.minAgeDays !== "" && (ageDays === null || ageDays < Number(filters.minAgeDays))) return false;
+        if (filters.maxAgeDays !== "" && (ageDays === null || ageDays > Number(filters.maxAgeDays))) return false;
+      }
 
       const viewCount = finiteNumberOrNull(video?.viewCountApprox) ?? parseApproximateViewCount(video?.views);
       if (filters.minViews !== "" && (viewCount === null || viewCount < Number(filters.minViews))) return false;
@@ -120,6 +186,10 @@
         datasetView: ["all", "inbox", "new", "changed", "decided"].includes(source.datasetView) ? source.datasetView : "all",
         minDurationMinutes: numberInput(source.minDurationMinutes),
         maxDurationMinutes: numberInput(source.maxDurationMinutes),
+        ageBucket: Object.hasOwn(AGE_BUCKET_FILTERS, source.ageBucket) ? source.ageBucket : "",
+        ageAnchorAt: Number.isFinite(Date.parse(String(source.ageAnchorAt || "")))
+          ? String(source.ageAnchorAt)
+          : "",
         minAgeDays: numberInput(source.minAgeDays),
         maxAgeDays: numberInput(source.maxAgeDays),
         minViews: numberInput(source.minViews),
@@ -167,11 +237,18 @@
       if (filters.maxDurationMinutes !== "") {
         entries.push({ key: "maxDurationMinutes", label: `Duration \u2264 ${filters.maxDurationMinutes}m` });
       }
-      if (filters.minAgeDays !== "") {
-        entries.push({ key: "minAgeDays", label: `Age \u2265 ${filters.minAgeDays}d` });
-      }
-      if (filters.maxAgeDays !== "") {
-        entries.push({ key: "maxAgeDays", label: `Age \u2264 ${filters.maxAgeDays}d` });
+      if (filters.ageBucket) {
+        entries.push({
+          key: "ageBucket",
+          label: `Age: ${AGE_BUCKET_FILTERS[filters.ageBucket].label}`,
+        });
+      } else {
+        if (filters.minAgeDays !== "") {
+          entries.push({ key: "minAgeDays", label: `Age \u2265 ${filters.minAgeDays}d` });
+        }
+        if (filters.maxAgeDays !== "") {
+          entries.push({ key: "maxAgeDays", label: `Age \u2264 ${filters.maxAgeDays}d` });
+        }
       }
       if (filters.minViews !== "") {
         entries.push({
@@ -243,6 +320,11 @@
     }
 
   app.domain.filters = Object.freeze({
+      AGE_BUCKET_FILTERS,
+      getApproximateAgeBucket,
+      getAgeBucketFilter,
+      resolveChannelFilterName,
+      buildInsightsTriageFilters,
       videoMatchesFilters,
       finiteNumberOrNull,
       parseApproximateAgeDays,

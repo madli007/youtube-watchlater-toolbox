@@ -68,6 +68,7 @@
       videoMatchesFilters,
       normalizeFilterState,
       getAdvancedFilterEntries,
+      buildInsightsTriageFilters,
       filterChannelOptions,
       getChannelOptionPage,
     } = filters;
@@ -117,6 +118,7 @@
       areDecisionsEqual,
       normalizeFilterState,
       getAdvancedFilterEntries,
+      buildInsightsTriageFilters,
       createSnapshotId,
       buildVideoGroups,
       chooseGroupWinner,
@@ -136,6 +138,7 @@
       moveCurrent,
       render,
       renderActiveView,
+      applyFilterState,
       getInsightsModel,
       showToast,
       saveDecisions,
@@ -169,9 +172,10 @@
     const dashboardUi = createDashboardsUi(uiContext);
     Object.assign(uiContext, dashboardUi);
     const actionMenusUi = createActionMenusUi(uiContext);
+    const navigationUi = createNavigationUi(uiContext);
+    Object.assign(uiContext, navigationUi);
     const insightsViewUi = createInsightsViewUi(uiContext);
     Object.assign(uiContext, insightsViewUi);
-    const navigationUi = createNavigationUi(uiContext);
     const {
       initializeTriageView,
       setAdvancedFiltersOpen,
@@ -284,10 +288,16 @@
       [
         els.minDurationInput,
         els.maxDurationInput,
-        els.minAgeInput,
-        els.maxAgeInput,
         els.minViewsInput,
       ].forEach(input => input.addEventListener("input", handleFilterChange));
+      [
+        els.minAgeInput,
+        els.maxAgeInput,
+      ].forEach(input => input.addEventListener("input", () => {
+        state.activeAgeBucket = "";
+        state.activeAgeAnchorAt = "";
+        handleFilterChange();
+      }));
       [
         els.availabilityFilter,
         els.badgeFilter,
@@ -722,7 +732,7 @@
       renderTagFilters();
       renderChannelMenu();
       renderSavedViews();
-      render();
+      if (options.render !== false) render();
     }
 
     function renderBadgeOptions(selectedValue = els.badgeFilter.value || "all") {

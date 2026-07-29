@@ -87,6 +87,8 @@
         datasetView: state.datasetView,
         minDurationMinutes: els.minDurationInput.value,
         maxDurationMinutes: els.maxDurationInput.value,
+        ageBucket: state.activeAgeBucket,
+        ageAnchorAt: state.activeAgeAnchorAt,
         minAgeDays: els.minAgeInput.value,
         maxAgeDays: els.maxAgeInput.value,
         minViews: els.minViewsInput.value,
@@ -109,6 +111,8 @@
       state.datasetView = filters.datasetView !== "all" && !state.importComparison.baselineAvailable
         ? "all"
         : filters.datasetView;
+      state.activeAgeBucket = filters.ageBucket;
+      state.activeAgeAnchorAt = filters.ageAnchorAt;
       els.minDurationInput.value = filters.minDurationMinutes;
       els.maxDurationInput.value = filters.maxDurationMinutes;
       els.minAgeInput.value = filters.minAgeDays;
