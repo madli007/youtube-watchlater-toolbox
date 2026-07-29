@@ -241,4 +241,14 @@ assert.doesNotMatch(
   "Triage rendering must not recalculate analytics or groups",
 );
 
+const appCss = fs.readFileSync(
+  path.join(projectRoot, "docs/assets/css/app.css"),
+  "utf8",
+);
+assert.match(
+  appCss,
+  /\.selection-actions\s*\{[^}]*flex:\s*0\s+0\s+100%\s*;/s,
+  "selection controls must keep a stable dedicated row when the selected scope label changes",
+);
+
 console.log("triage view test passed");

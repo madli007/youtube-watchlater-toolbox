@@ -918,6 +918,10 @@
       align-items: center;
     }
 
+    .selection-actions {
+      flex: 0 0 100%;
+    }
+
     .scope-text {
       color: var(--muted);
       font-size: 12px;
