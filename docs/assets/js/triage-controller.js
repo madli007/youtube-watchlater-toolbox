@@ -5,6 +5,7 @@
     const {
       config,
       decisions,
+      watchLaterImport,
       importComparison,
       filters,
       timeBudget,
@@ -53,6 +54,9 @@
       mergeHistoryEntries,
       applyHistoryEntry,
     } = decisions;
+    const {
+      normalizeWatchLaterPayload,
+    } = watchLaterImport;
     const {
       dedupeVideos,
       createDatasetBaseline,
@@ -357,20 +361,22 @@
       try {
         const raw = await readFileText(file);
         const parsed = parseJsonText(raw);
-        const videos = Array.isArray(parsed) ? parsed : parsed.videos;
-        if (!Array.isArray(videos)) throw new Error("Expected a JSON array of videos.");
+        const importedAt = new Date().toISOString();
+        const normalizedImport = normalizeWatchLaterPayload(parsed, importedAt);
 
-        const deduped = dedupeVideos(videos)
+        const deduped = dedupeVideos(normalizedImport.videos)
           .map(video => enrichVideo(video))
           .filter(video => video.videoId);
 
-        const importedAt = new Date().toISOString();
         const currentImport = {
           fileName: file.name,
           importedAt,
           videoCount: deduped.length,
-          sourceExportedAt: typeof parsed?.exportedAt === "string" ? parsed.exportedAt : "",
+          sourceSchemaVersion: normalizedImport.schemaVersion,
+          sourceExportedAt: normalizedImport.exportedAt,
           sourceMode: typeof parsed?.mode === "string" ? parsed.mode : "",
+          ageAnchorAt: normalizedImport.ageAnchorAt,
+          ageAnchorSource: normalizedImport.ageAnchorSource,
         };
         const inMemoryBaselineAvailable = state.videos.length > 0 || state.lastImport !== null;
         const previousVideos = inMemoryBaselineAvailable

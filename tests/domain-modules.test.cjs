@@ -7,6 +7,7 @@ const projectRoot = path.resolve(__dirname, "..");
 const modulePaths = [
   "docs/assets/js/config.js",
   "docs/assets/js/domain/decisions.js",
+  "docs/assets/js/domain/watchlater-import.js",
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/time-budget.js",
@@ -28,6 +29,7 @@ for (const relativePath of modulePaths) {
 const { config, domain } = sandbox.WatchLaterApp;
 const {
   decisions,
+  watchLaterImport,
   importComparison,
   filters,
   timeBudget,
@@ -62,6 +64,50 @@ assert.equal(decisions.ruleMatchesVideo(
   { title: "A useful documentary", channel: "Channel A" },
   { positive: ["documentary"], negative: ["trailer"], channel: "Channel A" },
 ), true);
+
+const importTime = "2026-07-29T09:00:00.000Z";
+const sourceExportTime = "2026-07-28T12:34:56.000Z";
+const versionedFixture = JSON.parse(fs.readFileSync(
+  path.join(projectRoot, "tests/fixtures/watchlater-versioned-smoke.json"),
+  "utf8",
+));
+const versionedImport = watchLaterImport.normalizeWatchLaterPayload(versionedFixture, importTime);
+assert.equal(versionedImport.ageAnchorAt, versionedFixture.exportedAt);
+assert.equal(versionedImport.ageAnchorSource, "export");
+assert.equal(versionedImport.schemaVersion, 1);
+assert.equal(versionedImport.videos[0].videoId, "versioned-smoke-1");
+const legacyImport = watchLaterImport.normalizeWatchLaterPayload(
+  [{ videoId: "legacy" }],
+  importTime,
+);
+assert.equal(legacyImport.ageAnchorAt, importTime);
+assert.equal(legacyImport.ageAnchorSource, "import");
+assert.equal(legacyImport.schemaVersion, null);
+assert.equal(watchLaterImport.isValidUtcTimestamp("2026-02-29T12:00:00.000Z"), false);
+assert.throws(
+  () => watchLaterImport.normalizeWatchLaterPayload({
+    schemaVersion: 1,
+    exportedAt: "not-a-date",
+    videos: [],
+  }, importTime),
+  /invalid exportedAt/i,
+);
+assert.throws(
+  () => watchLaterImport.normalizeWatchLaterPayload({
+    schemaVersion: 2,
+    exportedAt: sourceExportTime,
+    videos: [],
+  }, importTime),
+  /schema version: 2/i,
+);
+assert.throws(
+  () => watchLaterImport.normalizeWatchLaterPayload({
+    schemaVersion: 1,
+    exportedAt: sourceExportTime,
+    videos: {},
+  }, importTime),
+  /videos array/i,
+);
 
 const comparison = importComparison.compareVideoDatasets(
   [{ videoId: "same", title: "Old" }, { videoId: "removed", title: "Removed" }],

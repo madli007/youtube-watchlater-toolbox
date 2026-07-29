@@ -30,6 +30,7 @@ assert.deepEqual(
 const expectedApplicationScripts = [
   "./assets/js/config.js",
   "./assets/js/domain/decisions.js",
+  "./assets/js/domain/watchlater-import.js",
   "./assets/js/domain/import-comparison.js",
   "./assets/js/domain/filters.js",
   "./assets/js/domain/time-budget.js",
@@ -165,7 +166,7 @@ vm.runInContext(source, sandbox);
 assert.ok(sandbox.WatchLaterApp, "controlled application namespace not exposed");
 assert.deepEqual(
   Object.keys(sandbox.WatchLaterApp.domain),
-  ["decisions", "importComparison", "filters", "timeBudget", "grouping", "workspace"],
+  ["decisions", "watchLaterImport", "importComparison", "filters", "timeBudget", "grouping", "workspace"],
 );
 assert.ok(
   Object.values(sandbox.WatchLaterApp.domain).every(Object.isFrozen),
@@ -183,6 +184,7 @@ assert.ok(
 assert.ok(sandbox.WatchLaterTestApi, "triage test API not exposed");
 const {
   decisions: decisionsApi,
+  watchLaterImport: watchLaterImportApi,
   importComparison: importComparisonApi,
   filters: filtersApi,
   timeBudget: timeBudgetApi,
@@ -394,6 +396,20 @@ assert.ok(Object.isFrozen(dashboardsUi), "created dashboards API must be immutab
 assert.deepEqual(
   { ...dashboardsUi.countStatuses([{ videoId: "kept" }, { videoId: "pending" }]) },
   { unreviewed: 1, keep: 1, maybe: 0, delete: 0 },
+);
+assert.match(
+  dashboardsUi.getImportAnchorSummary({
+    ageAnchorAt: "2026-07-29T09:00:00.000Z",
+    ageAnchorSource: "export",
+  }),
+  /Exported .*export time is the age anchor/,
+);
+assert.match(
+  dashboardsUi.getImportAnchorSummary({
+    ageAnchorAt: "2026-07-29T09:00:00.000Z",
+    ageAnchorSource: "import",
+  }),
+  /Legacy array without export metadata.*import time is the age anchor/,
 );
 
 const dialogsUi = sandbox.WatchLaterApp.ui.dialogs.createDialogsUi({ state: {}, els: {} });

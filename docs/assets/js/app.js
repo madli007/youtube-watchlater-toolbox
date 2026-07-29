@@ -8,6 +8,7 @@
   const controller = app.triageController.createTriageController({
     config: app.config,
     decisions: app.domain.decisions,
+    watchLaterImport: app.domain.watchLaterImport,
     importComparison: app.domain.importComparison,
     filters: app.domain.filters,
     timeBudget: app.domain.timeBudget,

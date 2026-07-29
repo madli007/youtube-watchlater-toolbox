@@ -1141,7 +1141,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.7 — Verzioniran Watch Later export
 
-- [ ] **Slice 1.7 zaključen**
+- [x] **Slice 1.7 zaključen**
 - **Cilj:** pred izračunom starostnih metrik uvesti kanonični userscript ovoj `{ schemaVersion, exportedAt, videos }`.
 - **Prizadeto:** `youtube-watchlater-toolbox.user.js`, import normalizacija v `app.js` oziroma izločenem domenskem modulu, `tests/userscript-reconciliation.test.cjs`.
 - **Podatki:** `schemaVersion: 1`, obvezen veljaven `exportedAt` v UTC in polje `videos`; golo polje ostane le toleriran vhod.

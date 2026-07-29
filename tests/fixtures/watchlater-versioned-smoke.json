@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-07-29T08:15:30.000Z",
+  "videos": [
+    {
+      "videoId": "versioned-smoke-1",
+      "title": "Versioned Watch Later smoke test",
+      "channel": "Example Channel",
+      "uploaded": "2 days ago",
+      "duration": "4:00",
+      "durationSeconds": 240,
+      "views": "100 views",
+      "viewCountApprox": 100,
+      "badges": [],
+      "isUnavailable": false
+    }
+  ]
+}

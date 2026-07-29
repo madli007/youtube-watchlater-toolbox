@@ -356,6 +356,14 @@
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function buildWatchLaterExportPayload(videos, exportedAt = new Date().toISOString()) {
+    return {
+      schemaVersion: 1,
+      exportedAt,
+      videos,
+    };
+  }
+
   function exportCsv() {
     const videos = getLoadedVideos();
     setCount();
@@ -382,7 +390,7 @@
 
     downloadText(
       `watchlater_export_${getDateStamp()}.json`,
-      JSON.stringify(videos, null, 2),
+      JSON.stringify(buildWatchLaterExportPayload(videos), null, 2),
       "application/json;charset=utf-8",
     );
     setStatus(`${ICONS.done} Exported ${videos.length} videos to JSON.`);
@@ -474,7 +482,7 @@
       } else {
         downloadText(
           `watchlater_export_all_${getDateStamp()}.json`,
-          JSON.stringify(videos, null, 2),
+          JSON.stringify(buildWatchLaterExportPayload(videos), null, 2),
           "application/json;charset=utf-8",
         );
       }

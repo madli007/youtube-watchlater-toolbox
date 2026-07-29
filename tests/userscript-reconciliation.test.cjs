@@ -8,7 +8,7 @@ let source = fs.readFileSync(userscriptPath, "utf8");
 const initializationStart = source.lastIndexOf("  if (document.readyState");
 
 assert.notEqual(initializationStart, -1, "userscript initialization block not found");
-source = `${source.slice(0, initializationStart)}  globalThis.testApi = { buildReconciliationReport, parseReconciliationPayload, parseExecutionReportPayload };\n})();\n`;
+source = `${source.slice(0, initializationStart)}  globalThis.testApi = { buildWatchLaterExportPayload, buildReconciliationReport, parseReconciliationPayload, parseExecutionReportPayload };\n})();\n`;
 
 const sandbox = {
   window: {
@@ -22,6 +22,26 @@ const sandbox = {
 
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
+
+const exportTime = "2026-07-29T08:15:30.000Z";
+const exportVideos = [{ videoId: "exported-video", title: "Exported video" }];
+const watchLaterExport = sandbox.testApi.buildWatchLaterExportPayload(exportVideos, exportTime);
+
+assert.deepEqual(
+  JSON.parse(JSON.stringify(watchLaterExport)),
+  {
+    schemaVersion: 1,
+    exportedAt: exportTime,
+    videos: exportVideos,
+  },
+);
+assert.equal(Number.isNaN(Date.parse(watchLaterExport.exportedAt)), false);
+assert.match(watchLaterExport.exportedAt, /Z$/);
+const automaticallyTimestampedExport = sandbox.testApi.buildWatchLaterExportPayload([]);
+assert.equal(
+  new Date(automaticallyTimestampedExport.exportedAt).toISOString(),
+  automaticallyTimestampedExport.exportedAt,
+);
 
 const run = {
   runId: "run-1",

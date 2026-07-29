@@ -259,6 +259,14 @@
       return counts;
     }
 
+    function getImportAnchorSummary(importRecord) {
+      if (!importRecord?.ageAnchorAt) return "";
+      const formatted = new Date(importRecord.ageAnchorAt).toLocaleString();
+      return importRecord.ageAnchorSource === "export"
+        ? `Exported ${formatted}; export time is the age anchor.`
+        : `Legacy array without export metadata; imported ${formatted}, and import time is the age anchor.`;
+    }
+
     function updateTimeBudget() {
       state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
       els.timeBudgetHours.value = state.timeBudgetHours;
@@ -408,8 +416,9 @@
         els.comparisonSummary.textContent = "Import a second export to compare datasets.";
         return;
       }
+      const anchorSummary = getImportAnchorSummary(comparison.currentImport || state.lastImport);
       if (!comparison.baselineAvailable) {
-        els.comparisonSummary.textContent = "No previous dataset was available. This import is now the local comparison baseline.";
+        els.comparisonSummary.textContent = `No previous dataset was available. This import is now the local comparison baseline. ${anchorSummary}`.trim();
         return;
       }
 
@@ -417,7 +426,7 @@
       const currentIds = new Set(state.videos.map(video => video.videoId));
       const orphanedIds = Object.keys(state.decisions).filter(videoId => !currentIds.has(videoId));
       const summary = document.createElement("div");
-      summary.textContent = `Compared with ${previousName}: ${comparison.newIds.length} new · ${comparison.removedVideos.length} no longer present · ${comparison.decidedIds.length} already decided · ${comparison.changedIds.length} metadata changed · ${orphanedIds.length} orphaned decisions.`;
+      summary.textContent = `Compared with ${previousName}: ${comparison.newIds.length} new · ${comparison.removedVideos.length} no longer present · ${comparison.decidedIds.length} already decided · ${comparison.changedIds.length} metadata changed · ${orphanedIds.length} orphaned decisions. ${anchorSummary}`.trim();
       els.comparisonSummary.replaceChildren(summary);
 
       if (comparison.removedVideos.length || orphanedIds.length) {
@@ -538,6 +547,7 @@
       applyGroupWinner,
       renderStats,
       countStatuses,
+      getImportAnchorSummary,
       updateTimeBudget,
       handleTimeBudgetInput,
       getCurrentTimeShortlist,

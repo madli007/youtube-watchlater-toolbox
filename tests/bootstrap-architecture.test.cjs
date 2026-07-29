@@ -20,6 +20,7 @@ const dependencyGraph = {
   "docs/assets/js/domain/decisions.js": [
     "docs/assets/js/config.js",
   ],
+  "docs/assets/js/domain/watchlater-import.js": [],
   "docs/assets/js/domain/import-comparison.js": [
     "docs/assets/js/domain/decisions.js",
   ],
@@ -68,6 +69,7 @@ const dependencyGraph = {
   "docs/assets/js/triage-controller.js": [
     "docs/assets/js/config.js",
     "docs/assets/js/domain/decisions.js",
+    "docs/assets/js/domain/watchlater-import.js",
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/filters.js",
     "docs/assets/js/domain/time-budget.js",
