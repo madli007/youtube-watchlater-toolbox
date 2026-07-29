@@ -323,14 +323,70 @@
         </article>
       </section>
 
-      <div id="insightsNextStep" class="insights-next-step" hidden>
-        <div>
-          <p class="placeholder-eyebrow">Next insight layer</p>
-          <h2>Channel × age matrix</h2>
-          <p>The KPI summary is ready. The sortable channel and age breakdown arrives in the next slice.</p>
+      <section id="insightsMatrix" class="insights-matrix" aria-labelledby="insightsMatrixTitle" hidden>
+        <header class="insights-matrix-header">
+          <div>
+            <p class="placeholder-eyebrow">Channel × age</p>
+            <h2 id="insightsMatrixTitle">Backlog distribution</h2>
+            <p id="insightsSelectedChannel" class="insights-selected-channel" aria-live="polite">Select a channel row to keep it in context.</p>
+          </div>
+          <div class="insights-matrix-controls">
+            <label class="insights-search-control" for="insightsSearch">
+              <span>Search channels</span>
+              <input id="insightsSearch" type="search" autocomplete="off" placeholder="Name or channel URL">
+            </label>
+            <div>
+              <span class="insights-control-label">Measure</span>
+              <div id="insightsMeasureGroup" class="insights-segmented-control" role="group" aria-label="Matrix measure">
+                <button type="button" data-insights-measure="count" aria-pressed="true">Count</button>
+                <button type="button" data-insights-measure="watch-time" aria-pressed="false">Watch time</button>
+              </div>
+            </div>
+            <label for="insightsSort">
+              <span>Sort channels</span>
+              <select id="insightsSort">
+                <option value="backlog">Backlog size</option>
+                <option value="undecided">Undecided</option>
+                <option value="watch-time">Known watch time</option>
+                <option value="channel">Channel A–Z</option>
+              </select>
+            </label>
+            <label for="insightsScale">
+              <span>Color scale</span>
+              <select id="insightsScale">
+                <option value="global">Across all rows</option>
+                <option value="channel">Within each channel</option>
+              </select>
+            </label>
+          </div>
+        </header>
+
+        <p id="insightsMatrixStatus" class="insights-matrix-status" aria-live="polite"></p>
+        <div class="insights-table-scroll" tabindex="0" aria-label="Scrollable channel age matrix">
+          <table class="insights-table">
+            <caption id="insightsMatrixCaption">Video count by channel and approximate age</caption>
+            <thead>
+              <tr>
+                <th scope="col">Channel</th>
+                <th scope="col">0–7d</th>
+                <th scope="col">8–30d</th>
+                <th scope="col">1–3m</th>
+                <th scope="col">3–6m</th>
+                <th scope="col">6–12m</th>
+                <th scope="col">1y+</th>
+                <th scope="col">Unknown</th>
+                <th scope="col">Total</th>
+                <th scope="col">Undecided</th>
+              </tr>
+            </thead>
+            <tbody id="insightsMatrixBody"></tbody>
+          </table>
         </div>
-        <a class="placeholder-link" href="#triage">Review videos in Triage</a>
-      </div>
+        <div class="insights-matrix-footer">
+          <span>Cell values remain visible independently of the color scale.</span>
+          <button id="insightsShowAll" type="button" hidden>Show all channels</button>
+        </div>
+      </section>
     </section>
 
     <section id="groupsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>

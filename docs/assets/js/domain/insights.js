@@ -29,6 +29,14 @@
     "unreviewed",
     "archive",
   ]);
+  const INSIGHTS_MEASURES = Object.freeze(["count", "watch-time"]);
+  const INSIGHTS_SORTS = Object.freeze([
+    "backlog",
+    "undecided",
+    "watch-time",
+    "channel",
+  ]);
+  const DEFAULT_CHANNEL_LIMIT = 100;
 
   function createStatusCounts() {
     return Object.fromEntries(STATUS_KEYS.map(status => [status, 0]));
@@ -257,6 +265,124 @@
     return denominator ? numerator / denominator * 100 : 0;
   }
 
+  function normalizeInsightsMeasure(value) {
+    return INSIGHTS_MEASURES.includes(value) ? value : "count";
+  }
+
+  function normalizeInsightsSort(value) {
+    return INSIGHTS_SORTS.includes(value) ? value : "backlog";
+  }
+
+  function getChannelSearchText(channel) {
+    return normalizeSearchText([
+      channel?.channelName,
+      channel?.channelUrl,
+      channel?.channelKey,
+    ].filter(Boolean).join(" "));
+  }
+
+  function compareChannels(left, right, sort) {
+    if (sort === "channel") {
+      return left.channelName.localeCompare(right.channelName)
+        || left.channelKey.localeCompare(right.channelKey);
+    }
+    if (sort === "watch-time") {
+      return right.totalDurationSeconds - left.totalDurationSeconds
+        || right.knownDurationCount - left.knownDurationCount
+        || right.totalCount - left.totalCount
+        || left.channelName.localeCompare(right.channelName);
+    }
+    if (sort === "undecided") {
+      return right.statusCounts.unreviewed - left.statusCounts.unreviewed
+        || right.totalCount - left.totalCount
+        || left.channelName.localeCompare(right.channelName);
+    }
+    return right.totalCount - left.totalCount
+      || right.statusCounts.unreviewed - left.statusCounts.unreviewed
+      || left.channelName.localeCompare(right.channelName)
+      || left.channelKey.localeCompare(right.channelKey);
+  }
+
+  function getBucketScaleValue(bucket, measure) {
+    return measure === "watch-time" ? bucket.durationSeconds : bucket.count;
+  }
+
+  function createMatrixRow(channel, measure) {
+    let rowMaximum = 0;
+    const cells = AGE_BUCKET_KEYS.map(key => {
+      const bucket = channel.ageBuckets[key];
+      const scaleValue = getBucketScaleValue(bucket, measure);
+      rowMaximum = Math.max(rowMaximum, scaleValue);
+      return {
+        key,
+        count: bucket.count,
+        durationSeconds: bucket.durationSeconds,
+        knownDurationCount: bucket.knownDurationCount,
+        durationCoveragePercent: percent(bucket.knownDurationCount, bucket.count),
+        scaleValue,
+      };
+    });
+
+    return {
+      channelKey: channel.channelKey,
+      channelName: channel.channelName,
+      channelUrl: channel.channelUrl,
+      totalCount: channel.totalCount,
+      knownDurationCount: channel.knownDurationCount,
+      totalDurationSeconds: channel.totalDurationSeconds,
+      durationCoveragePercent: percent(
+        channel.knownDurationCount,
+        channel.totalCount,
+      ),
+      undecidedCount: channel.statusCounts.unreviewed,
+      statusCounts: channel.statusCounts,
+      cells,
+      rowMaximum,
+    };
+  }
+
+  function buildChannelAgeMatrix(model, options = {}) {
+    const channels = Array.isArray(model?.channels) ? model.channels : [];
+    const measure = normalizeInsightsMeasure(options.measure);
+    const sort = normalizeInsightsSort(options.sort);
+    const search = normalizeSearchText(options.search);
+    const requestedLimit = Number(options.limit);
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? requestedLimit
+      : DEFAULT_CHANNEL_LIMIT;
+    const showAll = options.showAll === true;
+
+    const backlogRanked = [...channels].sort((left, right) => (
+      compareChannels(left, right, "backlog")
+    ));
+    const matchedChannels = search
+      ? backlogRanked.filter(channel => getChannelSearchText(channel).includes(search))
+      : backlogRanked;
+    const limitedChannels = !search && !showAll
+      ? matchedChannels.slice(0, limit)
+      : matchedChannels;
+    const sortedChannels = [...limitedChannels].sort((left, right) => (
+      compareChannels(left, right, sort)
+    ));
+    const rows = sortedChannels.map(channel => createMatrixRow(channel, measure));
+    const globalMaximum = rows.reduce((maximum, row) => (
+      Math.max(maximum, ...row.cells.map(cell => cell.scaleValue))
+    ), 0);
+
+    return {
+      measure,
+      sort,
+      search,
+      rows,
+      globalMaximum,
+      channelCount: channels.length,
+      matchedChannelCount: matchedChannels.length,
+      visibleChannelCount: rows.length,
+      isLimited: !search && !showAll && matchedChannels.length > limit,
+      hiddenChannelCount: Math.max(0, matchedChannels.length - rows.length),
+    };
+  }
+
   function normalizeInsightStatuses(options) {
     const values = options && typeof options === "object" ? options.statuses : null;
     if (!Array.isArray(values)) return null;
@@ -403,10 +529,16 @@
   app.domain.insights = Object.freeze({
     AGE_BUCKET_KEYS,
     STATUS_KEYS,
+    INSIGHTS_MEASURES,
+    INSIGHTS_SORTS,
+    DEFAULT_CHANNEL_LIMIT,
     getAgeBucket,
     getChannelKey,
     deriveVideoFacts,
     buildChannelInsights,
+    buildChannelAgeMatrix,
+    normalizeInsightsMeasure,
+    normalizeInsightsSort,
     createEmptyInsightsModel,
     createEmptyInsightsCache,
     refreshVideoFactDecisions,

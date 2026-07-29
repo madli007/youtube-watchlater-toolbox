@@ -1176,7 +1176,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.3 — Channel × age heatmap
 
-- [ ] **Slice 2.3 zaključen**
+- [x] **Slice 2.3 zaključen**
 - **Cilj:** glavni count/watch-time matrix.
 - **Prizadeto:** `domain/insights.js`, `ui/insights-view.js`, `app.css`, `state.js`.
 - **Podatki:** transient `insightsMeasure`, `insightsSort`, `selectedChannelKey`.

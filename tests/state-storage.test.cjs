@@ -108,6 +108,9 @@ async function main() {
   assert.equal(state.activeView, "triage");
   assert.equal(state.datasetRevision, 0);
   assert.equal(state.decisionRevision, 0);
+  assert.equal(state.insightsMeasure, "count");
+  assert.equal(state.insightsSort, "backlog");
+  assert.equal(state.selectedChannelKey, "");
   assert.equal(state.insightsCache.datasetRevision, -1);
   assert.equal(state.insightsCache.decisionRevision, -1);
   assert.deepEqual(plain(state.insightsCache.videoFacts), []);

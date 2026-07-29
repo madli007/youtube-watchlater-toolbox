@@ -226,6 +226,98 @@ assert.equal(fallback.totalCount, 2);
 assert.equal(fallback.oldestUntouchedCount, 2);
 assert.equal(fallback.newSinceLastImportCount, 1);
 
+assert.deepEqual(plain(insights.INSIGHTS_MEASURES), ["count", "watch-time"]);
+assert.deepEqual(plain(insights.INSIGHTS_SORTS), [
+  "backlog",
+  "undecided",
+  "watch-time",
+  "channel",
+]);
+assert.equal(insights.normalizeInsightsMeasure("watch-time"), "watch-time");
+assert.equal(insights.normalizeInsightsMeasure("invalid"), "count");
+assert.equal(insights.normalizeInsightsSort("undecided"), "undecided");
+assert.equal(insights.normalizeInsightsSort("invalid"), "backlog");
+
+const countMatrix = insights.buildChannelAgeMatrix(model);
+assert.equal(countMatrix.measure, "count");
+assert.equal(countMatrix.sort, "backlog");
+assert.equal(countMatrix.channelCount, 3);
+assert.equal(countMatrix.visibleChannelCount, 3);
+assert.equal(countMatrix.isLimited, false);
+assert.equal(countMatrix.rows[0].channelKey, "url:@alpha");
+assert.equal(countMatrix.rows[0].totalCount, 5);
+assert.equal(countMatrix.rows[0].undecidedCount, 0);
+assert.equal(countMatrix.rows[0].cells.length, 7);
+assert.equal(countMatrix.rows[0].cells[0].key, "0-7d");
+assert.equal(countMatrix.rows[0].cells[0].count, 1);
+assert.equal(countMatrix.rows[0].cells[6].key, "unknown");
+assert.equal(countMatrix.rows[0].cells[6].count, 0);
+assert.equal(countMatrix.globalMaximum, 1);
+
+const watchTimeMatrix = insights.buildChannelAgeMatrix(model, {
+  measure: "watch-time",
+  sort: "watch-time",
+});
+assert.equal(watchTimeMatrix.rows[0].channelKey, "url:@alpha");
+assert.equal(watchTimeMatrix.rows[0].totalDurationSeconds, 720);
+assert.equal(watchTimeMatrix.rows[0].knownDurationCount, 4);
+assert.equal(watchTimeMatrix.rows[0].durationCoveragePercent, 80);
+assert.equal(watchTimeMatrix.rows[0].cells[2].count, 1);
+assert.equal(watchTimeMatrix.rows[0].cells[2].knownDurationCount, 0);
+assert.equal(watchTimeMatrix.rows[0].cells[2].durationCoveragePercent, 0);
+assert.equal(watchTimeMatrix.globalMaximum, 480);
+
+const undecidedMatrix = insights.buildChannelAgeMatrix(model, {
+  sort: "undecided",
+});
+assert.equal(undecidedMatrix.rows[0].channelKey, "name:cudezni kanal");
+assert.equal(undecidedMatrix.rows[0].undecidedCount, 2);
+
+const manyVideos = [];
+for (let channelIndex = 0; channelIndex < 105; channelIndex++) {
+  const videoCount = channelIndex === 104 ? 1 : 2;
+  for (let videoIndex = 0; videoIndex < videoCount; videoIndex++) {
+    manyVideos.push({
+      videoId: `many-${channelIndex}-${videoIndex}`,
+      channel: channelIndex === 104
+        ? "Needle Beyond Limit"
+        : `Ranked Channel ${String(channelIndex).padStart(3, "0")}`,
+      durationSeconds: 60 + channelIndex,
+      uploaded: `${channelIndex + 1} days ago`,
+    });
+  }
+}
+const manyModel = insights.buildChannelInsights(insights.deriveVideoFacts(
+  manyVideos,
+  {},
+  { sourceExportedAt: anchor },
+  anchor,
+));
+const limitedMatrix = insights.buildChannelAgeMatrix(manyModel, {
+  sort: "channel",
+});
+assert.equal(limitedMatrix.channelCount, 105);
+assert.equal(limitedMatrix.visibleChannelCount, 100);
+assert.equal(limitedMatrix.hiddenChannelCount, 5);
+assert.equal(limitedMatrix.isLimited, true);
+assert.equal(
+  limitedMatrix.rows.some(row => row.channelName === "Needle Beyond Limit"),
+  false,
+  "the default limit must first choose the top channels by backlog size",
+);
+const allChannelsMatrix = insights.buildChannelAgeMatrix(manyModel, {
+  showAll: true,
+  sort: "channel",
+});
+assert.equal(allChannelsMatrix.visibleChannelCount, 105);
+assert.equal(allChannelsMatrix.isLimited, false);
+const searchedMatrix = insights.buildChannelAgeMatrix(manyModel, {
+  search: "needle beyond",
+});
+assert.equal(searchedMatrix.visibleChannelCount, 1);
+assert.equal(searchedMatrix.rows[0].channelName, "Needle Beyond Limit");
+assert.equal(searchedMatrix.isLimited, false);
+
 const reviewedModel = insights.buildChannelInsights(facts, {
   statuses: ["keep", "maybe", "delete", "archive"],
 });
@@ -298,5 +390,30 @@ const datasetMemoizedModel = insights.getMemoizedInsightsModel(memoizedCache, {
 });
 assert.equal(datasetMemoizedModel.videoCount, 2);
 assert.equal(memoizedCache.datasetRevision, 2);
+
+const performanceVideos = Array.from({ length: 5000 }, (_, index) => ({
+  videoId: `performance-${index}`,
+  channel: `Performance Channel ${index % 250}`,
+  channelUrl: `https://youtube.com/@performance-${index % 250}`,
+  durationSeconds: index % 9 === 0 ? null : 60 + index % 3600,
+  uploaded: index % 11 === 0 ? "" : `${index % 800} days ago`,
+}));
+const performanceStart = Date.now();
+const performanceModel = insights.buildChannelInsights(
+  insights.deriveVideoFacts(
+    performanceVideos,
+    {},
+    { sourceExportedAt: anchor },
+    anchor,
+  ),
+);
+const performanceMatrix = insights.buildChannelAgeMatrix(performanceModel);
+const performanceElapsed = Date.now() - performanceStart;
+assert.equal(performanceModel.videoCount, 5000);
+assert.equal(performanceMatrix.visibleChannelCount, 100);
+assert.ok(
+  performanceElapsed < 2000,
+  `5,000-video insight derivation took ${performanceElapsed}ms`,
+);
 
 console.log("channel insights domain test passed");

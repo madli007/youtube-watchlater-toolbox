@@ -25,6 +25,7 @@ The triage page:
 - exports and imports decision-only JSON for manual sync between devices;
 - exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;
 - creates local safety snapshots before bulk decision changes, decision imports, workspace replacement, or clearing, with undo and restore controls;
+- shows Channel Insights KPIs plus a searchable, sortable channel-by-age matrix with count/watch-time measures, explicit duration coverage, and global or per-channel heat scaling;
 - exports `keep/maybe`, delete candidates, and tagged reports.
 
 The userscript can safely execute an imported cleanup plan on the Watch Later page. It loads the full playlist, exports a mandatory pre-delete backup and execution plan, requires a typed `DELETE <count>` confirmation, and removes videos from bottom to top through YouTube's explicitly matched menu action. Delete runs support pause, resume after refresh, stop, configurable delays, automatic periodic pauses, and JSON execution reports.

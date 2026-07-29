@@ -226,6 +226,7 @@
       initializeActionMenus,
     } = actionMenusUi;
     const {
+      initializeInsightsView,
       renderInsights,
     } = insightsViewUi;
     const {
@@ -240,6 +241,7 @@
       initializeTriageView();
       initializeVideoList();
       initializeActionMenus();
+      initializeInsightsView();
       initializeNavigation();
     }
 
