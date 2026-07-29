@@ -1097,7 +1097,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.3 — Compact filter in scope vrstica
 
-- [ ] **Slice 1.3 zaključen**
+- [x] **Slice 1.3 zaključen**
 - **Cilj:** združiti primarne filtre in zmanjšati višino pred seznamom.
 - **Prizadeto:** `docs/index.html`, `app.css`, `domain/filters.js`, novi `ui/triage-view.js`, prehodni `ui/dashboards.js`.
 - **Podatki:** obstoječi `FilterState` ostane nespremenjen.

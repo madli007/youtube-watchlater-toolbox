@@ -83,8 +83,8 @@
 
     <section id="triageView" class="view-shell" role="tabpanel" aria-labelledby="triageTab" data-view-panel="triage">
     <section class="filters" aria-label="Filters">
-      <input id="searchInput" type="search" placeholder="Search title, channel, views, tags...">
-      <select id="statusFilter">
+      <input id="searchInput" type="search" placeholder="Search title, channel, views, tags..." aria-label="Search videos">
+      <select id="statusFilter" aria-label="Filter by status">
         <option value="all">All statuses</option>
         <option value="unreviewed">Unreviewed</option>
         <option value="keep">Keep</option>
@@ -95,7 +95,7 @@
         <input id="channelSearch" type="search" placeholder="Search channels..." aria-label="Search and select channels">
         <div id="channelMenu" class="channel-menu"></div>
       </div>
-      <select id="sortSelect">
+      <select id="sortSelect" aria-label="Sort videos">
         <option value="index">Playlist order</option>
         <option value="index-desc">Playlist order reverse</option>
         <option value="channel">Channel</option>
@@ -103,10 +103,13 @@
         <option value="views-desc">Views high to low</option>
         <option value="title">Title</option>
       </select>
-      <button id="clearFilters" type="button">Clear filters</button>
+      <button id="filtersToggle" class="filters-toggle" type="button" aria-expanded="false" aria-controls="advancedFilters">
+        Filters <span id="advancedFilterCount" class="filter-count" hidden>0</span>
+      </button>
+      <button id="clearFilters" type="button">Clear</button>
     </section>
-    <details id="advancedFilters" class="advanced-filters">
-      <summary>Advanced filters</summary>
+    <div id="advancedFilterSummary" class="active-filter-summary" hidden></div>
+    <section id="advancedFilters" class="advanced-filters" aria-label="Advanced filters" hidden>
       <div class="advanced-filter-grid">
         <label>
           Minimum duration (minutes)
@@ -168,18 +171,20 @@
           </select>
         </label>
       </div>
-      <div class="saved-view-bar">
-        <label>
-          Saved view
-          <select id="savedViewSelect">
-            <option value="">Choose a saved view</option>
-          </select>
-        </label>
-        <button id="saveView" type="button">Save current view</button>
-        <button id="deleteView" type="button" disabled>Delete view</button>
+      <div class="advanced-filter-footer">
+        <section id="tagFilter" class="tag-filter" aria-label="Tag filters"></section>
+        <div class="saved-view-bar">
+          <label>
+            Saved view
+            <select id="savedViewSelect">
+              <option value="">Choose a saved view</option>
+            </select>
+          </label>
+          <button id="saveView" type="button">Save current view</button>
+          <button id="deleteView" type="button" disabled>Delete view</button>
+        </div>
       </div>
-    </details>
-    <section id="tagFilter" class="tag-filter" aria-label="Tag filters"></section>
+    </section>
     <section class="dataset-bar" aria-label="Import comparison views">
       <div id="datasetViews" class="dataset-views">
         <strong>Import view</strong>
@@ -491,6 +496,7 @@
   <script src="./assets/js/browser-io.js"></script>
   <script src="./assets/js/state.js"></script>
   <script src="./assets/js/ui/dom.js"></script>
+  <script src="./assets/js/ui/triage-view.js"></script>
   <script src="./assets/js/ui/dialogs.js"></script>
   <script src="./assets/js/ui/video-list.js"></script>
   <script src="./assets/js/ui/dashboards.js"></script>

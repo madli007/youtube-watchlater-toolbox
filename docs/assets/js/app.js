@@ -17,6 +17,7 @@
     browserIo: app.browserIo,
     state,
     els,
+    createTriageViewUi: app.ui.triageView.createTriageViewUi,
     createDialogsUi: app.ui.dialogs.createDialogsUi,
     createVideoListUi: app.ui.videoList.createVideoListUi,
     createDashboardsUi: app.ui.dashboards.createDashboardsUi,

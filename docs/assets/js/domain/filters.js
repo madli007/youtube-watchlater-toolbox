@@ -152,6 +152,61 @@
         .sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    function getAdvancedFilterEntries(value) {
+      const filters = normalizeFilterState(value);
+      const entries = [];
+      if (filters.tags.length) {
+        entries.push({
+          key: "tags",
+          label: `Tags: ${filters.tags.join(filters.tagMode === "and" ? " AND " : " OR ")}`,
+        });
+      }
+      if (filters.minDurationMinutes !== "") {
+        entries.push({ key: "minDurationMinutes", label: `Duration \u2265 ${filters.minDurationMinutes}m` });
+      }
+      if (filters.maxDurationMinutes !== "") {
+        entries.push({ key: "maxDurationMinutes", label: `Duration \u2264 ${filters.maxDurationMinutes}m` });
+      }
+      if (filters.minAgeDays !== "") {
+        entries.push({ key: "minAgeDays", label: `Age \u2265 ${filters.minAgeDays}d` });
+      }
+      if (filters.maxAgeDays !== "") {
+        entries.push({ key: "maxAgeDays", label: `Age \u2264 ${filters.maxAgeDays}d` });
+      }
+      if (filters.minViews !== "") {
+        entries.push({
+          key: "minViews",
+          label: `Views \u2265 ${Number(filters.minViews).toLocaleString("en-US")}`,
+        });
+      }
+      if (filters.availability !== "all") {
+        entries.push({
+          key: "availability",
+          label: filters.availability === "available" ? "Available only" : "Unavailable only",
+        });
+      }
+      if (filters.badge !== "all") {
+        const badgeLabel = {
+          any: "Has a badge",
+          none: "Has no badge",
+        }[filters.badge] || `Badge: ${filters.badge.slice(6)}`;
+        entries.push({ key: "badge", label: badgeLabel });
+      }
+      if (filters.suggestedTag !== "all") {
+        entries.push({
+          key: "suggestedTag",
+          label: filters.suggestedTag === "yes" ? "Has suggested tag" : "Has no suggested tag",
+        });
+      }
+      if (filters.note !== "all") {
+        entries.push({
+          key: "note",
+          label: filters.note === "yes" ? "Has note" : "Has no note",
+        });
+      }
+      return entries;
+    }
+
     function filterChannelOptions(channels, query) {
       if (!String(query || "").trim()) return channels;
       const normalizedQuery = normalizeSearchText(query);
@@ -194,6 +249,7 @@
       parseApproximateViewCount,
       normalizeFilterState,
       normalizeSavedViews,
+      getAdvancedFilterEntries,
       filterChannelOptions,
       getChannelOptionPage,
       channelMatchesQuery,

@@ -88,6 +88,18 @@ assert.equal(filters.videoMatchesFilters(
   { status: "keep", channels: ["Channel A"], tags: ["dev", "manual"], tagMode: "and" },
 ), true);
 assert.deepEqual(plain(filters.normalizeSavedViews("not-an-array")), []);
+assert.deepEqual(plain(filters.getAdvancedFilterEntries({
+  tags: ["dev", "manual"],
+  tagMode: "and",
+  minDurationMinutes: 10,
+  availability: "available",
+  note: "yes",
+})), [
+  { key: "tags", label: "Tags: dev AND manual" },
+  { key: "minDurationMinutes", label: "Duration \u2265 10m" },
+  { key: "availability", label: "Available only" },
+  { key: "note", label: "Has note" },
+]);
 
 const durationStats = timeBudget.calculateDurationStats([
   { videoId: "keep", channel: "A", durationSeconds: 600, suggestedTags: ["dev"] },

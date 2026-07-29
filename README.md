@@ -68,6 +68,7 @@ node tests/triage-workspace.test.cjs
 node tests/bootstrap-architecture.test.cjs
 node tests/action-menus.test.cjs
 node tests/navigation.test.cjs
+node tests/triage-view.test.cjs
 node tests/userscript-reconciliation.test.cjs
 ```
 

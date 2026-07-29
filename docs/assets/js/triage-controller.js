@@ -15,6 +15,7 @@
       state,
       els,
       createDialogsUi,
+      createTriageViewUi,
       createVideoListUi,
       createDashboardsUi,
       createActionMenusUi,
@@ -59,6 +60,7 @@
     const {
       videoMatchesFilters,
       normalizeFilterState,
+      getAdvancedFilterEntries,
       filterChannelOptions,
       getChannelOptionPage,
     } = filters;
@@ -103,6 +105,8 @@
       splitInputValues,
       normalizeTags,
       areDecisionsEqual,
+      normalizeFilterState,
+      getAdvancedFilterEntries,
       createSnapshotId,
       buildVideoGroups,
       chooseGroupWinner,
@@ -142,7 +146,10 @@
       getInboxIds,
       createChannelName,
       restoreHistoryEntry,
+      renderBadgeOptions,
     };
+    const triageViewUi = createTriageViewUi(uiContext);
+    Object.assign(uiContext, triageViewUi);
     const dialogUi = createDialogsUi(uiContext);
     Object.assign(uiContext, dialogUi);
     const videoListUi = createVideoListUi(uiContext);
@@ -151,6 +158,13 @@
     Object.assign(uiContext, dashboardUi);
     const actionMenusUi = createActionMenusUi(uiContext);
     const navigationUi = createNavigationUi(uiContext);
+    const {
+      initializeTriageView,
+      setAdvancedFiltersOpen,
+      captureFilterState,
+      applyFilterStateToControls,
+      renderCompactFilters,
+    } = triageViewUi;
     const {
       buildYouTubeEmbedUrl,
       formatPreviewTime,
@@ -210,6 +224,7 @@
       renderTagFilters();
       renderSavedViews();
       bindEvents();
+      initializeTriageView();
       initializeActionMenus();
       initializeNavigation();
     }
@@ -572,6 +587,7 @@
 
     function clearFilters() {
       applyFilterState({});
+      setAdvancedFiltersOpen(false);
       showToast("Cleared filters.");
     }
 
@@ -647,6 +663,7 @@
       renderHistory();
       renderImportComparison();
       updateBulkLabels();
+      renderCompactFilters();
       if (options.scrollToCurrent) scrollCurrentIntoView();
     }
 
@@ -663,60 +680,8 @@
       return comparison.newIds.filter(videoId => getStatus(videoId) === "unreviewed");
     }
 
-    function captureFilterState() {
-      return normalizeFilterState({
-        search: els.searchInput.value,
-        status: els.statusFilter.value,
-        channels: Array.from(state.activeChannels),
-        tags: Array.from(state.activeTags),
-        tagMode: els.tagModeSelect.value,
-        sort: els.sortSelect.value,
-        datasetView: state.datasetView,
-        minDurationMinutes: els.minDurationInput.value,
-        maxDurationMinutes: els.maxDurationInput.value,
-        minAgeDays: els.minAgeInput.value,
-        maxAgeDays: els.maxAgeInput.value,
-        minViews: els.minViewsInput.value,
-        availability: els.availabilityFilter.value,
-        badge: els.badgeFilter.value,
-        suggestedTag: els.suggestedTagFilter.value,
-        note: els.noteFilter.value,
-      });
-    }
-
     function applyFilterState(value, options = {}) {
-      const filters = normalizeFilterState(value);
-      els.searchInput.value = filters.search;
-      els.statusFilter.value = filters.status;
-      state.activeChannels = new Set(filters.channels);
-      state.activeTags = new Set(filters.tags);
-      els.channelSearch.value = "";
-      els.tagModeSelect.value = filters.tagMode;
-      els.sortSelect.value = filters.sort;
-      state.datasetView = filters.datasetView !== "all" && !state.importComparison.baselineAvailable
-        ? "all"
-        : filters.datasetView;
-      els.minDurationInput.value = filters.minDurationMinutes;
-      els.maxDurationInput.value = filters.maxDurationMinutes;
-      els.minAgeInput.value = filters.minAgeDays;
-      els.maxAgeInput.value = filters.maxAgeDays;
-      els.minViewsInput.value = filters.minViews;
-      els.availabilityFilter.value = filters.availability;
-      renderBadgeOptions(filters.badge);
-      els.suggestedTagFilter.value = filters.suggestedTag;
-      els.noteFilter.value = filters.note;
-      els.advancedFilters.open = [
-        filters.minDurationMinutes,
-        filters.maxDurationMinutes,
-        filters.minAgeDays,
-        filters.maxAgeDays,
-        filters.minViews,
-      ].some(filterValue => filterValue !== "")
-        || filters.availability !== "all"
-        || filters.badge !== "all"
-        || filters.suggestedTag !== "all"
-        || filters.note !== "all"
-        || (filters.tags.length > 1 && filters.tagMode === "and");
+      applyFilterStateToControls(value);
       state.activeSavedViewId = options.savedViewId || "";
       state.selectedIds.clear();
       state.renderedCount = PAGE_SIZE;

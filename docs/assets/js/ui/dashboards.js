@@ -368,7 +368,8 @@
       els.exportSelected.textContent = selected ? `Export selected (${selected})` : "Export selected";
       els.exportVisible.textContent = visible ? `Export visible (${visible})` : "Export visible";
 
-      [els.clearFilters, els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged, els.exportVisible].forEach(button => {
+      els.clearFilters.disabled = getActiveFilterSummary().length === 0;
+      [els.keepBulk, els.maybeBulk, els.deleteBulk, els.resetBulk, els.selectVisible, els.invertSelection, els.clearSelection, els.exportKeepMaybe, els.exportDeleteCandidates, els.exportTagged, els.exportVisible].forEach(button => {
         button.disabled = !state.videos.length;
       });
       els.exportSelected.disabled = !state.selectedIds.size;
