@@ -323,6 +323,7 @@
         </article>
       </section>
 
+      <div id="insightsWorkspace" class="insights-workspace">
       <section id="insightsMatrix" class="insights-matrix" aria-labelledby="insightsMatrixTitle" hidden>
         <header class="insights-matrix-header">
           <div>
@@ -387,6 +388,61 @@
           <button id="insightsShowAll" type="button" hidden>Show all channels</button>
         </div>
       </section>
+      <aside id="insightsChannelDetail" class="insights-channel-detail" aria-labelledby="insightsDetailTitle" hidden>
+        <header class="insights-detail-header">
+          <div>
+            <p class="placeholder-eyebrow">Selected channel</p>
+            <h2 id="insightsDetailTitle">Channel detail</h2>
+            <p id="insightsDetailMeta" class="insights-detail-meta"></p>
+          </div>
+        </header>
+
+        <section class="insights-detail-block" aria-labelledby="insightsBacklogTitle">
+          <h3 id="insightsBacklogTitle">Backlog impact</h3>
+          <div id="insightsDetailBacklog"></div>
+        </section>
+
+        <section class="insights-detail-block" aria-labelledby="insightsDecisionTitle">
+          <div class="insights-detail-block-header">
+            <div>
+              <h3 id="insightsDecisionTitle">Decision health</h3>
+              <p>Transparent review proxies, not a quality score.</p>
+            </div>
+            <label for="insightsStaleDays">
+              <span>Stale after</span>
+              <select id="insightsStaleDays">
+                <option value="30">30 days</option>
+                <option value="90">90 days</option>
+                <option value="180">180 days</option>
+                <option value="365">1 year</option>
+                <option value="off">Off</option>
+              </select>
+            </label>
+          </div>
+          <div id="insightsDetailDecision"></div>
+        </section>
+
+        <section class="insights-detail-block" aria-labelledby="insightsAgeTitle">
+          <h3 id="insightsAgeTitle">Age distribution</h3>
+          <div id="insightsDetailAge"></div>
+        </section>
+
+        <section class="insights-detail-block" aria-labelledby="insightsOldestUntouchedTitle">
+          <h3 id="insightsOldestUntouchedTitle">Oldest untouched</h3>
+          <div id="insightsDetailOldest"></div>
+        </section>
+
+        <section class="insights-detail-block" aria-labelledby="insightsNewTitle">
+          <h3 id="insightsNewTitle">New since last import</h3>
+          <div id="insightsDetailNew"></div>
+        </section>
+
+        <section class="insights-detail-block insights-persistence-empty" aria-labelledby="insightsPersistenceTitle">
+          <h3 id="insightsPersistenceTitle">Backlog persistence</h3>
+          <p id="insightsDetailPersistence">Import history is not stored yet. Persistence trends will appear after Phase 4 adds compact import snapshots.</p>
+        </section>
+      </aside>
+      </div>
     </section>
 
     <section id="groupsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>

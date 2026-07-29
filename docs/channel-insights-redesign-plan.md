@@ -1187,7 +1187,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.4 — Channel detail in podporni bloki
 
-- [ ] **Slice 2.4 zaključen**
+- [x] **Slice 2.4 zaključen**
 - **Cilj:** dodati Backlog impact, Decision health, Age distribution, Oldest untouched in New since last import.
 - **Prizadeto:** `domain/insights.js`, `domain/time-budget.js`, `ui/insights-view.js`, `app.css`.
 - **Podatki:** `watchlater-triage-insights-settings-v1` za `decisionStaleDays`; persistence blok import zgodovine je empty state.

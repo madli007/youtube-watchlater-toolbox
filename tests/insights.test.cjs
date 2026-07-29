@@ -237,6 +237,12 @@ assert.equal(insights.normalizeInsightsMeasure("watch-time"), "watch-time");
 assert.equal(insights.normalizeInsightsMeasure("invalid"), "count");
 assert.equal(insights.normalizeInsightsSort("undecided"), "undecided");
 assert.equal(insights.normalizeInsightsSort("invalid"), "backlog");
+assert.equal(insights.normalizeDecisionStaleDays(undefined), 180);
+assert.equal(insights.normalizeDecisionStaleDays("off"), "off");
+assert.equal(insights.normalizeDecisionStaleDays(90.4), 90);
+assert.deepEqual(plain(insights.normalizeInsightsSettings({})), {
+  decisionStaleDays: 180,
+});
 
 const countMatrix = insights.buildChannelAgeMatrix(model);
 assert.equal(countMatrix.measure, "count");
@@ -272,6 +278,112 @@ const undecidedMatrix = insights.buildChannelAgeMatrix(model, {
 });
 assert.equal(undecidedMatrix.rows[0].channelKey, "name:cudezni kanal");
 assert.equal(undecidedMatrix.rows[0].undecidedCount, 2);
+
+const detailNow = "2026-07-01T00:00:00.000Z";
+const detailFacts = insights.deriveVideoFacts([
+  {
+    videoId: "old-untouched",
+    title: "Old untouched",
+    channel: "Detail Channel",
+    durationSeconds: 100,
+    uploaded: "400 days ago",
+    url: "https://youtu.be/old-untouched",
+  },
+  {
+    videoId: "unknown-untouched",
+    title: "Unknown untouched",
+    channel: "Detail Channel",
+    durationSeconds: null,
+    uploaded: "",
+  },
+  {
+    videoId: "boundary",
+    title: "Boundary decision",
+    channel: "Detail Channel",
+    durationSeconds: 200,
+    uploaded: "30 days ago",
+  },
+  {
+    videoId: "recent",
+    title: "Recent decision",
+    channel: "Detail Channel",
+    durationSeconds: 300,
+    uploaded: "10 days ago",
+  },
+  {
+    videoId: "undated",
+    title: "Undated decision",
+    channel: "Detail Channel",
+    durationSeconds: 400,
+    uploaded: "90 days ago",
+  },
+  {
+    videoId: "older-decision",
+    title: "Older decision",
+    channel: "Detail Channel",
+    durationSeconds: 500,
+    uploaded: "180 days ago",
+  },
+], {
+  boundary: { status: "maybe", updatedAt: "2026-06-01T00:00:00.000Z" },
+  recent: { status: "keep", updatedAt: "2026-06-02T00:00:00.000Z" },
+  undated: { status: "archive" },
+  "older-decision": { status: "delete", updatedAt: "2026-01-01T00:00:00.000Z" },
+}, {
+  sourceExportedAt: detailNow,
+  importComparison: { newIds: ["old-untouched"] },
+}, detailNow);
+const detailModel = insights.buildChannelInsights(detailFacts);
+const channelDetail = insights.buildChannelDetail(
+  detailModel,
+  detailFacts,
+  "name:detail channel",
+  {
+    decisionStaleDays: 30,
+    now: detailNow,
+    hasImportBaseline: true,
+  },
+);
+assert.equal(channelDetail.totalCount, 6);
+assert.equal(channelDetail.backlogImpact.videoPercent, 100);
+assert.equal(channelDetail.decisionHealth.statusMixDenominator, 6);
+assert.equal(channelDetail.decisionHealth.decidedCount, 4);
+assert.equal(channelDetail.decisionHealth.maybePercentOfDecided, 25);
+assert.equal(channelDetail.decisionHealth.staleEligibleCount, 3);
+assert.equal(
+  channelDetail.decisionHealth.staleCount,
+  2,
+  "a decision exactly on the stale boundary must be included",
+);
+assert.equal(channelDetail.decisionHealth.undatedDecisionCount, 1);
+assert.ok(
+  Math.abs(
+    channelDetail.decisionHealth.statusMix.find(
+      item => item.status === "unreviewed",
+    ).percent - 100 / 3,
+  ) < 1e-10,
+  "status mix percentages must use every channel video as the denominator",
+);
+assert.equal(channelDetail.oldestUntouchedCount, 2);
+assert.equal(channelDetail.oldestUntouchedUnknownAgeCount, 1);
+assert.equal(channelDetail.oldestUntouched[0].videoId, "old-untouched");
+assert.equal(channelDetail.oldestUntouched[0].url, "https://youtu.be/old-untouched");
+assert.equal(channelDetail.newSinceLastImportAvailable, true);
+assert.equal(channelDetail.newSinceLastImportCount, 1);
+assert.equal(channelDetail.newSinceLastImport[0].videoId, "old-untouched");
+const detailWithStaleOff = insights.buildChannelDetail(
+  detailModel,
+  detailFacts,
+  "name:detail channel",
+  { decisionStaleDays: "off", now: detailNow },
+);
+assert.equal(detailWithStaleOff.decisionHealth.staleDays, "off");
+assert.equal(detailWithStaleOff.decisionHealth.staleCount, null);
+assert.equal(detailWithStaleOff.decisionHealth.stalePercent, null);
+assert.equal(
+  insights.buildChannelDetail(detailModel, detailFacts, "name:missing"),
+  null,
+);
 
 const manyVideos = [];
 for (let channelIndex = 0; channelIndex < 105; channelIndex++) {

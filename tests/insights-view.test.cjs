@@ -127,6 +127,17 @@ const elementNames = [
   "insightsMatrixCaption",
   "insightsMatrixBody",
   "insightsShowAll",
+  "insightsWorkspace",
+  "insightsChannelDetail",
+  "insightsDetailTitle",
+  "insightsDetailMeta",
+  "insightsDetailBacklog",
+  "insightsDetailDecision",
+  "insightsStaleDays",
+  "insightsDetailAge",
+  "insightsDetailOldest",
+  "insightsDetailNew",
+  "insightsDetailPersistence",
 ];
 const els = Object.fromEntries(elementNames.map(name => [name, createElement()]));
 const countMeasureButton = createElement();
@@ -142,8 +153,12 @@ const state = {
   insightsMeasure: "count",
   insightsSort: "backlog",
   selectedChannelKey: "",
+  insightsSettings: { decisionStaleDays: 180 },
+  insightsCache: { videoFacts: [] },
+  importComparison: { baselineAvailable: false },
 };
 let model = insights.createEmptyInsightsModel();
+let savedInsightsSettings = null;
 const view = createInsightsViewUi({
   state,
   els,
@@ -151,6 +166,11 @@ const view = createInsightsViewUi({
     return model;
   },
   formatDuration,
+  saveInsightsSettings(value) {
+    savedInsightsSettings = value;
+    return true;
+  },
+  now: () => new Date("2026-07-01T12:00:00.000Z").getTime(),
   document: {
     createElement,
   },
@@ -189,6 +209,7 @@ const unknownFacts = insights.deriveVideoFacts([
   },
 ], {}, { sourceExportedAt: "2026-07-01T12:00:00.000Z" });
 model = insights.buildChannelInsights(unknownFacts);
+state.insightsCache.videoFacts = unknownFacts;
 state.datasetRevision++;
 view.renderInsights();
 assert.equal(els.insightsEmptyState.hidden, true);
@@ -216,15 +237,44 @@ const channelButton = els.insightsMatrixBody.children[0].children[0].children[0]
 els.insightsMatrixBody.listeners.click({ target: channelButton });
 assert.equal(state.selectedChannelKey, "name:unknowns");
 assert.match(els.insightsSelectedChannel.textContent, /^Selected: Unknowns/);
+assert.equal(els.insightsChannelDetail.hidden, false);
+assert.equal(els.insightsWorkspace.classList.contains("has-detail"), true);
+assert.equal(els.insightsDetailTitle.textContent, "Unknowns");
+assert.match(
+  els.insightsDetailBacklog.getAttribute("aria-label"),
+  /^Unknowns has 100% of backlog videos/,
+);
+assert.match(
+  els.insightsDetailDecision.getAttribute("aria-label"),
+  /^0 of 2 videos explicitly decided/,
+);
+assert.equal(els.insightsStaleDays.value, "180");
+assert.match(
+  els.insightsDetailOldest.getAttribute("aria-label"),
+  /^2 untouched videos; 2 have unknown age/,
+);
+assert.equal(
+  els.insightsDetailNew.getAttribute("aria-label"),
+  "New-since-last-import comparison unavailable",
+);
 assert.equal(els.insightsOldestAge.textContent, "Unknown");
 assert.equal(els.insightsCoverageValue.textContent, "0% time · 0% age");
 
+els.insightsStaleDays.value = "off";
+els.insightsStaleDays.listeners.change();
+assert.deepEqual(JSON.parse(JSON.stringify(savedInsightsSettings)), {
+  decisionStaleDays: "off",
+});
+assert.equal(state.insightsSettings.decisionStaleDays, "off");
+
 els.insightsWatchTime.textContent = "dataset KPI sentinel";
-model = insights.buildChannelInsights(
-  insights.refreshVideoFactDecisions(unknownFacts, {
-    "unknown-one": { status: "keep" },
-  }),
-);
+state.insightsCache.videoFacts = insights.refreshVideoFactDecisions(unknownFacts, {
+  "unknown-one": {
+    status: "keep",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+  },
+});
+model = insights.buildChannelInsights(state.insightsCache.videoFacts);
 state.decisionRevision++;
 view.renderInsights();
 assert.equal(
@@ -233,6 +283,18 @@ assert.equal(
   "a decision-only revision must not rewrite dataset-dependent KPIs",
 );
 assert.equal(els.insightsUndecidedCount.textContent, "1");
+assert.match(
+  els.insightsDetailDecision.getAttribute("aria-label"),
+  /^1 of 2 videos explicitly decided/,
+);
+
+model = insights.createEmptyInsightsModel();
+state.insightsCache.videoFacts = [];
+state.datasetRevision++;
+view.renderInsights();
+assert.equal(state.selectedChannelKey, "");
+assert.equal(els.insightsChannelDetail.hidden, true);
+assert.equal(els.insightsWorkspace.classList.contains("has-detail"), false);
 
 const html = loadTriageApp().html;
 assert.match(html, /id=["']insightsSummary["'][^>]*aria-label=["']Channel insight summary["']/i);
@@ -240,6 +302,9 @@ assert.match(html, /id=["']insightsUndecidedCount["']/i);
 assert.match(html, /id=["']insightsMatrix["'][^>]*aria-labelledby=["']insightsMatrixTitle["']/i);
 assert.match(html, /<table class=["']insights-table["']>/i);
 assert.match(html, /id=["']insightsShowAll["']/i);
+assert.match(html, /id=["']insightsChannelDetail["'][^>]*aria-labelledby=["']insightsDetailTitle["']/i);
+assert.match(html, /id=["']insightsStaleDays["']/i);
+assert.match(html, /id=["']insightsDetailPersistence["']/i);
 assert.doesNotMatch(
   html,
   /sortable channel and age breakdown arrives in the next slice/i,

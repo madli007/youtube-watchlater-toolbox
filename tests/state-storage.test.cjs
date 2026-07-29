@@ -85,6 +85,9 @@ async function main() {
       ],
     }),
     [config.TIME_BUDGET_STORAGE_KEY]: "2.6",
+    [config.INSIGHTS_SETTINGS_STORAGE_KEY]: JSON.stringify({
+      decisionStaleDays: 90,
+    }),
     [config.PREVIEW_PROGRESS_STORAGE_KEY]: JSON.stringify({
       one: 83.9,
       invalid: -1,
@@ -102,6 +105,7 @@ async function main() {
   assert.equal(state.datasetBaseline.videos.length, 1);
   assert.equal(state.datasetBaseline.videos[0].views, undefined);
   assert.equal(state.timeBudgetHours, 2.5);
+  assert.deepEqual(plain(state.insightsSettings), { decisionStaleDays: 90 });
   assert.deepEqual(plain(state.previewProgress), { one: 83 });
   assert.deepEqual([...state.selectedIds], []);
   assert.deepEqual([...state.activeTags], []);
@@ -124,27 +128,41 @@ async function main() {
   };
   assert.equal(persistence.saveDecisions(state.decisions), true);
   assert.equal(persistence.saveHistory(state.history), true);
+  assert.equal(
+    persistence.saveInsightsSettings({ decisionStaleDays: "off" }),
+    true,
+  );
   assert.equal(persistence.savePreviewProgress({ two: 42.8 }), true);
   const refreshed = stateModule.createInitialState(storageModule.createStorage(memory));
   assert.equal(refreshed.decisions.two.status, "maybe");
   assert.equal(refreshed.history[0].id, "history-1");
+  assert.deepEqual(plain(refreshed.insightsSettings), {
+    decisionStaleDays: "off",
+  });
   assert.deepEqual(plain(refreshed.previewProgress), { two: 42 });
 
   const stored = memory.snapshot();
   assert.ok(Object.hasOwn(stored, "watchlater-triage-decisions-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-history-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-preview-progress-v1"));
+  assert.ok(Object.hasOwn(stored, "watchlater-triage-insights-settings-v1"));
 
   const corrupt = storageModule.createStorage(createMemoryStorage({
     [config.STORAGE_KEY]: "{broken",
     [config.HISTORY_STORAGE_KEY]: "null",
     [config.DATASET_BASELINE_STORAGE_KEY]: JSON.stringify({ schemaVersion: 2, videos: [] }),
+    [config.INSIGHTS_SETTINGS_STORAGE_KEY]: JSON.stringify({
+      decisionStaleDays: "invalid",
+    }),
     [config.PREVIEW_PROGRESS_STORAGE_KEY]: "[]",
   }));
   const emptyState = stateModule.createInitialState(corrupt);
   assert.deepEqual(plain(emptyState.decisions), {});
   assert.deepEqual(plain(emptyState.history), []);
   assert.equal(emptyState.datasetBaseline, null);
+  assert.deepEqual(plain(emptyState.insightsSettings), {
+    decisionStaleDays: 180,
+  });
   assert.deepEqual(plain(emptyState.previewProgress), {});
 
   const unavailable = storageModule.createStorage({
@@ -159,6 +177,10 @@ async function main() {
   assert.deepEqual(plain(unavailable.loadHistory()), []);
   assert.equal(unavailable.saveDecisions({ one: { status: "keep" } }), false);
   assert.equal(unavailable.saveHistory([]), false);
+  assert.equal(
+    unavailable.saveInsightsSettings({ decisionStaleDays: 30 }),
+    false,
+  );
   assert.equal(unavailable.savePreviewProgress({ one: 10 }), false);
 
   const workspacePayload = domain.workspace.buildWorkspacePayload({

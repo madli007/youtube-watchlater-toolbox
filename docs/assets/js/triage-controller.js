@@ -143,6 +143,7 @@
       saveUserRules,
       saveChannelRules,
       saveTimeBudgetHours,
+      saveInsightsSettings,
       renderTagFilters,
       getEffectiveRules,
       refreshEnrichedVideos,
@@ -1423,6 +1424,10 @@
 
     function saveTimeBudgetHours(value) {
       return persistence.saveTimeBudgetHours(value);
+    }
+
+    function saveInsightsSettings(value) {
+      return persistence.saveInsightsSettings(value);
     }
 
     function handleShortcuts(event) {

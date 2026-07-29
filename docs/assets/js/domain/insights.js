@@ -37,6 +37,8 @@
     "channel",
   ]);
   const DEFAULT_CHANNEL_LIMIT = 100;
+  const DEFAULT_DECISION_STALE_DAYS = 180;
+  const MAX_DECISION_STALE_DAYS = 3650;
 
   function createStatusCounts() {
     return Object.fromEntries(STATUS_KEYS.map(status => [status, 0]));
@@ -122,6 +124,25 @@
     return new Set(Array.isArray(values) || values instanceof Set ? values : []);
   }
 
+  function normalizeDecisionStaleDays(value) {
+    if (String(value || "").toLowerCase() === "off") return "off";
+    if (value === undefined || value === null || value === "") {
+      return DEFAULT_DECISION_STALE_DAYS;
+    }
+    const days = Number(value);
+    if (!Number.isFinite(days) || days <= 0) return DEFAULT_DECISION_STALE_DAYS;
+    return Math.min(MAX_DECISION_STALE_DAYS, Math.max(1, Math.round(days)));
+  }
+
+  function normalizeInsightsSettings(value) {
+    const settings = value && typeof value === "object" && !Array.isArray(value)
+      ? value
+      : {};
+    return {
+      decisionStaleDays: normalizeDecisionStaleDays(settings.decisionStaleDays),
+    };
+  }
+
   function deriveVideoFacts(videos, decisions = {}, importContext = {}, now = Date.now()) {
     const nowTimestamp = getTimestamp(now) ?? Date.now();
     const ageAnchor = getAgeAnchor(importContext, nowTimestamp);
@@ -150,6 +171,8 @@
 
       facts.push({
         videoId,
+        title: String(video.title || "").trim() || "Untitled video",
+        url: String(video.cleanUrl || video.url || "").trim(),
         channelKey: getChannelKey(channelUrl, channelName),
         channelName,
         channelUrl,
@@ -461,6 +484,131 @@
     return model;
   }
 
+  function createDetailVideo(fact) {
+    return {
+      videoId: fact.videoId,
+      title: fact.title,
+      url: fact.url,
+      ageDays: fact.ageDays,
+      ageBucket: fact.ageBucket,
+      durationSeconds: fact.durationSeconds,
+      status: fact.status,
+      decisionUpdatedAt: fact.decisionUpdatedAt,
+    };
+  }
+
+  function compareOldestFacts(left, right) {
+    if (left.ageDays === null && right.ageDays !== null) return 1;
+    if (left.ageDays !== null && right.ageDays === null) return -1;
+    if (left.ageDays !== null && right.ageDays !== null) {
+      return right.ageDays - left.ageDays;
+    }
+    return left.title.localeCompare(right.title)
+      || left.videoId.localeCompare(right.videoId);
+  }
+
+  function buildChannelDetail(model, videoFacts, channelKey, options = {}) {
+    const selectedChannel = (Array.isArray(model?.channels) ? model.channels : [])
+      .find(channel => channel.channelKey === channelKey);
+    if (!selectedChannel) return null;
+
+    const settings = normalizeInsightsSettings(options);
+    const nowTimestamp = getTimestamp(options.now) ?? Date.now();
+    const staleDays = settings.decisionStaleDays;
+    const staleCutoffTimestamp = staleDays === "off"
+      ? null
+      : nowTimestamp - staleDays * DAY_MILLISECONDS;
+    const channelFacts = (Array.isArray(videoFacts) ? videoFacts : [])
+      .filter(fact => fact?.channelKey === channelKey);
+    const explicitlyDecided = channelFacts.filter(
+      fact => fact.status !== "unreviewed",
+    );
+    const datedDecisions = explicitlyDecided
+      .map(fact => ({
+        fact,
+        timestamp: getTimestamp(fact.decisionUpdatedAt),
+      }))
+      .filter(item => item.timestamp !== null);
+    const staleCount = staleDays === "off"
+      ? null
+      : datedDecisions.filter(item => item.timestamp <= staleCutoffTimestamp).length;
+    const oldestUntouchedFacts = channelFacts
+      .filter(fact => fact.isUntouched)
+      .sort(compareOldestFacts);
+    const newSinceLastImportFacts = channelFacts
+      .filter(fact => fact.isNewSinceLastImport);
+    const totalCount = selectedChannel.totalCount;
+    const decidedCount = explicitlyDecided.length;
+    const statusMix = STATUS_KEYS.map(status => ({
+      status,
+      count: selectedChannel.statusCounts[status],
+      percent: percent(selectedChannel.statusCounts[status], totalCount),
+    }));
+    const ageDistribution = AGE_BUCKET_KEYS.map(key => ({
+      key,
+      count: selectedChannel.ageBuckets[key].count,
+      percent: percent(selectedChannel.ageBuckets[key].count, totalCount),
+    }));
+
+    return {
+      channelKey: selectedChannel.channelKey,
+      channelName: selectedChannel.channelName,
+      channelUrl: selectedChannel.channelUrl,
+      totalCount,
+      knownDurationCount: selectedChannel.knownDurationCount,
+      totalDurationSeconds: selectedChannel.totalDurationSeconds,
+      knownAgeCount: selectedChannel.knownAgeCount,
+      averageAgeDays: selectedChannel.averageAgeDays,
+      backlogImpact: {
+        videoPercent: percent(totalCount, model.videoCount),
+        knownWatchTimePercent: model.totalDurationSeconds > 0
+          ? percent(selectedChannel.totalDurationSeconds, model.totalDurationSeconds)
+          : null,
+        undecidedPercent: model.statusCounts.unreviewed > 0
+          ? percent(
+            selectedChannel.statusCounts.unreviewed,
+            model.statusCounts.unreviewed,
+          )
+          : null,
+        durationCoveragePercent: percent(
+          selectedChannel.knownDurationCount,
+          totalCount,
+        ),
+      },
+      decisionHealth: {
+        statusMix,
+        statusMixDenominator: totalCount,
+        decidedCount,
+        reviewedPercent: percent(decidedCount, totalCount),
+        maybeCount: selectedChannel.statusCounts.maybe,
+        maybePercentOfDecided: percent(
+          selectedChannel.statusCounts.maybe,
+          decidedCount,
+        ),
+        staleDays,
+        staleCount,
+        staleEligibleCount: datedDecisions.length,
+        stalePercent: staleDays === "off"
+          ? null
+          : percent(staleCount, datedDecisions.length),
+        staleCutoffAt: staleCutoffTimestamp === null
+          ? ""
+          : new Date(staleCutoffTimestamp).toISOString(),
+        undatedDecisionCount: decidedCount - datedDecisions.length,
+      },
+      ageDistribution,
+      oldestUntouchedCount: oldestUntouchedFacts.length,
+      oldestUntouchedUnknownAgeCount: oldestUntouchedFacts.filter(
+        fact => fact.ageDays === null,
+      ).length,
+      oldestUntouched: oldestUntouchedFacts.slice(0, 5).map(createDetailVideo),
+      newSinceLastImportAvailable: options.hasImportBaseline === true,
+      newSinceLastImportCount: newSinceLastImportFacts.length,
+      newSinceLastImport: newSinceLastImportFacts.slice(0, 5).map(createDetailVideo),
+      persistence: null,
+    };
+  }
+
   function createEmptyInsightsCache() {
     return {
       datasetRevision: -1,
@@ -532,10 +680,14 @@
     INSIGHTS_MEASURES,
     INSIGHTS_SORTS,
     DEFAULT_CHANNEL_LIMIT,
+    DEFAULT_DECISION_STALE_DAYS,
     getAgeBucket,
     getChannelKey,
+    normalizeDecisionStaleDays,
+    normalizeInsightsSettings,
     deriveVideoFacts,
     buildChannelInsights,
+    buildChannelDetail,
     buildChannelAgeMatrix,
     normalizeInsightsMeasure,
     normalizeInsightsSort,

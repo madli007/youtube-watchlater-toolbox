@@ -15,7 +15,7 @@
    * Creates the single mutable application state container.
    *
    * Persistent fields: decisions, history, userRules, channelRules, savedViews,
-   * datasetBaseline, timeBudgetHours, and previewProgress.
+   * datasetBaseline, timeBudgetHours, insightsSettings, and previewProgress.
    * Dataset fields: videos, lastImport, importComparison, revision counters,
    * and insightsCache.
    * Transient UI fields: selections, active filters/editors, rendered limits,
@@ -50,6 +50,7 @@
       editingRuleName: "",
       editingChannelRuleId: "",
       timeBudgetHours: persistence.loadTimeBudgetHours(),
+      insightsSettings: persistence.loadInsightsSettings(),
       groupType: "all",
       renderedGroupCount: 20,
       groupCacheKey: "",

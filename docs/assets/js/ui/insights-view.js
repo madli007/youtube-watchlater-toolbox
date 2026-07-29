@@ -3,8 +3,10 @@
 
   const {
     buildChannelAgeMatrix,
+    buildChannelDetail,
     normalizeInsightsMeasure,
     normalizeInsightsSort,
+    normalizeInsightsSettings,
   } = root.WatchLaterApp.domain.insights;
 
   const AGE_BUCKET_LABELS = Object.freeze({
@@ -15,6 +17,13 @@
     "6-12m": "6 to 12 months",
     "1y+": "1 year or older",
     unknown: "unknown age",
+  });
+  const STATUS_LABELS = Object.freeze({
+    keep: "Keep",
+    maybe: "Maybe",
+    delete: "Delete",
+    unreviewed: "Unreviewed",
+    archive: "Archive",
   });
 
   function formatCount(value) {
@@ -78,8 +87,11 @@
       els,
       getInsightsModel,
       formatDuration,
+      saveInsightsSettings = () => false,
+      now = () => Date.now(),
       document: documentRef = root.document,
     } = context;
+    const getNow = typeof now === "function" ? now : () => now;
     let renderedDatasetRevision = -1;
     let renderedDecisionRevision = -1;
     let renderedMatrixSignature = "";
@@ -105,6 +117,76 @@
       const hint = documentRef.createElement("small");
       hint.textContent = secondaryText;
       return [value, hint];
+    }
+
+    function createDetailBar(label, value, percentValue, hint = "") {
+      const row = documentRef.createElement("div");
+      row.className = "insights-detail-bar-row";
+      const heading = documentRef.createElement("div");
+      heading.className = "insights-detail-bar-heading";
+      const name = documentRef.createElement("span");
+      name.textContent = label;
+      const amount = documentRef.createElement("strong");
+      amount.textContent = value;
+      heading.append(name, amount);
+
+      const track = documentRef.createElement("div");
+      track.className = "insights-detail-bar-track";
+      track.setAttribute("role", "progressbar");
+      track.setAttribute("aria-label", label);
+      const numericPercent = Number(percentValue);
+      const hasPercent = percentValue !== null
+        && percentValue !== undefined
+        && percentValue !== ""
+        && Number.isFinite(numericPercent);
+      const boundedPercent = hasPercent
+        ? Math.min(100, Math.max(0, numericPercent))
+        : 0;
+      track.setAttribute("aria-valuemin", "0");
+      track.setAttribute("aria-valuemax", "100");
+      if (hasPercent) {
+        track.setAttribute("aria-valuenow", String(Math.round(boundedPercent)));
+      } else {
+        track.setAttribute("aria-valuetext", "Unknown");
+      }
+      const fill = documentRef.createElement("span");
+      fill.style.setProperty("--bar-width", `${boundedPercent}%`);
+      track.append(fill);
+      row.append(heading, track);
+      if (hint) {
+        const description = documentRef.createElement("small");
+        description.textContent = hint;
+        row.append(description);
+      }
+      return row;
+    }
+
+    function createDetailVideoList(items, emptyText) {
+      if (!items.length) {
+        const empty = documentRef.createElement("p");
+        empty.className = "insights-detail-empty";
+        empty.textContent = emptyText;
+        return [empty];
+      }
+      const list = documentRef.createElement("ol");
+      list.className = "insights-detail-video-list";
+      for (const item of items) {
+        const listItem = documentRef.createElement("li");
+        const title = item.url
+          ? documentRef.createElement("a")
+          : documentRef.createElement("span");
+        title.textContent = item.title;
+        if (item.url) {
+          title.href = item.url;
+          title.target = "_blank";
+          title.rel = "noreferrer";
+        }
+        const meta = documentRef.createElement("small");
+        meta.textContent = `${formatApproximateAge(item.ageDays)} · ${STATUS_LABELS[item.status] || item.status}`;
+        listItem.append(title, meta);
+        list.append(listItem);
+      }
+      return [list];
     }
 
     function getHeatOpacity(value, maximum) {
@@ -239,12 +321,152 @@
       const selected = model.channels.find(
         channel => channel.channelKey === state.selectedChannelKey,
       );
-      if (!selected && state.selectedChannelKey) {
-        state.selectedChannelKey = "";
+      if (!selected) {
+        if (state.selectedChannelKey) state.selectedChannelKey = "";
+        els.insightsWorkspace.classList.toggle("has-detail", false);
+        els.insightsChannelDetail.hidden = true;
+        els.insightsSelectedChannel.textContent = "Select a channel row to keep it in context.";
+        return null;
       }
-      els.insightsSelectedChannel.textContent = selected
-        ? `Selected: ${selected.channelName} · ${formatCount(selected.totalCount)} videos · ${formatCount(selected.statusCounts.unreviewed)} undecided`
-        : "Select a channel row to keep it in context.";
+
+      state.insightsSettings = normalizeInsightsSettings(state.insightsSettings);
+      const detail = buildChannelDetail(
+        model,
+        state.insightsCache?.videoFacts,
+        state.selectedChannelKey,
+        {
+          ...state.insightsSettings,
+          now: getNow(),
+          hasImportBaseline: state.importComparison?.baselineAvailable === true,
+        },
+      );
+      if (!detail) {
+        state.selectedChannelKey = "";
+        els.insightsWorkspace.classList.toggle("has-detail", false);
+        els.insightsChannelDetail.hidden = true;
+        els.insightsSelectedChannel.textContent = "Select a channel row to keep it in context.";
+        return null;
+      }
+
+      els.insightsWorkspace.classList.toggle("has-detail", true);
+      els.insightsChannelDetail.hidden = false;
+      els.insightsDetailTitle.textContent = detail.channelName;
+      els.insightsDetailMeta.textContent = `${formatCount(detail.totalCount)} videos · ${detail.knownDurationCount
+        ? `${formatDuration(detail.totalDurationSeconds)} known watch time`
+        : "watch time unknown"} · average age ${formatApproximateAge(detail.averageAgeDays)}`;
+      els.insightsSelectedChannel.textContent = `Selected: ${detail.channelName} · ${formatCount(detail.totalCount)} videos · ${formatCount(detail.decisionHealth.statusMix.find(item => item.status === "unreviewed")?.count)} undecided`;
+
+      els.insightsDetailBacklog.replaceChildren(
+        createDetailBar(
+          "Videos",
+          formatPercent(detail.backlogImpact.videoPercent),
+          detail.backlogImpact.videoPercent,
+          `${formatCount(detail.totalCount)} of ${formatCount(model.videoCount)} backlog videos`,
+        ),
+        createDetailBar(
+          "Known watch time",
+          detail.backlogImpact.knownWatchTimePercent === null
+            ? "Unknown"
+            : formatPercent(detail.backlogImpact.knownWatchTimePercent),
+          detail.backlogImpact.knownWatchTimePercent,
+          `${formatCount(detail.knownDurationCount)} of ${formatCount(detail.totalCount)} channel durations known`,
+        ),
+        createDetailBar(
+          "Undecided backlog",
+          detail.backlogImpact.undecidedPercent === null
+            ? "None in backlog"
+            : formatPercent(detail.backlogImpact.undecidedPercent),
+          detail.backlogImpact.undecidedPercent,
+          "Share of all currently unreviewed videos",
+        ),
+      );
+      els.insightsDetailBacklog.setAttribute(
+        "aria-label",
+        `${detail.channelName} has ${formatPercent(detail.backlogImpact.videoPercent)} of backlog videos`,
+      );
+
+      els.insightsStaleDays.value = String(detail.decisionHealth.staleDays);
+      const staleRow = detail.decisionHealth.staleDays === "off"
+        ? createDetailBar(
+          "Stale decisions",
+          "Off",
+          null,
+          "Age-based decision review is disabled.",
+        )
+        : createDetailBar(
+          "Stale decisions",
+          formatCount(detail.decisionHealth.staleCount),
+          detail.decisionHealth.stalePercent,
+          `${formatCount(detail.decisionHealth.staleEligibleCount)} of ${formatCount(detail.decisionHealth.decidedCount)} decisions have a timestamp; threshold includes the boundary day.`,
+        );
+      const decisionRows = [
+        createDetailBar(
+          "Explicitly decided",
+          `${formatCount(detail.decisionHealth.decidedCount)} / ${formatCount(detail.decisionHealth.statusMixDenominator)}`,
+          detail.decisionHealth.reviewedPercent,
+          "Keep, Maybe, Delete, and Archive count as explicit decisions.",
+        ),
+        createDetailBar(
+          "Maybe among decided",
+          detail.decisionHealth.decidedCount
+            ? formatPercent(detail.decisionHealth.maybePercentOfDecided)
+            : "No decisions",
+          detail.decisionHealth.decidedCount
+            ? detail.decisionHealth.maybePercentOfDecided
+            : null,
+          "A review proxy, not a measure of decision quality.",
+        ),
+        staleRow,
+      ];
+      for (const status of detail.decisionHealth.statusMix) {
+        decisionRows.push(createDetailBar(
+          STATUS_LABELS[status.status],
+          `${formatCount(status.count)} / ${formatCount(detail.decisionHealth.statusMixDenominator)}`,
+          status.percent,
+        ));
+      }
+      els.insightsDetailDecision.replaceChildren(...decisionRows);
+      els.insightsDetailDecision.setAttribute(
+        "aria-label",
+        `${formatCount(detail.decisionHealth.decidedCount)} of ${formatCount(detail.decisionHealth.statusMixDenominator)} videos explicitly decided; status percentages use all channel videos as the denominator`,
+      );
+
+      els.insightsDetailAge.replaceChildren(
+        ...detail.ageDistribution.map(bucket => createDetailBar(
+          AGE_BUCKET_LABELS[bucket.key],
+          formatCount(bucket.count),
+          bucket.percent,
+          `${formatPercent(bucket.percent)} of this channel`,
+        )),
+      );
+      els.insightsDetailAge.setAttribute(
+        "aria-label",
+        `Approximate age distribution for ${formatCount(detail.totalCount)} channel videos`,
+      );
+
+      els.insightsDetailOldest.replaceChildren(...createDetailVideoList(
+        detail.oldestUntouched,
+        "No untouched videos in this channel.",
+      ));
+      els.insightsDetailOldest.setAttribute(
+        "aria-label",
+        `${formatCount(detail.oldestUntouchedCount)} untouched videos; ${formatCount(detail.oldestUntouchedUnknownAgeCount)} have unknown age`,
+      );
+
+      const newEmptyText = detail.newSinceLastImportAvailable
+        ? "No videos from this channel are new since the last import."
+        : "A previous import baseline is needed before new videos can be identified.";
+      els.insightsDetailNew.replaceChildren(...createDetailVideoList(
+        detail.newSinceLastImport,
+        newEmptyText,
+      ));
+      els.insightsDetailNew.setAttribute(
+        "aria-label",
+        detail.newSinceLastImportAvailable
+          ? `${formatCount(detail.newSinceLastImportCount)} videos new since the last import`
+          : "New-since-last-import comparison unavailable",
+      );
+      return detail;
     }
 
     function renderMatrix(model) {
@@ -340,6 +562,7 @@
         );
       }
       if (hasVideos) renderMatrix(model);
+      else renderSelectedChannel(model);
       renderedDatasetRevision = state.datasetRevision;
       renderedDecisionRevision = state.decisionRevision;
     }
@@ -379,6 +602,13 @@
         showAllChannels = true;
         renderedMatrixSignature = "";
         renderInsights();
+      });
+      els.insightsStaleDays.addEventListener("change", () => {
+        state.insightsSettings = normalizeInsightsSettings({
+          decisionStaleDays: els.insightsStaleDays.value,
+        });
+        saveInsightsSettings(state.insightsSettings);
+        renderSelectedChannel(getInsightsModel());
       });
       els.insightsMatrixBody.addEventListener("click", event => {
         const button = event.target.closest("[data-channel-key]");

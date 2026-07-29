@@ -10,6 +10,7 @@
     SAVED_VIEWS_STORAGE_KEY,
     DATASET_BASELINE_STORAGE_KEY,
     TIME_BUDGET_STORAGE_KEY,
+    INSIGHTS_SETTINGS_STORAGE_KEY,
     PREVIEW_PROGRESS_STORAGE_KEY,
   } = app.config;
   const { normalizeHistory } = app.domain.decisions;
@@ -18,6 +19,7 @@
     normalizePlainObject,
   } = app.domain.importComparison;
   const { normalizeTimeBudgetHours } = app.domain.timeBudget;
+  const { normalizeInsightsSettings } = app.domain.insights;
   const { normalizePreviewProgress } = app.domain.workspace;
 
   function getDefaultStorage() {
@@ -123,6 +125,18 @@
       },
       saveTimeBudgetHours(value) {
         return writeText(storage, TIME_BUDGET_STORAGE_KEY, normalizeTimeBudgetHours(value));
+      },
+      loadInsightsSettings() {
+        return normalizeInsightsSettings(asObject(
+          readJson(storage, INSIGHTS_SETTINGS_STORAGE_KEY, {}),
+        ));
+      },
+      saveInsightsSettings(value) {
+        return writeJson(
+          storage,
+          INSIGHTS_SETTINGS_STORAGE_KEY,
+          normalizeInsightsSettings(value),
+        );
       },
       loadPreviewProgress() {
         return normalizePreviewProgress(asObject(

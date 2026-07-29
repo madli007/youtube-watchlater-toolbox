@@ -50,6 +50,7 @@ const dependencyGraph = {
     "docs/assets/js/config.js",
     "docs/assets/js/domain/decisions.js",
     "docs/assets/js/domain/import-comparison.js",
+    "docs/assets/js/domain/insights.js",
     "docs/assets/js/domain/time-budget.js",
     "docs/assets/js/domain/workspace.js",
   ],
