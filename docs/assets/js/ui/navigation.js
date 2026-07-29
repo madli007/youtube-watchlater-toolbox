@@ -136,6 +136,18 @@
     }
 
     function navigateToTriageFromInsights(options = {}) {
+      if (Array.isArray(options.videoIds)) {
+        const availableIds = new Set(
+          state.videos.map(video => video.videoId),
+        );
+        const videoIds = Array.from(new Set(options.videoIds))
+          .filter(videoId => availableIds.has(videoId));
+        context.applyFilterState({}, { render: false });
+        state.selectedIds = new Set(videoIds);
+        state.currentId = videoIds[0] || "";
+        navigateToHash(buildTriageHash());
+        return;
+      }
       const model = context.getInsightsModel();
       const filters = context.buildInsightsTriageFilters(
         context.captureFilterState(),

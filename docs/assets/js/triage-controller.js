@@ -76,10 +76,7 @@
       getMemoizedInsightsModel,
     } = insights;
     const {
-      normalizeTimeBudgetHours,
-      calculateDurationStats,
-      getSortedDurationGroups,
-      buildTimeBudgetShortlist,
+      buildTimeBudgetSummary,
       formatDuration,
     } = timeBudget;
     const {
@@ -122,10 +119,7 @@
       createSnapshotId,
       buildVideoGroups,
       chooseGroupWinner,
-      normalizeTimeBudgetHours,
-      calculateDurationStats,
-      getSortedDurationGroups,
-      buildTimeBudgetShortlist,
+      buildTimeBudgetSummary,
       formatDuration,
       filterChannelOptions,
       getChannelOptionPage,

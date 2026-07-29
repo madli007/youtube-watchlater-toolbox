@@ -98,6 +98,36 @@
       return { videos: selected, totalSeconds, budgetSeconds: budget };
     }
 
+    function buildTimeBudgetSummary(videos, decisions, budgetHours) {
+      const normalizedBudgetHours = normalizeTimeBudgetHours(budgetHours);
+      const stats = calculateDurationStats(videos, decisions);
+      const budgetSeconds = normalizedBudgetHours * 3600;
+      return {
+        budgetHours: normalizedBudgetHours,
+        budgetSeconds,
+        stats,
+        reviewPercent: stats.totalCount
+          ? Math.round(stats.decidedCount / stats.totalCount * 100)
+          : 0,
+        protectedWeeks: budgetSeconds
+          ? stats.protectedSeconds / budgetSeconds
+          : 0,
+        shortlist: buildTimeBudgetShortlist(
+          videos,
+          decisions,
+          budgetSeconds,
+        ),
+        byStatus: ["keep", "maybe", "delete", "unreviewed", "archive"].map(
+          name => ({
+            name,
+            ...(stats.byStatus[name] || { count: 0, seconds: 0 }),
+          }),
+        ),
+        byChannel: getSortedDurationGroups(stats.byChannel),
+        byTag: getSortedDurationGroups(stats.byTag),
+      };
+    }
+
     function formatDuration(seconds) {
       const totalMinutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
       const days = Math.floor(totalMinutes / 1440);
@@ -115,6 +145,7 @@
       addDurationGroup,
       getSortedDurationGroups,
       buildTimeBudgetShortlist,
+      buildTimeBudgetSummary,
       formatDuration,
   });
 })(globalThis);

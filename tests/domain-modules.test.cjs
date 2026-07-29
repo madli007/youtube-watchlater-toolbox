@@ -226,6 +226,23 @@ assert.deepEqual(
   ).videos.map(video => video.videoId)),
   ["short"],
 );
+const timeBudgetSummary = timeBudget.buildTimeBudgetSummary([
+  { videoId: "keep", channel: "A", durationSeconds: 600 },
+  { videoId: "maybe", channel: "B", durationSeconds: 1200 },
+  { videoId: "delete", channel: "B", durationSeconds: 300 },
+], {
+  keep: { status: "keep" },
+  maybe: { status: "maybe" },
+  delete: { status: "delete" },
+}, 0.5);
+assert.equal(timeBudgetSummary.budgetHours, 0.5);
+assert.equal(timeBudgetSummary.stats.protectedSeconds, 1800);
+assert.equal(timeBudgetSummary.protectedWeeks, 1);
+assert.deepEqual(
+  plain(timeBudgetSummary.shortlist.videos.map(video => video.videoId)),
+  ["keep", "maybe"],
+);
+assert.equal(timeBudgetSummary.byChannel[0].name, "B");
 
 const groups = grouping.buildVideoGroups([
   { videoId: "episode-1", title: "Great Show S01E01", channel: "Channel A", uploaded: "2 days ago" },

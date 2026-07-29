@@ -9,11 +9,6 @@
       buildVideoGroups,
       chooseGroupWinner,
       getProtectedChannelMatches,
-      normalizeTimeBudgetHours,
-      calculateDurationStats,
-      getSortedDurationGroups,
-      buildTimeBudgetShortlist,
-      formatDuration,
     } = context;
     const getFilteredVideos = (...args) => context.getFilteredVideos(...args);
     const getStatus = (...args) => context.getStatus(...args);
@@ -21,7 +16,6 @@
     const setStatus = (...args) => context.setStatus(...args);
     const addHistoryEntry = (...args) => context.addHistoryEntry(...args);
     const saveDecisions = (...args) => context.saveDecisions(...args);
-    const saveTimeBudgetHours = (...args) => context.saveTimeBudgetHours(...args);
     const render = (...args) => context.render(...args);
     const showToast = (...args) => context.showToast(...args);
     const getActiveFilterSummary = (...args) => context.getActiveFilterSummary(...args);
@@ -267,97 +261,6 @@
         : `Legacy array without export metadata; imported ${formatted}, and import time is the age anchor.`;
     }
 
-    function updateTimeBudget() {
-      state.timeBudgetHours = normalizeTimeBudgetHours(els.timeBudgetHours.value);
-      els.timeBudgetHours.value = state.timeBudgetHours;
-      saveTimeBudgetHours(state.timeBudgetHours);
-      renderTimeDashboard();
-    }
-
-    function handleTimeBudgetInput() {
-      const hours = Number(els.timeBudgetHours.value);
-      if (!Number.isFinite(hours) || hours <= 0) return;
-      state.timeBudgetHours = Math.min(168, hours);
-      saveTimeBudgetHours(state.timeBudgetHours);
-      renderTimeDashboard();
-    }
-
-    function getCurrentTimeShortlist() {
-      return buildTimeBudgetShortlist(
-        getFilteredVideos(),
-        state.decisions,
-        state.timeBudgetHours * 3600,
-      );
-    }
-
-    function selectSuggestedShortlist() {
-      const shortlist = getCurrentTimeShortlist();
-      if (!shortlist.videos.length) {
-        showToast("No visible non-delete videos fit the weekly time budget.");
-        return;
-      }
-      state.selectedIds = new Set(shortlist.videos.map(video => video.videoId));
-      state.currentId = shortlist.videos[0].videoId;
-      render();
-      showToast(`Selected ${shortlist.videos.length} videos (${formatDuration(shortlist.totalSeconds)}).`);
-    }
-
-    function renderTimeDashboard() {
-      const stats = calculateDurationStats(state.videos, state.decisions);
-      const reviewPercent = stats.totalCount ? Math.round(stats.decidedCount / stats.totalCount * 100) : 0;
-      const weeklySeconds = state.timeBudgetHours * 3600;
-      const weeks = weeklySeconds ? stats.protectedSeconds / weeklySeconds : 0;
-      const shortlist = getCurrentTimeShortlist();
-
-      els.totalDuration.textContent = formatDuration(stats.totalSeconds);
-      els.protectedDuration.textContent = formatDuration(stats.protectedSeconds);
-      els.reviewProgress.textContent = `${reviewPercent}%`;
-      els.reviewProgressLabel.textContent = `Reviewed · ${formatDuration(stats.decidedSeconds)} of ${formatDuration(stats.totalSeconds)} decided`;
-      els.reviewProgressBar.style.width = `${reviewPercent}%`;
-      els.budgetCoverage.textContent = weeks < 0.1 ? "0" : weeks.toFixed(weeks >= 10 ? 0 : 1);
-      els.timeCoverage.textContent = state.videos.length
-        ? `Duration available for ${stats.knownCount} of ${stats.totalCount} videos${stats.unknownCount ? `; ${stats.unknownCount} unknown.` : "."}`
-        : "Import videos to calculate watch time.";
-      els.timeBudgetHours.value = state.timeBudgetHours;
-      els.selectTimeShortlist.disabled = !shortlist.videos.length;
-      els.timeShortlistSummary.textContent = shortlist.videos.length
-        ? `${shortlist.videos.length} visible non-delete videos · ${formatDuration(shortlist.totalSeconds)} of ${formatDuration(shortlist.budgetSeconds)}`
-        : "No visible non-delete videos fit the budget.";
-
-      const preview = shortlist.videos.slice(0, 5).map(video => {
-        const item = document.createElement("div");
-        item.textContent = `${video.title || "(untitled)"} · ${formatDuration(video.durationSeconds)}`;
-        return item;
-      });
-      if (shortlist.videos.length > preview.length) {
-        const more = document.createElement("div");
-        more.textContent = `…and ${shortlist.videos.length - preview.length} more.`;
-        preview.push(more);
-      }
-      els.timeShortlistItems.replaceChildren(...preview);
-
-      renderDurationGroups(els.timeByStatus, ["keep", "maybe", "delete", "unreviewed"].map(name => ({
-        name,
-        ...(stats.byStatus[name] || { count: 0, seconds: 0 }),
-      })));
-      renderDurationGroups(els.timeByChannel, getSortedDurationGroups(stats.byChannel).slice(0, 10));
-      renderDurationGroups(els.timeByTag, getSortedDurationGroups(stats.byTag).slice(0, 10));
-    }
-
-    function renderDurationGroups(container, groups) {
-      const rows = groups.length ? groups.map(group => {
-        const row = document.createElement("div");
-        row.className = "time-breakdown-row";
-        const name = document.createElement("span");
-        name.textContent = `${group.name} (${group.count})`;
-        const duration = document.createElement("strong");
-        duration.textContent = formatDuration(group.seconds);
-        row.append(name, duration);
-        return row;
-      }) : [Object.assign(document.createElement("div"), { className: "scope-text", textContent: "No data." })];
-      container.replaceChildren(...rows);
-    }
-
     function updateBulkLabels() {
       const selected = state.selectedIds.size;
       const visible = getFilteredVideos().length;
@@ -548,12 +451,6 @@
       renderStats,
       countStatuses,
       getImportAnchorSummary,
-      updateTimeBudget,
-      handleTimeBudgetInput,
-      getCurrentTimeShortlist,
-      selectSuggestedShortlist,
-      renderTimeDashboard,
-      renderDurationGroups,
       updateBulkLabels,
       renderImportComparison,
       renderSidebar,

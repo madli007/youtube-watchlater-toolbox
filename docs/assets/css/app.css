@@ -1243,7 +1243,7 @@
       font-size: 12px;
     }
 
-    .time-dashboard {
+    .insights-time-panel {
       margin-bottom: 12px;
       padding: 12px;
       background: var(--panel);
@@ -1251,25 +1251,19 @@
       border-radius: 8px;
     }
 
-    .dashboard-disclosure > summary {
-      width: fit-content;
-      color: var(--text);
-      cursor: pointer;
+    .insights-time-panel {
+      margin-top: 16px;
+      margin-bottom: 0;
+      padding: 18px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
     }
 
-    .dashboard-disclosure > summary::marker {
-      color: var(--accent);
+    .insights-time-panel[hidden] {
+      display: none;
     }
 
-    .dashboard-disclosure > summary h2 {
-      display: inline;
-    }
-
-    .dashboard-disclosure[open] > summary {
-      margin-bottom: 10px;
-    }
-
-    .time-dashboard-header,
+    .insights-time-header,
     .time-budget-controls,
     .time-shortlist-header {
       display: flex;
@@ -1279,9 +1273,17 @@
       justify-content: space-between;
     }
 
-    .time-dashboard h2,
-    .time-dashboard h3 {
+    .insights-time-panel h2,
+    .insights-time-panel h3 {
       margin: 0;
+    }
+
+    .insights-time-panel .insights-time-header > div:first-child {
+      min-width: min(100%, 280px);
+    }
+
+    .insights-time-panel .insights-time-header .scope-text {
+      margin: 5px 0 0;
     }
 
     .time-budget-controls label {
@@ -1296,26 +1298,28 @@
       width: 86px;
     }
 
+    .time-budget-controls input[type="checkbox"] {
+      width: auto;
+    }
+
+    .insights-time-panel .time-shortlist-header button {
+      color: #081015;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 750;
+    }
+
+    .insights-time-panel .time-shortlist-header button:disabled {
+      color: var(--muted);
+      background: var(--panel-2);
+      border-color: var(--border);
+    }
+
     .time-metrics {
       display: grid;
       grid-template-columns: repeat(4, minmax(130px, 1fr));
       gap: 8px;
       margin-top: 10px;
-    }
-
-    .time-progress {
-      height: 7px;
-      margin-top: 7px;
-      overflow: hidden;
-      background: #0b0d10;
-      border-radius: 99px;
-    }
-
-    .time-progress > span {
-      display: block;
-      height: 100%;
-      background: var(--accent);
-      border-radius: inherit;
     }
 
     .time-breakdowns {

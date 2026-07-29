@@ -108,7 +108,12 @@ const els = {
   insightsView: createElement(),
   groupsView: createElement(),
 };
-const state = { activeView: "triage" };
+const state = {
+  activeView: "triage",
+  videos: [{ videoId: "one" }, { videoId: "two" }],
+  selectedIds: new Set(),
+  currentId: "",
+};
 let renderCount = 0;
 let appliedRouteFilters = null;
 const navigation = createNavigationUi({
@@ -193,6 +198,14 @@ assert.deepEqual(appliedRouteFilters, {
   channels: ["Alpha"],
   ageBucket: "6-12m",
 });
+
+navigation.navigateToTriageFromInsights({
+  videoIds: ["two", "missing", "one", "two"],
+});
+assert.equal(windowStub.location.hash, "#triage");
+assert.deepEqual([...state.selectedIds], ["two", "one"]);
+assert.equal(state.currentId, "two");
+assert.deepEqual(JSON.parse(JSON.stringify(appliedRouteFilters)), {});
 
 windowStub.location.hash = "#insights?channel=url%3A%40alpha";
 windowListeners.hashchange();

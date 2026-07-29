@@ -444,6 +444,75 @@
         </section>
       </aside>
       </div>
+
+      <section id="insightsTimeDashboard" class="insights-time-panel" aria-labelledby="insightsTimeTitle" hidden>
+        <header class="insights-time-header">
+          <div>
+            <p class="placeholder-eyebrow">Time budget</p>
+            <h2 id="insightsTimeTitle">Backlog watch time</h2>
+            <p id="insightsTimeScopeHint" class="scope-text">Using all videos.</p>
+          </div>
+          <div class="time-budget-controls">
+            <label>
+              <input id="insightsTimeScope" type="checkbox">
+              Use current Insights scope
+            </label>
+            <label for="insightsTimeBudgetHours">
+              Weekly budget
+              <input id="insightsTimeBudgetHours" type="number" min="0.25" max="168" step="0.25" value="2">
+              hours
+            </label>
+          </div>
+        </header>
+
+        <div class="time-metrics" aria-label="Time budget summary">
+          <article class="stat">
+            <strong id="insightsTimeTotal">0m</strong>
+            <span>Total known time</span>
+          </article>
+          <article class="stat">
+            <strong id="insightsTimeProtected">0m</strong>
+            <span>Protected time</span>
+          </article>
+          <article class="stat">
+            <strong id="insightsTimeWeeks">0</strong>
+            <span>Weeks of protected videos</span>
+          </article>
+          <article class="stat">
+            <strong id="insightsTimeReviewed">0%</strong>
+            <span>Videos reviewed</span>
+          </article>
+        </div>
+        <p id="insightsTimeCoverage" class="scope-text">Import videos to calculate watch time.</p>
+
+        <div class="time-breakdowns">
+          <div class="time-breakdown-grid">
+            <section>
+              <h3>By status</h3>
+              <div id="insightsTimeByStatus" class="time-breakdown-list"></div>
+            </section>
+            <section>
+              <h3>Top channels</h3>
+              <div id="insightsTimeByChannel" class="time-breakdown-list"></div>
+            </section>
+            <section>
+              <h3>Top tags</h3>
+              <div id="insightsTimeByTag" class="time-breakdown-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <section class="time-shortlist" aria-labelledby="insightsShortlistTitle">
+          <div class="time-shortlist-header">
+            <div>
+              <h3 id="insightsShortlistTitle">This week's shortlist</h3>
+              <p id="insightsTimeShortlistSummary" class="scope-text">No videos fit the budget.</p>
+            </div>
+            <button id="insightsOpenShortlist" type="button">Open shortlist in Triage</button>
+          </div>
+          <div id="insightsTimeShortlistItems" class="time-shortlist-items"></div>
+        </section>
+      </section>
     </section>
 
     <section id="groupsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>

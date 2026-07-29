@@ -87,7 +87,10 @@
       els,
       getInsightsModel,
       formatDuration,
+      buildTimeBudgetSummary,
+      saveTimeBudgetHours = () => false,
       saveInsightsSettings = () => false,
+      showToast = () => {},
       navigateToInsightsChannel = channelKey => {
         state.selectedChannelKey = channelKey;
         renderedMatrixSignature = "";
@@ -103,6 +106,131 @@
     let renderedMatrixSignature = "";
     let showAllChannels = false;
     let initialized = false;
+
+    function getTimeScopeVideos(model) {
+      const allVideos = Array.isArray(state.videos) ? state.videos : [];
+      if (!els.insightsTimeScope.checked) return allVideos;
+
+      const selectedChannel = model.channels.find(
+        channel => channel.channelKey === state.selectedChannelKey,
+      );
+      let channelKeys = [];
+      if (selectedChannel) {
+        channelKeys = [selectedChannel.channelKey];
+      } else if (String(els.insightsSearch.value || "").trim()) {
+        channelKeys = renderedMatrix.rows.map(row => row.channelKey);
+      }
+      if (!channelKeys.length) return allVideos;
+
+      const allowedKeys = new Set(channelKeys);
+      const videoIds = new Set(
+        (state.insightsCache?.videoFacts || [])
+          .filter(fact => allowedKeys.has(fact.channelKey))
+          .map(fact => fact.videoId),
+      );
+      return allVideos.filter(video => videoIds.has(video.videoId));
+    }
+
+    function getTimeScopeLabel(model, scopedVideos) {
+      if (!els.insightsTimeScope.checked) return "Using all videos.";
+      const selectedChannel = model.channels.find(
+        channel => channel.channelKey === state.selectedChannelKey,
+      );
+      if (selectedChannel) {
+        return `Using ${formatCount(scopedVideos.length)} videos from ${selectedChannel.channelName}.`;
+      }
+      const search = String(els.insightsSearch.value || "").trim();
+      if (search) {
+        return `Using ${formatCount(scopedVideos.length)} videos from channels matching "${search}".`;
+      }
+      return "Using all videos; select or search for a channel to narrow the scope.";
+    }
+
+    function createDurationGroupRow(group) {
+      const row = documentRef.createElement("div");
+      row.className = "time-breakdown-row";
+      const label = documentRef.createElement("span");
+      label.textContent = `${STATUS_LABELS[group.name] || group.name} (${formatCount(group.count)})`;
+      const duration = documentRef.createElement("strong");
+      duration.textContent = formatDuration(group.seconds);
+      row.append(label, duration);
+      return row;
+    }
+
+    function renderDurationGroups(container, groups) {
+      if (!groups.length) {
+        const empty = documentRef.createElement("div");
+        empty.className = "scope-text";
+        empty.textContent = "No known durations.";
+        container.replaceChildren(empty);
+        return;
+      }
+      container.replaceChildren(...groups.map(createDurationGroupRow));
+    }
+
+    function renderTimeDashboard(model) {
+      const hasDatasetContext = Boolean(state.lastImport) || model.videoCount > 0;
+      els.insightsTimeDashboard.hidden = !hasDatasetContext;
+      if (!hasDatasetContext) return null;
+
+      const scopedVideos = getTimeScopeVideos(model);
+      const summary = buildTimeBudgetSummary(
+        scopedVideos,
+        state.decisions,
+        state.timeBudgetHours,
+      );
+      state.timeBudgetHours = summary.budgetHours;
+      els.insightsTimeBudgetHours.value = String(summary.budgetHours);
+      els.insightsTimeScopeHint.textContent = getTimeScopeLabel(
+        model,
+        scopedVideos,
+      );
+      els.insightsTimeTotal.textContent = formatDuration(
+        summary.stats.totalSeconds,
+      );
+      els.insightsTimeProtected.textContent = formatDuration(
+        summary.stats.protectedSeconds,
+      );
+      els.insightsTimeWeeks.textContent = summary.protectedWeeks < 0.1
+        ? "0"
+        : summary.protectedWeeks.toFixed(
+          summary.protectedWeeks >= 10 ? 0 : 1,
+        );
+      els.insightsTimeReviewed.textContent = `${summary.reviewPercent}%`;
+      els.insightsTimeCoverage.textContent = scopedVideos.length
+        ? `Duration available for ${formatCount(summary.stats.knownCount)} of ${formatCount(summary.stats.totalCount)} videos${summary.stats.unknownCount
+          ? `; ${formatCount(summary.stats.unknownCount)} unknown.`
+          : "."}`
+        : "No videos are in the current scope.";
+
+      renderDurationGroups(els.insightsTimeByStatus, summary.byStatus);
+      renderDurationGroups(
+        els.insightsTimeByChannel,
+        summary.byChannel.slice(0, 10),
+      );
+      renderDurationGroups(
+        els.insightsTimeByTag,
+        summary.byTag.slice(0, 10),
+      );
+
+      const shortlist = summary.shortlist;
+      els.insightsOpenShortlist.disabled = !shortlist.videos.length;
+      els.insightsTimeShortlistSummary.textContent = shortlist.videos.length
+        ? `${formatCount(shortlist.videos.length)} available non-delete videos · ${formatDuration(shortlist.totalSeconds)} of ${formatDuration(shortlist.budgetSeconds)}`
+        : "No available non-delete videos fit the weekly budget.";
+      const preview = shortlist.videos.slice(0, 5).map(video => {
+        const item = documentRef.createElement("div");
+        item.textContent = `${video.title || "(untitled)"} · ${formatDuration(video.durationSeconds)}`;
+        return item;
+      });
+      if (shortlist.videos.length > preview.length) {
+        const more = documentRef.createElement("div");
+        more.textContent = `…and ${formatCount(shortlist.videos.length - preview.length)} more.`;
+        preview.push(more);
+      }
+      els.insightsTimeShortlistItems.replaceChildren(...preview);
+      return summary;
+    }
 
     function setMeasureButtonState() {
       const buttons = els.insightsMeasureGroup.querySelectorAll(
@@ -577,6 +705,7 @@
       }
       if (hasVideos) renderMatrix(model);
       else renderSelectedChannel(model);
+      renderTimeDashboard(model);
       renderedDatasetRevision = state.datasetRevision;
       renderedDecisionRevision = state.decisionRevision;
     }
@@ -630,6 +759,31 @@
           channelKey: state.selectedChannelKey,
         });
       });
+      els.insightsTimeScope.addEventListener("change", () => {
+        renderTimeDashboard(getInsightsModel());
+      });
+      els.insightsTimeBudgetHours.addEventListener("change", () => {
+        const summary = buildTimeBudgetSummary(
+          getTimeScopeVideos(getInsightsModel()),
+          state.decisions,
+          els.insightsTimeBudgetHours.value,
+        );
+        state.timeBudgetHours = summary.budgetHours;
+        saveTimeBudgetHours(state.timeBudgetHours);
+        renderTimeDashboard(getInsightsModel());
+      });
+      els.insightsOpenShortlist.addEventListener("click", () => {
+        const summary = renderTimeDashboard(getInsightsModel());
+        const videoIds = summary?.shortlist.videos.map(video => video.videoId) || [];
+        if (!videoIds.length) {
+          showToast("No available non-delete videos fit the weekly time budget.");
+          return;
+        }
+        navigateToTriageFromInsights({ videoIds });
+        showToast(
+          `Selected ${videoIds.length} videos (${formatDuration(summary.shortlist.totalSeconds)}).`,
+        );
+      });
       els.insightsMatrixBody.addEventListener("click", event => {
         const button = event.target.closest("[data-channel-key]");
         if (!button) return;
@@ -648,6 +802,7 @@
     return Object.freeze({
       initializeInsightsView,
       renderInsights,
+      renderTimeDashboard,
     });
   }
 

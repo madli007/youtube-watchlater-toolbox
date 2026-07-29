@@ -1209,7 +1209,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.6 — Selitev time budget workflowa
 
-- [ ] **Slice 2.6 zaključen**
+- [x] **Slice 2.6 zaključen**
 - **Cilj:** analytics in shortlist prestaviti iz Triage v Insights.
 - **Prizadeto:** `domain/time-budget.js`, `ui/insights-view.js`, `ui/triage-view.js`, prehodni `ui/dashboards.js`.
 - **Podatki:** obstoječi time budget key ostane isti.

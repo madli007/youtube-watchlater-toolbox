@@ -24,7 +24,10 @@ for (const relativePath of modulePaths) {
 }
 
 const { insights } = sandbox.WatchLaterApp.domain;
-const { formatDuration } = sandbox.WatchLaterApp.domain.timeBudget;
+const {
+  buildTimeBudgetSummary,
+  formatDuration,
+} = sandbox.WatchLaterApp.domain.timeBudget;
 const {
   formatApproximateAge,
   getImportContext,
@@ -139,6 +142,21 @@ const elementNames = [
   "insightsDetailOldest",
   "insightsDetailNew",
   "insightsDetailPersistence",
+  "insightsTimeDashboard",
+  "insightsTimeScope",
+  "insightsTimeScopeHint",
+  "insightsTimeBudgetHours",
+  "insightsTimeTotal",
+  "insightsTimeProtected",
+  "insightsTimeWeeks",
+  "insightsTimeReviewed",
+  "insightsTimeCoverage",
+  "insightsTimeByStatus",
+  "insightsTimeByChannel",
+  "insightsTimeByTag",
+  "insightsTimeShortlistSummary",
+  "insightsTimeShortlistItems",
+  "insightsOpenShortlist",
 ];
 const els = Object.fromEntries(elementNames.map(name => [name, createElement()]));
 const countMeasureButton = createElement();
@@ -157,9 +175,13 @@ const state = {
   insightsSettings: { decisionStaleDays: 180 },
   insightsCache: { videoFacts: [] },
   importComparison: { baselineAvailable: false },
+  videos: [],
+  decisions: {},
+  timeBudgetHours: 1,
 };
 let model = insights.createEmptyInsightsModel();
 let savedInsightsSettings = null;
+let savedTimeBudgetHours = null;
 let triageNavigation = null;
 const view = createInsightsViewUi({
   state,
@@ -168,6 +190,11 @@ const view = createInsightsViewUi({
     return model;
   },
   formatDuration,
+  buildTimeBudgetSummary,
+  saveTimeBudgetHours(value) {
+    savedTimeBudgetHours = value;
+    return true;
+  },
   saveInsightsSettings(value) {
     savedInsightsSettings = value;
     return true;
@@ -219,6 +246,18 @@ const unknownFacts = insights.deriveVideoFacts([
 ], {}, { sourceExportedAt: "2026-07-01T12:00:00.000Z" });
 model = insights.buildChannelInsights(unknownFacts);
 state.insightsCache.videoFacts = unknownFacts;
+state.videos = [
+  {
+    videoId: "unknown-one",
+    channel: "Unknowns",
+    durationSeconds: null,
+  },
+  {
+    videoId: "unknown-two",
+    channel: "Unknowns",
+    durationSeconds: -1,
+  },
+];
 state.datasetRevision++;
 view.renderInsights();
 assert.equal(els.insightsEmptyState.hidden, true);
@@ -280,6 +319,9 @@ assert.equal(
   "New-since-last-import comparison unavailable",
 );
 assert.equal(els.insightsOldestAge.textContent, "Unknown");
+assert.equal(els.insightsTimeDashboard.hidden, false);
+assert.equal(els.insightsTimeTotal.textContent, "0m");
+assert.match(els.insightsTimeCoverage.textContent, /2 unknown/);
 assert.equal(els.insightsCoverageValue.textContent, "0% time · 0% age");
 
 els.insightsStaleDays.value = "off";
@@ -310,8 +352,69 @@ assert.match(
   /^1 of 2 videos explicitly decided/,
 );
 
+state.videos = [
+  {
+    videoId: "alpha-short",
+    title: "Alpha short",
+    channel: "Alpha",
+    durationSeconds: 900,
+  },
+  {
+    videoId: "alpha-long",
+    title: "Alpha long",
+    channel: "Alpha",
+    durationSeconds: 3600,
+  },
+  {
+    videoId: "beta",
+    title: "Beta",
+    channel: "Beta",
+    durationSeconds: 1800,
+  },
+];
+state.decisions = {
+  "alpha-short": { status: "keep" },
+  "alpha-long": { status: "delete" },
+  beta: { status: "maybe" },
+};
+state.insightsCache.videoFacts = insights.deriveVideoFacts(
+  state.videos,
+  state.decisions,
+  { sourceExportedAt: "2026-07-01T12:00:00.000Z" },
+);
+model = insights.buildChannelInsights(state.insightsCache.videoFacts);
+state.selectedChannelKey = "name:alpha";
+state.datasetRevision++;
+state.decisionRevision++;
+view.renderInsights();
+assert.equal(els.insightsTimeTotal.textContent, "1h 45m");
+assert.equal(els.insightsTimeProtected.textContent, "45m");
+assert.equal(
+  els.insightsTimeShortlistSummary.textContent.startsWith("2 available"),
+  true,
+);
+
+els.insightsTimeScope.checked = true;
+els.insightsTimeScope.listeners.change();
+assert.match(els.insightsTimeScopeHint.textContent, /2 videos from Alpha/);
+assert.equal(els.insightsTimeTotal.textContent, "1h 15m");
+assert.equal(
+  els.insightsTimeShortlistSummary.textContent.startsWith("1 available"),
+  true,
+);
+
+els.insightsTimeBudgetHours.value = "0.5";
+els.insightsTimeBudgetHours.listeners.change();
+assert.equal(savedTimeBudgetHours, 0.5);
+assert.equal(state.timeBudgetHours, 0.5);
+els.insightsOpenShortlist.listeners.click();
+assert.deepEqual(JSON.parse(JSON.stringify(triageNavigation)), {
+  videoIds: ["alpha-short"],
+});
+
 model = insights.createEmptyInsightsModel();
 state.insightsCache.videoFacts = [];
+state.videos = [];
 state.datasetRevision++;
 view.renderInsights();
 assert.equal(state.selectedChannelKey, "");
@@ -328,6 +431,14 @@ assert.match(html, /id=["']insightsChannelDetail["'][^>]*aria-labelledby=["']ins
 assert.match(html, /id=["']insightsViewVideos["'][^>]*>View videos</i);
 assert.match(html, /id=["']insightsStaleDays["']/i);
 assert.match(html, /id=["']insightsDetailPersistence["']/i);
+assert.match(
+  html,
+  /id=["']insightsTimeDashboard["'][^>]*aria-labelledby=["']insightsTimeTitle["']/i,
+);
+assert.match(
+  html,
+  /id=["']insightsOpenShortlist["'][^>]*>Open shortlist in Triage</i,
+);
 assert.doesNotMatch(
   html,
   /sortable channel and age breakdown arrives in the next slice/i,
