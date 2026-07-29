@@ -7,6 +7,7 @@ const userscriptPath = path.join(__dirname, "..", "youtube-watchlater-toolbox.us
 let source = fs.readFileSync(userscriptPath, "utf8");
 const initializationStart = source.lastIndexOf("  if (document.readyState");
 
+assert.match(source, /^\/\/ @version\s+0\.9\.0$/m, "userscript version must reflect the versioned export change");
 assert.notEqual(initializationStart, -1, "userscript initialization block not found");
 source = `${source.slice(0, initializationStart)}  globalThis.testApi = { buildWatchLaterExportPayload, buildReconciliationReport, parseReconciliationPayload, parseExecutionReportPayload };\n})();\n`;
 

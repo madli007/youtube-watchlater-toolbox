@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Watch Later Toolbox
 // @namespace    https://tampermonkey.net/
-// @version      0.8.0
+// @version      0.9.0
 // @description  Export, execute, and reconcile Watch Later cleanup plans.
 // @author       You
 // @include      https://www.youtube.com/playlist?list=WL*
