@@ -20,6 +20,7 @@
     createDialogsUi: app.ui.dialogs.createDialogsUi,
     createVideoListUi: app.ui.videoList.createVideoListUi,
     createDashboardsUi: app.ui.dashboards.createDashboardsUi,
+    createNavigationUi: app.ui.navigation.createNavigationUi,
     document: root.document,
     window: root,
     crypto: root.crypto,

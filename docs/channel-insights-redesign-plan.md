@@ -1075,7 +1075,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.1 — View shell in hash navigacija
 
-- [ ] **Slice 1.1 zaključen**
+- [x] **Slice 1.1 zaključen**
 - **Cilj:** uvesti tri view containere in delujoč `#triage/#insights/#groups`, pri čemer je samo Triage polno implementiran.
 - **Prizadeto:** `docs/index.html`, novi `docs/assets/js/ui/navigation.js`, `state.js`, `app.js`.
 - **Podatki:** doda se samo transient `activeView`; brez storage migracije.

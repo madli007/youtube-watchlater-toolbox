@@ -60,6 +60,7 @@ const dependencyGraph = {
   "docs/assets/js/ui/dialogs.js": [],
   "docs/assets/js/ui/video-list.js": [],
   "docs/assets/js/ui/dashboards.js": [],
+  "docs/assets/js/ui/navigation.js": [],
   "docs/assets/js/triage-controller.js": [
     "docs/assets/js/config.js",
     "docs/assets/js/domain/decisions.js",
@@ -72,6 +73,7 @@ const dependencyGraph = {
     "docs/assets/js/ui/dialogs.js",
     "docs/assets/js/ui/video-list.js",
     "docs/assets/js/ui/dashboards.js",
+    "docs/assets/js/ui/navigation.js",
   ],
   "docs/assets/js/app.js": [
     "docs/assets/js/config.js",
@@ -79,6 +81,7 @@ const dependencyGraph = {
     "docs/assets/js/browser-io.js",
     "docs/assets/js/state.js",
     "docs/assets/js/ui/dom.js",
+    "docs/assets/js/ui/navigation.js",
     "docs/assets/js/triage-controller.js",
   ],
 };

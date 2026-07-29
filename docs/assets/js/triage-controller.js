@@ -17,6 +17,7 @@
       createDialogsUi,
       createVideoListUi,
       createDashboardsUi,
+      createNavigationUi,
       document,
       window,
       crypto,
@@ -86,6 +87,8 @@
     const uiContext = {
       state,
       els,
+      document,
+      window,
       PAGE_SIZE,
       RULES,
       updateDecisionDetails,
@@ -117,6 +120,7 @@
       setStatusAndAdvance,
       moveCurrent,
       render,
+      renderActiveView,
       showToast,
       saveDecisions,
       savePreviewProgress,
@@ -144,6 +148,7 @@
     Object.assign(uiContext, videoListUi);
     const dashboardUi = createDashboardsUi(uiContext);
     Object.assign(uiContext, dashboardUi);
+    const navigationUi = createNavigationUi(uiContext);
     const {
       buildYouTubeEmbedUrl,
       formatPreviewTime,
@@ -190,6 +195,9 @@
       renderSidebar,
       renderHistory,
     } = dashboardUi;
+    const {
+      initializeNavigation,
+    } = navigationUi;
 
     function init() {
       els.timeBudgetHours.value = state.timeBudgetHours;
@@ -197,7 +205,7 @@
       renderTagFilters();
       renderSavedViews();
       bindEvents();
-      render();
+      initializeNavigation();
     }
 
     function bindEvents() {
@@ -619,6 +627,11 @@
     }
 
     function render(options = {}) {
+      renderActiveView(options);
+    }
+
+    function renderActiveView(options = {}) {
+      if (state.activeView !== "triage") return;
       ensureCurrentVisible();
       renderStats();
       renderTimeDashboard();
@@ -1408,6 +1421,7 @@
     }
 
     function handleShortcuts(event) {
+      if (state.activeView !== "triage") return;
       const tagName = document.activeElement?.tagName?.toLowerCase();
       const isTyping = tagName === "input" || tagName === "select" || tagName === "textarea";
 

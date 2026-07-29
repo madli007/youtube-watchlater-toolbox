@@ -17,6 +17,11 @@
           <p>Import a Watch Later JSON export, mark what stays, export keep/maybe.</p>
         </div>
       </div>
+      <nav id="viewTabs" class="primary-tabs" role="tablist" aria-label="Primary views">
+        <a id="triageTab" class="primary-tab is-active" href="#triage" role="tab" aria-controls="triageView" aria-selected="true" tabindex="0" data-view="triage">Triage</a>
+        <a id="insightsTab" class="primary-tab" href="#insights" role="tab" aria-controls="insightsView" aria-selected="false" tabindex="-1" data-view="insights">Channel Insights</a>
+        <a id="groupsTab" class="primary-tab" href="#groups" role="tab" aria-controls="groupsView" aria-selected="false" tabindex="-1" data-view="groups">Series &amp; Groups</a>
+      </nav>
       <div class="top-actions">
         <label class="file-button">
           Import JSON
@@ -41,6 +46,7 @@
       </div>
     </header>
 
+    <section id="triageView" class="view-shell" role="tabpanel" aria-labelledby="triageTab" data-view-panel="triage">
     <section class="filters" aria-label="Filters">
       <input id="searchInput" type="search" placeholder="Search title, channel, views, tags...">
       <select id="statusFilter">
@@ -280,6 +286,25 @@
         </section>
       </aside>
     </div>
+    </section>
+
+    <section id="insightsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="insightsTab" data-view-panel="insights" hidden>
+      <div class="placeholder-panel">
+        <p class="placeholder-eyebrow">Channel Insights</p>
+        <h2>Coming in Phase 2</h2>
+        <p>Channel, age, watch-time, and decision aggregates will live here.</p>
+        <a class="placeholder-link" href="#triage">Return to Triage</a>
+      </div>
+    </section>
+
+    <section id="groupsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>
+      <div class="placeholder-panel">
+        <p class="placeholder-eyebrow">Series &amp; Groups</p>
+        <h2>Coming in Phase 3</h2>
+        <p>Detected series, similar videos, duplicates, and safe group actions will live here.</p>
+        <a class="placeholder-link" href="#triage">Return to Triage</a>
+      </div>
+    </section>
   </div>
   <dialog id="quickPreviewDialog" class="quick-preview-dialog" aria-labelledby="quickPreviewTitle">
     <div class="quick-preview-panel">
@@ -434,6 +459,7 @@
   <script src="./assets/js/ui/dialogs.js"></script>
   <script src="./assets/js/ui/video-list.js"></script>
   <script src="./assets/js/ui/dashboards.js"></script>
+  <script src="./assets/js/ui/navigation.js"></script>
   <script src="./assets/js/triage-controller.js"></script>
   <script src="./assets/js/app.js"></script>
 </body>

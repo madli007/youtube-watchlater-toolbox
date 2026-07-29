@@ -104,6 +104,7 @@ async function main() {
   assert.deepEqual(plain(state.previewProgress), { one: 83 });
   assert.deepEqual([...state.selectedIds], []);
   assert.deepEqual([...state.activeTags], []);
+  assert.equal(state.activeView, "triage");
 
   state.decisions.two = {
     status: "maybe",

@@ -21,7 +21,7 @@
     }
 
     function maybeRenderMore() {
-      if (!state.videos.length) return;
+      if (state.activeView !== "triage" || !state.videos.length) return;
       const nearBottom = window.innerHeight + window.scrollY > document.body.offsetHeight - 900;
       if (!nearBottom) return;
 

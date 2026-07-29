@@ -26,6 +26,7 @@
       selectedIds: new Set(),
       activeTags: new Set(),
       activeChannels: new Set(),
+      activeView: "triage",
       renderedCount: PAGE_SIZE,
       currentId: "",
       history: persistence.loadHistory(),
