@@ -203,13 +203,8 @@
       renderVideoList,
     } = videoListUi;
     const {
-      renderVideoGroups,
       renderStats,
       countStatuses,
-      updateTimeBudget,
-      handleTimeBudgetInput,
-      selectSuggestedShortlist,
-      renderTimeDashboard,
       updateBulkLabels,
       renderImportComparison,
       renderSidebar,
@@ -223,7 +218,6 @@
     } = navigationUi;
 
     function init() {
-      els.timeBudgetHours.value = state.timeBudgetHours;
       renderBadgeOptions();
       renderTagFilters();
       renderSavedViews();
@@ -284,18 +278,6 @@
       els.saveView.addEventListener("click", saveCurrentView);
       els.deleteView.addEventListener("click", deleteCurrentView);
       els.clearFilters.addEventListener("click", clearFilters);
-      els.timeBudgetHours.addEventListener("input", handleTimeBudgetInput);
-      els.timeBudgetHours.addEventListener("change", updateTimeBudget);
-      els.selectTimeShortlist.addEventListener("click", selectSuggestedShortlist);
-      els.groupTypeFilter.addEventListener("change", () => {
-        state.groupType = els.groupTypeFilter.value;
-        state.renderedGroupCount = 20;
-        renderVideoGroups();
-      });
-      els.showMoreGroups.addEventListener("click", () => {
-        state.renderedGroupCount += 20;
-        renderVideoGroups();
-      });
       els.datasetViews.addEventListener("click", event => {
         const button = event.target.closest("[data-dataset-view]");
         if (!button || button.disabled) return;
@@ -666,8 +648,6 @@
       if (state.activeView !== "triage") return;
       ensureCurrentVisible();
       renderStats();
-      renderTimeDashboard();
-      renderVideoGroups();
       renderVideoList();
       renderSidebar();
       renderHistory();

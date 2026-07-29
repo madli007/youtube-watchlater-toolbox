@@ -923,6 +923,25 @@
       font-size: 12px;
     }
 
+    .triage-destination-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+
+    .triage-destination-links a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .triage-destination-links a:hover,
+    .triage-destination-links a:focus-visible {
+      text-decoration: underline;
+    }
+
     .video-list {
       display: grid;
       gap: 8px;

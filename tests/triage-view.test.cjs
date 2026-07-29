@@ -211,5 +211,34 @@ assert.match(
   /id=["']shortcutHelpDialog["'][^>]*aria-labelledby=["']shortcutHelpTitle["'][\s\S]*<kbd>\?<\/kbd>/i,
   "the shortcut cheat sheet must be an accessible dialog",
 );
+assert.doesNotMatch(
+  html,
+  /class=["'][^"']*\b(?:time-dashboard|group-dashboard)\b/i,
+  "Triage must not contain the legacy analytics or groups dashboards",
+);
+assert.match(
+  html,
+  /<nav[^>]*class=["'][^"']*\btriage-destination-links\b[^"']*["'][^>]*>[\s\S]*href=["']#insights["'][^>]*>Open Channel Insights<[\s\S]*href=["']#groups["'][^>]*>Open Series &amp; Groups</i,
+  "Triage must link to both dedicated analysis views",
+);
+assert.match(
+  html,
+  /class=["'][^"']*\bbulkbar\b[^"']*["'][\s\S]*<\/section>\s*<section id=["']videoList["']/i,
+  "the video list must immediately follow the compact scope and bulk bar",
+);
+
+const controllerSource = fs.readFileSync(
+  path.join(projectRoot, "docs/assets/js/triage-controller.js"),
+  "utf8",
+);
+const activeViewRender = controllerSource.match(
+  /function renderActiveView\(options = \{\}\) \{([\s\S]*?)^\s{4}\}/m,
+)?.[1] || "";
+assert.ok(activeViewRender, "the active-view render function must exist");
+assert.doesNotMatch(
+  activeViewRender,
+  /render(?:TimeDashboard|VideoGroups)\s*\(/,
+  "Triage rendering must not recalculate analytics or groups",
+);
 
 console.log("triage view test passed");

@@ -1130,7 +1130,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.6 — Odstranitev analitike in groups accordionov iz Triage
 
-- [ ] **Slice 1.6 zaključen**
+- [x] **Slice 1.6 zaključen**
 - **Cilj:** dokončati namenski Triage.
 - **Prizadeto:** `docs/index.html`, `ui/triage-view.js`, prehodni `ui/dashboards.js`, `app.js`.
 - **Podatki:** brez izbrisa obstoječe domenske logike.
