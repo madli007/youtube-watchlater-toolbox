@@ -100,6 +100,40 @@ const triageView = sandbox.WatchLaterApp.ui.triageView.createTriageViewUi({
   },
 });
 
+const {
+  getKeyboardShortcutAction,
+  isEditableShortcutTarget,
+} = sandbox.WatchLaterApp.ui.triageView;
+const shortcutAction = (key, options = {}, event = {}) => getKeyboardShortcutAction({
+  key,
+  target: { tagName: "BODY" },
+  ...event,
+}, {
+  hasCurrent: true,
+  ...options,
+});
+
+assert.equal(isEditableShortcutTarget({ tagName: "INPUT" }), true);
+assert.equal(isEditableShortcutTarget({ tagName: "textarea" }), true);
+assert.equal(isEditableShortcutTarget({ tagName: "DIV", isContentEditable: true }), true);
+assert.equal(isEditableShortcutTarget({ tagName: "BUTTON" }), false);
+assert.equal(shortcutAction("?"), "show-shortcuts");
+assert.equal(shortcutAction("/"), "focus-search");
+assert.equal(shortcutAction("x"), "toggle-selection");
+assert.equal(shortcutAction("e"), "edit-video");
+assert.equal(shortcutAction("o"), "open-video");
+assert.equal(shortcutAction("r"), "status:unreviewed");
+assert.equal(shortcutAction("k"), "status:keep");
+assert.equal(shortcutAction("J"), "move:previous");
+assert.equal(shortcutAction("ArrowDown"), "move:next");
+assert.equal(shortcutAction("k", {}, { target: { tagName: "INPUT" } }), "");
+assert.equal(shortcutAction("o", {}, { ctrlKey: true }), "");
+assert.equal(shortcutAction("k", { openDialog: "other" }), "");
+assert.equal(shortcutAction("Escape", { openDialog: "other" }), "close-dialog");
+assert.equal(shortcutAction("k", { openDialog: "preview" }), "preview-status:keep");
+assert.equal(shortcutAction("j", { openDialog: "preview" }), "preview-move:next");
+assert.equal(shortcutAction("x", { hasCurrent: false }), "");
+
 const expectedFilters = {
   search: "documentary",
   status: "maybe",
@@ -166,6 +200,16 @@ assert.match(
   html,
   /id=["']datasetViews["'][\s\S]*data-dataset-view=["']all["'][\s\S]*data-dataset-view=["']decided["']/i,
   "all import views must remain in the compact second row",
+);
+assert.match(
+  html,
+  /id=["']shortcutHelpButton["'][^>]*aria-keyshortcuts=["']\?["']/i,
+  "the visible shortcut button must advertise the ? shortcut",
+);
+assert.match(
+  html,
+  /id=["']shortcutHelpDialog["'][^>]*aria-labelledby=["']shortcutHelpTitle["'][\s\S]*<kbd>\?<\/kbd>/i,
+  "the shortcut cheat sheet must be an accessible dialog",
 );
 
 console.log("triage view test passed");

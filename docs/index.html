@@ -282,6 +282,7 @@
             <button id="selectVisible" type="button">Select visible</button>
             <button id="invertSelection" type="button">Invert</button>
             <button id="clearSelection" type="button">Clear selected</button>
+            <button id="shortcutHelpButton" type="button" aria-haspopup="dialog" aria-keyshortcuts="?">Shortcuts <kbd>?</kbd></button>
           </div>
         </section>
 
@@ -377,6 +378,33 @@
           <button type="button" data-preview-status="unreviewed">Reset</button>
         </div>
       </div>
+    </div>
+  </dialog>
+  <dialog id="shortcutHelpDialog" class="shortcut-help-dialog" aria-labelledby="shortcutHelpTitle">
+    <div class="shortcut-help-panel">
+      <div class="shortcut-help-header">
+        <div>
+          <p class="placeholder-eyebrow">Keyboard-first triage</p>
+          <h2 id="shortcutHelpTitle">Keyboard shortcuts</h2>
+        </div>
+        <button id="closeShortcutHelp" type="button">Close</button>
+      </div>
+      <dl class="shortcut-grid">
+        <div><dt><kbd>J</kbd> / <kbd>↓</kbd></dt><dd>Next video</dd></div>
+        <div><dt><kbd>Shift</kbd> + <kbd>J</kbd> / <kbd>↑</kbd></dt><dd>Previous video</dd></div>
+        <div><dt><kbd>K</kbd></dt><dd>Keep and move next</dd></div>
+        <div><dt><kbd>M</kbd></dt><dd>Maybe and move next</dd></div>
+        <div><dt><kbd>D</kbd></dt><dd>Delete and move next</dd></div>
+        <div><dt><kbd>R</kbd></dt><dd>Reset and move next</dd></div>
+        <div><dt><kbd>X</kbd></dt><dd>Select or deselect current video</dd></div>
+        <div><dt><kbd>P</kbd></dt><dd>Open or close preview</dd></div>
+        <div><dt><kbd>E</kbd></dt><dd>Edit tags and note</dd></div>
+        <div><dt><kbd>O</kbd></dt><dd>Open on YouTube</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>Focus search</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close the open menu or dialog</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this shortcut guide</dd></div>
+      </dl>
+      <p class="scope-text">Shortcuts pause while you type in an input, select, note, or tag field.</p>
     </div>
   </dialog>
   <dialog id="videoEditorDialog">

@@ -70,7 +70,7 @@ assert.doesNotMatch(
   /\b(?:localStorage|FileReader|Blob|createObjectURL|revokeObjectURL)\b/,
   "the application orchestrator must use the replaceable storage and browser I/O boundaries",
 );
-assert.match(source, /event\.key === "p"/, "the p shortcut must toggle the quick preview");
+assert.match(source, /p: "preview-toggle"/, "the p shortcut must toggle the quick preview");
 
 const appSource = scripts.find(script => script.path.endsWith(path.join("js", "app.js"))).source;
 const dialogsSource = scripts.find(script => script.path.endsWith(path.join("ui", "dialogs.js"))).source;
@@ -340,6 +340,8 @@ const videoRow = rowUi.createVideoRow({
 assert.equal(videoRow.dataset.videoId, "video-1");
 assert.equal(videoRow.dataset.status, "maybe");
 assert.equal(videoRow.classList.contains("is-current"), true);
+assert.equal(videoRow.getAttribute("aria-current"), "true");
+assert.equal(videoRow.tabIndex, -1, "the current row must be programmatically focusable");
 assert.equal(videoRow.children.length, 4);
 const rowContent = videoRow.children[2];
 const rowTags = rowContent.children[2];

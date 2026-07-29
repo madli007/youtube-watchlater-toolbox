@@ -1,6 +1,57 @@
 (function registerTriageViewUi(root) {
   "use strict";
 
+  function isEditableShortcutTarget(target) {
+    const tagName = target?.tagName?.toLowerCase();
+    return tagName === "input"
+      || tagName === "select"
+      || tagName === "textarea"
+      || Boolean(target?.isContentEditable);
+  }
+
+  function getKeyboardShortcutAction(event, options = {}) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return "";
+
+    const {
+      hasCurrent = false,
+      openDialog = "",
+    } = options;
+    const key = event.key;
+
+    if (key === "Escape" && openDialog) return "close-dialog";
+    if (isEditableShortcutTarget(event.target)) return "";
+    if (key === "?" && !openDialog) return "show-shortcuts";
+    if (openDialog && openDialog !== "preview") return "";
+    if (key === "/" && !openDialog) return "focus-search";
+    if (!hasCurrent) return "";
+
+    if (openDialog === "preview") {
+      if (key === "p") return "preview-toggle";
+      if (key === "k") return "preview-status:keep";
+      if (key === "m") return "preview-status:maybe";
+      if (key === "d") return "preview-status:delete";
+      if (key === "j" || key === "ArrowDown") return "preview-move:next";
+      if (key === "J" || key === "ArrowUp") return "preview-move:previous";
+      return "";
+    }
+
+    const actions = {
+      p: "preview-toggle",
+      k: "status:keep",
+      m: "status:maybe",
+      d: "status:delete",
+      r: "status:unreviewed",
+      x: "toggle-selection",
+      e: "edit-video",
+      o: "open-video",
+      j: "move:next",
+      J: "move:previous",
+      ArrowDown: "move:next",
+      ArrowUp: "move:previous",
+    };
+    return actions[key] || "";
+  }
+
   function createTriageViewUi(context) {
     const {
       state,
@@ -103,5 +154,7 @@
   app.ui ||= {};
   app.ui.triageView = Object.freeze({
     createTriageViewUi,
+    getKeyboardShortcutAction,
+    isEditableShortcutTarget,
   });
 })(globalThis);

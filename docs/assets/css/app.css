@@ -1181,6 +1181,71 @@
       width: min(1080px, calc(100vw - 28px));
     }
 
+    .shortcut-help-dialog {
+      width: min(720px, calc(100vw - 28px));
+    }
+
+    .shortcut-help-panel {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .shortcut-help-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .shortcut-help-header h2,
+    .shortcut-help-header p {
+      margin: 0;
+    }
+
+    .shortcut-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--border);
+    }
+
+    .shortcut-grid > div {
+      display: grid;
+      grid-template-columns: minmax(116px, auto) 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--panel);
+    }
+
+    .shortcut-grid dt,
+    .shortcut-grid dd {
+      margin: 0;
+    }
+
+    .shortcut-grid dd {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 24px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      background: #141821;
+      color: var(--text);
+      font: 700 12px/18px ui-monospace, SFMono-Regular, Consolas, monospace;
+      text-align: center;
+    }
+
     .quick-preview-panel {
       display: grid;
       gap: 16px;
@@ -1638,6 +1703,10 @@
       }
 
       .quick-preview-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .shortcut-grid {
         grid-template-columns: 1fr;
       }
 

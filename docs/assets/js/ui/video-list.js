@@ -39,10 +39,11 @@
       }
     }
 
-    function scrollCurrentIntoView() {
+    function scrollCurrentIntoView(options = {}) {
       if (!state.currentId) return;
       window.requestAnimationFrame(() => {
         const row = document.querySelector(`.video-row[data-video-id="${CSS.escape(state.currentId)}"]`);
+        if (options.focus) row?.focus({ preventScroll: true });
         row?.scrollIntoView({
           behavior: "smooth",
           block: "nearest",
@@ -98,6 +99,8 @@
       if (state.currentId === video.videoId) row.classList.add("is-current");
       row.dataset.status = status;
       row.dataset.videoId = video.videoId;
+      row.tabIndex = -1;
+      if (state.currentId === video.videoId) row.setAttribute("aria-current", "true");
 
       const checkbox = document.createElement("input");
       checkbox.className = "row-check";

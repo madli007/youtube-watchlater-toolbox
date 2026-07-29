@@ -141,6 +141,11 @@
       resetPreviewDecisionTimer();
     }
 
+    function openShortcutHelp() {
+      if (!els.shortcutHelpDialog.open) els.shortcutHelpDialog.showModal();
+      els.closeShortcutHelp.focus();
+    }
+
     function initializePreviewPlayer() {
       if (!state.previewVideoId || els.quickPreviewPlayer.src === "about:blank") return;
       state.previewPlayerReady = true;
@@ -739,6 +744,7 @@
       updatePreviewTimerUi,
       setPreviewStatusAndAdvance,
       moveQuickPreview,
+      openShortcutHelp,
       openVideoEditor,
       saveVideoEditor,
       renderRuleSummary,

@@ -20,6 +20,7 @@
       createDashboardsUi,
       createActionMenusUi,
       createNavigationUi,
+      getKeyboardShortcutAction,
       document,
       window,
       crypto,
@@ -176,6 +177,8 @@
       startPreviewDecisionTimer,
       setPreviewStatusAndAdvance,
       moveQuickPreview,
+      openShortcutHelp,
+      openVideoEditor,
       saveVideoEditor,
       openRulesDialog,
       resetRuleEditor,
@@ -307,6 +310,7 @@
       els.selectVisible.addEventListener("click", selectVisible);
       els.invertSelection.addEventListener("click", invertVisibleSelection);
       els.clearSelection.addEventListener("click", clearSelection);
+      els.shortcutHelpButton.addEventListener("click", openShortcutHelp);
       els.exportKeepMaybe.addEventListener("click", exportKeepMaybe);
       els.exportDeleteCandidates.addEventListener("click", exportDeleteCandidates);
       els.exportSelected.addEventListener("click", exportSelectedVideos);
@@ -320,6 +324,7 @@
       els.undoBulk.addEventListener("click", undoLastBulkChange);
       els.closeQuickPreview.addEventListener("click", () => els.quickPreviewDialog.close());
       els.quickPreviewDialog.addEventListener("close", closeQuickPreview);
+      els.closeShortcutHelp.addEventListener("click", () => els.shortcutHelpDialog.close());
       els.quickPreviewPlayer.addEventListener("load", initializePreviewPlayer);
       els.startPreviewTimer.addEventListener("click", startPreviewDecisionTimer);
       els.quickPreviewStatusActions.addEventListener("click", event => {
@@ -505,10 +510,13 @@
       if (shouldSave) saveDecisions();
     }
 
-    function setStatusAndAdvance(videoId, status) {
+    function setStatusAndAdvance(videoId, status, options = {}) {
       setStatus(videoId, status);
       moveCurrent(1);
-      render({ scrollToCurrent: true });
+      render({
+        scrollToCurrent: true,
+        focusCurrent: Boolean(options.focusCurrent),
+      });
     }
 
     function moveCurrent(direction) {
@@ -666,7 +674,9 @@
       renderImportComparison();
       updateBulkLabels();
       renderCompactFilters();
-      if (options.scrollToCurrent) scrollCurrentIntoView();
+      if (options.scrollToCurrent) {
+        scrollCurrentIntoView({ focus: Boolean(options.focusCurrent) });
+      }
     }
 
     function getDatasetViewIds(view) {
@@ -1395,52 +1405,59 @@
 
     function handleShortcuts(event) {
       if (state.activeView !== "triage") return;
-      const tagName = document.activeElement?.tagName?.toLowerCase();
-      const isTyping = tagName === "input" || tagName === "select" || tagName === "textarea";
+      const openDialog = [
+        els.shortcutHelpDialog,
+        els.videoEditorDialog,
+        els.rulesDialog,
+        els.channelRulesDialog,
+        els.quickPreviewDialog,
+      ].find(dialog => dialog.open);
+      const action = getKeyboardShortcutAction({
+        key: event.key,
+        target: event.target || document.activeElement,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+      }, {
+        hasCurrent: Boolean(state.currentId),
+        openDialog: openDialog === els.quickPreviewDialog
+          ? "preview"
+          : openDialog
+            ? "other"
+            : "",
+      });
+      if (!action) return;
 
-      if (event.key === "/" && !isTyping) {
-        event.preventDefault();
+      event.preventDefault();
+      if (action === "close-dialog") {
+        openDialog?.close();
+      } else if (action === "show-shortcuts") {
+        openShortcutHelp();
+      } else if (action === "focus-search") {
         els.searchInput.focus();
-        return;
-      }
-
-      if (isTyping || !state.currentId) return;
-
-      if (event.key === "p") {
-        event.preventDefault();
+      } else if (action === "preview-toggle") {
         if (els.quickPreviewDialog.open) els.quickPreviewDialog.close();
         else openQuickPreview(state.currentId);
-        return;
-      }
-
-      if (els.quickPreviewDialog.open && state.previewVideoId) {
-        if (["k", "m", "d"].includes(event.key)) {
-          const status = { k: "keep", m: "maybe", d: "delete" }[event.key];
-          setPreviewStatusAndAdvance(status);
-        } else if (event.key === "j" || event.key === "ArrowDown") {
-          event.preventDefault();
-          moveQuickPreview(1);
-        } else if (event.key === "J" || event.key === "ArrowUp") {
-          event.preventDefault();
-          moveQuickPreview(-1);
-        }
-        return;
-      }
-
-      if (event.key === "k") {
-        setStatusAndAdvance(state.currentId, "keep");
-      } else if (event.key === "m") {
-        setStatusAndAdvance(state.currentId, "maybe");
-      } else if (event.key === "d") {
-        setStatusAndAdvance(state.currentId, "delete");
-      } else if (event.key === "j" || event.key === "ArrowDown") {
-        event.preventDefault();
-        moveCurrent(1);
-        render({ scrollToCurrent: true });
-      } else if (event.key === "J" || event.key === "ArrowUp") {
-        event.preventDefault();
-        moveCurrent(-1);
-        render({ scrollToCurrent: true });
+      } else if (action.startsWith("preview-status:")) {
+        setPreviewStatusAndAdvance(action.split(":")[1]);
+      } else if (action === "preview-move:next") {
+        moveQuickPreview(1);
+      } else if (action === "preview-move:previous") {
+        moveQuickPreview(-1);
+      } else if (action.startsWith("status:")) {
+        setStatusAndAdvance(state.currentId, action.split(":")[1], { focusCurrent: true });
+      } else if (action === "toggle-selection") {
+        if (state.selectedIds.has(state.currentId)) state.selectedIds.delete(state.currentId);
+        else state.selectedIds.add(state.currentId);
+        render({ scrollToCurrent: true, focusCurrent: true });
+      } else if (action === "edit-video") {
+        openVideoEditor(state.currentId);
+      } else if (action === "open-video") {
+        const video = state.videos.find(candidate => candidate.videoId === state.currentId);
+        if (video) window.open(video.cleanUrl || video.url, "_blank", "noreferrer");
+      } else if (action === "move:next" || action === "move:previous") {
+        moveCurrent(action === "move:next" ? 1 : -1);
+        render({ scrollToCurrent: true, focusCurrent: true });
       }
     }
 
@@ -1458,6 +1475,7 @@
       testApi: Object.freeze({
         buildYouTubeEmbedUrl,
         formatPreviewTime,
+        handleShortcuts,
       }),
     });
   }

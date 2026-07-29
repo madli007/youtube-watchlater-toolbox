@@ -23,6 +23,7 @@
     createDashboardsUi: app.ui.dashboards.createDashboardsUi,
     createActionMenusUi: app.ui.actionMenus.createActionMenusUi,
     createNavigationUi: app.ui.navigation.createNavigationUi,
+    getKeyboardShortcutAction: app.ui.triageView.getKeyboardShortcutAction,
     document: root.document,
     window: root,
     crypto: root.crypto,

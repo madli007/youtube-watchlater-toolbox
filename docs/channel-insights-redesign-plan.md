@@ -1119,7 +1119,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.5 — Keyboard-first polish
 
-- [ ] **Slice 1.5 zaključen**
+- [x] **Slice 1.5 zaključen**
 - **Cilj:** ohraniti bližnjice in dodati discoverability.
 - **Prizadeto:** `app.js`, `ui/video-list.js`, `ui/dialogs.js`, `ui/triage-view.js`.
 - **Podatki:** brez sprememb.
