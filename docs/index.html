@@ -22,27 +22,62 @@
         <a id="insightsTab" class="primary-tab" href="#insights" role="tab" aria-controls="insightsView" aria-selected="false" tabindex="-1" data-view="insights">Channel Insights</a>
         <a id="groupsTab" class="primary-tab" href="#groups" role="tab" aria-controls="groupsView" aria-selected="false" tabindex="-1" data-view="groups">Series &amp; Groups</a>
       </nav>
-      <div class="top-actions">
-        <label class="file-button">
-          Import JSON
-          <input id="fileInput" type="file" accept=".json,application/json">
-        </label>
-        <button id="exportKeepMaybe" type="button">Export keep/maybe</button>
-        <button id="exportDeleteCandidates" type="button">Export delete candidates</button>
-        <button id="exportSelected" type="button">Export selected</button>
-        <button id="exportVisible" type="button">Export visible</button>
-        <button id="exportTagged" type="button">Export tagged all</button>
-        <button id="exportDecisions" type="button">Export decisions</button>
-        <label class="file-button secondary">
-          Import decisions
-          <input id="decisionsInput" type="file" accept=".json,application/json">
-        </label>
-        <button id="exportWorkspace" type="button">Export workspace</button>
-        <label class="file-button secondary">
-          Import workspace
-          <input id="workspaceInput" type="file" accept=".json,application/json">
-        </label>
-        <button id="clearDecisions" type="button">Clear decisions</button>
+      <div class="top-actions" role="group" aria-label="Import and export actions">
+        <div id="importMenuRoot" class="action-menu-root">
+          <div class="split-button">
+            <label id="importJsonAction" class="file-button split-main" for="fileInput" role="button" tabindex="0">Import JSON</label>
+            <button id="importMenuButton" class="action-menu-trigger split-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="importMenu">
+              <span aria-hidden="true">▾</span>
+              <span class="visually-hidden">More import options</span>
+            </button>
+          </div>
+          <div id="importMenu" class="action-menu" role="menu" aria-labelledby="importMenuButton" hidden>
+            <label class="action-menu-item" for="decisionsInput" role="menuitem" tabindex="-1">Import decisions</label>
+            <label class="action-menu-item" for="workspaceInput" role="menuitem" tabindex="-1">Import workspace</label>
+          </div>
+        </div>
+
+        <div id="exportMenuRoot" class="action-menu-root">
+          <div class="split-button">
+            <button id="exportKeepMaybe" class="split-main" type="button">Export keep/maybe</button>
+            <button id="exportMenuButton" class="action-menu-trigger split-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">
+              <span aria-hidden="true">▾</span>
+              <span class="visually-hidden">More export options</span>
+            </button>
+          </div>
+          <div id="exportMenu" class="action-menu" role="menu" aria-labelledby="exportMenuButton" hidden>
+            <button id="exportDeleteCandidates" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export delete candidates</button>
+            <button id="exportSelected" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export selected</button>
+            <button id="exportVisible" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export visible</button>
+            <button id="exportTagged" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export tagged all</button>
+          </div>
+        </div>
+
+        <div id="workspaceMenuRoot" class="action-menu-root">
+          <button id="workspaceMenuButton" class="action-menu-trigger menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="workspaceMenu">
+            Workspace <span aria-hidden="true">▾</span>
+          </button>
+          <div id="workspaceMenu" class="action-menu" role="menu" aria-labelledby="workspaceMenuButton" hidden>
+            <button id="exportWorkspace" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export workspace</button>
+            <label class="action-menu-item" for="workspaceInput" role="menuitem" tabindex="-1">Import workspace</label>
+          </div>
+        </div>
+
+        <div id="decisionsMenuRoot" class="action-menu-root">
+          <button id="decisionsMenuButton" class="action-menu-trigger menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="decisionsMenu">
+            Decisions <span aria-hidden="true">▾</span>
+          </button>
+          <div id="decisionsMenu" class="action-menu" role="menu" aria-labelledby="decisionsMenuButton" hidden>
+            <button id="exportDecisions" class="action-menu-item" type="button" role="menuitem" tabindex="-1">Export decisions</button>
+            <label class="action-menu-item" for="decisionsInput" role="menuitem" tabindex="-1">Import decisions</label>
+            <div class="action-menu-separator" role="separator"></div>
+            <button id="clearDecisions" class="action-menu-item danger-action" type="button" role="menuitem" tabindex="-1">Clear decisions</button>
+          </div>
+        </div>
+
+        <input id="fileInput" class="visually-hidden-file" type="file" accept=".json,application/json" tabindex="-1">
+        <input id="decisionsInput" class="visually-hidden-file" type="file" accept=".json,application/json" tabindex="-1">
+        <input id="workspaceInput" class="visually-hidden-file" type="file" accept=".json,application/json" tabindex="-1">
       </div>
     </header>
 
@@ -459,6 +494,7 @@
   <script src="./assets/js/ui/dialogs.js"></script>
   <script src="./assets/js/ui/video-list.js"></script>
   <script src="./assets/js/ui/dashboards.js"></script>
+  <script src="./assets/js/ui/action-menus.js"></script>
   <script src="./assets/js/ui/navigation.js"></script>
   <script src="./assets/js/triage-controller.js"></script>
   <script src="./assets/js/app.js"></script>

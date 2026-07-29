@@ -17,6 +17,7 @@
       createDialogsUi,
       createVideoListUi,
       createDashboardsUi,
+      createActionMenusUi,
       createNavigationUi,
       document,
       window,
@@ -148,6 +149,7 @@
     Object.assign(uiContext, videoListUi);
     const dashboardUi = createDashboardsUi(uiContext);
     Object.assign(uiContext, dashboardUi);
+    const actionMenusUi = createActionMenusUi(uiContext);
     const navigationUi = createNavigationUi(uiContext);
     const {
       buildYouTubeEmbedUrl,
@@ -196,6 +198,9 @@
       renderHistory,
     } = dashboardUi;
     const {
+      initializeActionMenus,
+    } = actionMenusUi;
+    const {
       initializeNavigation,
     } = navigationUi;
 
@@ -205,6 +210,7 @@
       renderTagFilters();
       renderSavedViews();
       bindEvents();
+      initializeActionMenus();
       initializeNavigation();
     }
 

@@ -1086,7 +1086,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.2 — Import/Export/Workspace/Decisions meniji
 
-- [ ] **Slice 1.2 zaključen**
+- [x] **Slice 1.2 zaključen**
 - **Cilj:** zmanjšati topbar clutter brez odstranitve funkcij.
 - **Prizadeto:** `docs/index.html`, `app.css`, novi `ui/action-menus.js`, `ui/dom.js`, obstoječi browser I/O handlerji v `app.js`.
 - **Podatki:** brez sprememb.
