@@ -1165,7 +1165,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.2 — Insights shell in KPI kartice
 
-- [ ] **Slice 2.2 zaključen**
+- [x] **Slice 2.2 zaključen**
 - **Cilj:** prikazati channel/video/time/undecided/oldest/coverage povzetek.
 - **Prizadeto:** `docs/index.html`, `app.css`, novi `ui/insights-view.js`, `ui/navigation.js`, `state.js`.
 - **Podatki:** memoized InsightsModel z `datasetRevision` in `decisionRevision`.

@@ -70,6 +70,7 @@ const dependencyGraph = {
   "docs/assets/js/ui/video-list.js": [],
   "docs/assets/js/ui/dashboards.js": [],
   "docs/assets/js/ui/action-menus.js": [],
+  "docs/assets/js/ui/insights-view.js": [],
   "docs/assets/js/ui/navigation.js": [],
   "docs/assets/js/triage-controller.js": [
     "docs/assets/js/config.js",
@@ -77,6 +78,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/watchlater-import.js",
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/filters.js",
+    "docs/assets/js/domain/insights.js",
     "docs/assets/js/domain/time-budget.js",
     "docs/assets/js/domain/grouping.js",
     "docs/assets/js/domain/workspace.js",
@@ -86,6 +88,7 @@ const dependencyGraph = {
     "docs/assets/js/ui/video-list.js",
     "docs/assets/js/ui/dashboards.js",
     "docs/assets/js/ui/action-menus.js",
+    "docs/assets/js/ui/insights-view.js",
     "docs/assets/js/ui/navigation.js",
   ],
   "docs/assets/js/app.js": [
@@ -96,6 +99,7 @@ const dependencyGraph = {
     "docs/assets/js/ui/dom.js",
     "docs/assets/js/ui/triage-view.js",
     "docs/assets/js/ui/action-menus.js",
+    "docs/assets/js/ui/insights-view.js",
     "docs/assets/js/ui/navigation.js",
     "docs/assets/js/triage-controller.js",
   ],

@@ -8,6 +8,7 @@
       watchLaterImport,
       importComparison,
       filters,
+      insights,
       timeBudget,
       grouping,
       workspace,
@@ -20,6 +21,7 @@
       createVideoListUi,
       createDashboardsUi,
       createActionMenusUi,
+      createInsightsViewUi,
       createNavigationUi,
       getKeyboardShortcutAction,
       document,
@@ -69,6 +71,9 @@
       filterChannelOptions,
       getChannelOptionPage,
     } = filters;
+    const {
+      getMemoizedInsightsModel,
+    } = insights;
     const {
       normalizeTimeBudgetHours,
       calculateDurationStats,
@@ -131,6 +136,7 @@
       moveCurrent,
       render,
       renderActiveView,
+      getInsightsModel,
       showToast,
       saveDecisions,
       savePreviewProgress,
@@ -162,6 +168,8 @@
     const dashboardUi = createDashboardsUi(uiContext);
     Object.assign(uiContext, dashboardUi);
     const actionMenusUi = createActionMenusUi(uiContext);
+    const insightsViewUi = createInsightsViewUi(uiContext);
+    Object.assign(uiContext, insightsViewUi);
     const navigationUi = createNavigationUi(uiContext);
     const {
       initializeTriageView,
@@ -218,6 +226,9 @@
       initializeActionMenus,
     } = actionMenusUi;
     const {
+      renderInsights,
+    } = insightsViewUi;
+    const {
       initializeNavigation,
     } = navigationUi;
 
@@ -234,6 +245,9 @@
 
     function bindEvents() {
       els.fileInput.addEventListener("change", importFile);
+      els.insightsImportJsonAction.addEventListener("click", () => {
+        els.fileInput.click();
+      });
       els.searchInput.addEventListener("input", () => {
         handleFilterChange();
       });
@@ -394,6 +408,7 @@
         );
 
         state.videos = deduped;
+        state.datasetRevision++;
         state.selectedIds.clear();
         state.activeTags.clear();
         state.activeChannels.clear();
@@ -651,6 +666,10 @@
     }
 
     function renderActiveView(options = {}) {
+      if (state.activeView === "insights") {
+        renderInsights();
+        return;
+      }
       if (state.activeView !== "triage") return;
       ensureCurrentVisible();
       renderStats();
@@ -663,6 +682,19 @@
       if (options.scrollToCurrent) {
         scrollCurrentIntoView({ focus: Boolean(options.focusCurrent) });
       }
+    }
+
+    function getInsightsModel() {
+      return getMemoizedInsightsModel(state.insightsCache, {
+        videos: state.videos,
+        decisions: state.decisions,
+        importContext: {
+          ...(state.lastImport || {}),
+          importComparison: state.importComparison,
+        },
+        datasetRevision: state.datasetRevision,
+        decisionRevision: state.decisionRevision,
+      });
     }
 
     function getDatasetViewIds(view) {
@@ -1167,6 +1199,7 @@
         state.videos = dedupeVideos(incoming.videos)
           .map(video => enrichVideo(video))
           .filter(video => video.videoId);
+        state.datasetRevision++;
         state.datasetBaseline = createDatasetBaseline(state.videos, state.lastImport);
         saveDatasetBaseline(state.datasetBaseline);
         state.history = mergeHistoryEntries([
@@ -1362,6 +1395,7 @@
     }
 
     function saveDecisions() {
+      state.decisionRevision++;
       return persistence.saveDecisions(state.decisions);
     }
 
@@ -1462,6 +1496,7 @@
         buildYouTubeEmbedUrl,
         formatPreviewTime,
         handleShortcuts,
+        getInsightsModel,
       }),
     });
   }

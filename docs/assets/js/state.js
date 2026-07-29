@@ -16,7 +16,8 @@
    *
    * Persistent fields: decisions, history, userRules, channelRules, savedViews,
    * datasetBaseline, timeBudgetHours, and previewProgress.
-   * Dataset fields: videos, lastImport, importComparison, and insightsCache.
+   * Dataset fields: videos, lastImport, importComparison, revision counters,
+   * and insightsCache.
    * Transient UI fields: selections, active filters/editors, rendered limits,
    * grouping cache, current preview state, and preview timers.
    */
@@ -28,6 +29,8 @@
       activeTags: new Set(),
       activeChannels: new Set(),
       activeView: "triage",
+      datasetRevision: 0,
+      decisionRevision: 0,
       renderedCount: PAGE_SIZE,
       currentId: "",
       history: persistence.loadHistory(),

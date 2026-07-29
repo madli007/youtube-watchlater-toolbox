@@ -275,12 +275,61 @@
     </div>
     </section>
 
-    <section id="insightsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="insightsTab" data-view-panel="insights" hidden>
-      <div class="placeholder-panel">
-        <p class="placeholder-eyebrow">Channel Insights</p>
-        <h2>Coming in Phase 2</h2>
-        <p>Channel, age, watch-time, and decision aggregates will live here.</p>
-        <a class="placeholder-link" href="#triage">Return to Triage</a>
+    <section id="insightsView" class="view-shell insights-view" role="tabpanel" aria-labelledby="insightsTab" data-view-panel="insights" hidden>
+      <header class="insights-header">
+        <div>
+          <p class="placeholder-eyebrow">Channel Insights</p>
+          <h1>Backlog at a glance</h1>
+        </div>
+        <p id="insightsImportContext" class="insights-import-context">Import a Watch Later JSON file to calculate channel insights.</p>
+      </header>
+
+      <div id="insightsEmptyState" class="insights-empty-state">
+        <h2>No Watch Later data yet</h2>
+        <p>Import JSON to see channel, watch-time, age, and decision coverage.</p>
+        <button id="insightsImportJsonAction" type="button">Import JSON</button>
+      </div>
+
+      <section id="insightsSummary" class="insights-summary" aria-label="Channel insight summary" hidden>
+        <article class="insights-kpi">
+          <span>Channels</span>
+          <strong id="insightsChannelCount">0</strong>
+          <small>Distinct channel identities</small>
+        </article>
+        <article class="insights-kpi">
+          <span>Videos</span>
+          <strong id="insightsVideoCount">0</strong>
+          <small>Current imported backlog</small>
+        </article>
+        <article class="insights-kpi">
+          <span>Known watch time</span>
+          <strong id="insightsWatchTime">—</strong>
+          <small id="insightsWatchTimeHint">No videos in this import</small>
+        </article>
+        <article class="insights-kpi insights-kpi-decision">
+          <span>Undecided</span>
+          <strong id="insightsUndecidedCount">0</strong>
+          <small>Videos still unreviewed</small>
+        </article>
+        <article class="insights-kpi">
+          <span>Oldest video</span>
+          <strong id="insightsOldestAge">—</strong>
+          <small id="insightsOldestHint">No videos in this import</small>
+        </article>
+        <article class="insights-kpi">
+          <span>Coverage</span>
+          <strong id="insightsCoverageValue">—</strong>
+          <small id="insightsCoverageHint">Coverage appears after import</small>
+        </article>
+      </section>
+
+      <div id="insightsNextStep" class="insights-next-step" hidden>
+        <div>
+          <p class="placeholder-eyebrow">Next insight layer</p>
+          <h2>Channel × age matrix</h2>
+          <p>The KPI summary is ready. The sortable channel and age breakdown arrives in the next slice.</p>
+        </div>
+        <a class="placeholder-link" href="#triage">Review videos in Triage</a>
       </div>
     </section>
 
@@ -477,6 +526,7 @@
   <script src="./assets/js/ui/video-list.js"></script>
   <script src="./assets/js/ui/dashboards.js"></script>
   <script src="./assets/js/ui/action-menus.js"></script>
+  <script src="./assets/js/ui/insights-view.js"></script>
   <script src="./assets/js/ui/navigation.js"></script>
   <script src="./assets/js/triage-controller.js"></script>
   <script src="./assets/js/app.js"></script>

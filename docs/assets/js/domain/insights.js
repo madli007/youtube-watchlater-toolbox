@@ -344,6 +344,62 @@
     };
   }
 
+  function refreshVideoFactDecisions(videoFacts, decisions = {}) {
+    let changed = false;
+    const refreshed = (Array.isArray(videoFacts) ? videoFacts : []).map(fact => {
+      const decision = normalizeDecision(decisions?.[fact.videoId] || {});
+      const isUntouched = decision.status === "unreviewed";
+      if (fact.status === decision.status
+        && fact.isUntouched === isUntouched
+        && fact.decisionUpdatedAt === decision.updatedAt) {
+        return fact;
+      }
+      changed = true;
+      return {
+        ...fact,
+        status: decision.status,
+        isUntouched,
+        decisionUpdatedAt: decision.updatedAt,
+      };
+    });
+    return changed ? refreshed : videoFacts;
+  }
+
+  function getMemoizedInsightsModel(cache, input = {}) {
+    const target = cache && typeof cache === "object"
+      ? cache
+      : createEmptyInsightsCache();
+    const datasetRevision = Number.isInteger(input.datasetRevision)
+      ? input.datasetRevision
+      : 0;
+    const decisionRevision = Number.isInteger(input.decisionRevision)
+      ? input.decisionRevision
+      : 0;
+    const datasetChanged = target.datasetRevision !== datasetRevision;
+    const decisionsChanged = target.decisionRevision !== decisionRevision;
+
+    if (!datasetChanged && !decisionsChanged) return target.model;
+
+    if (datasetChanged) {
+      target.videoFacts = deriveVideoFacts(
+        input.videos,
+        input.decisions,
+        input.importContext,
+        input.now,
+      );
+    } else if (decisionsChanged) {
+      target.videoFacts = refreshVideoFactDecisions(
+        target.videoFacts,
+        input.decisions,
+      );
+    }
+
+    target.model = buildChannelInsights(target.videoFacts, input.options);
+    target.datasetRevision = datasetRevision;
+    target.decisionRevision = decisionRevision;
+    return target.model;
+  }
+
   app.domain.insights = Object.freeze({
     AGE_BUCKET_KEYS,
     STATUS_KEYS,
@@ -353,5 +409,7 @@
     buildChannelInsights,
     createEmptyInsightsModel,
     createEmptyInsightsCache,
+    refreshVideoFactDecisions,
+    getMemoizedInsightsModel,
   });
 })(globalThis);

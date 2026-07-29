@@ -244,4 +244,59 @@ assert.deepEqual(plain(insights.createEmptyInsightsCache()), {
   model: plain(insights.createEmptyInsightsModel()),
 });
 
+const memoizedCache = insights.createEmptyInsightsCache();
+const memoizedInput = {
+  videos: [
+    {
+      videoId: "memoized",
+      channel: "Cache Channel",
+      durationSeconds: 90,
+      uploaded: "10 days ago",
+    },
+  ],
+  decisions: {},
+  importContext: { sourceExportedAt: anchor },
+  datasetRevision: 1,
+  decisionRevision: 0,
+  now: anchor,
+};
+const initialMemoizedModel = insights.getMemoizedInsightsModel(
+  memoizedCache,
+  memoizedInput,
+);
+const initialMemoizedFacts = memoizedCache.videoFacts;
+assert.equal(initialMemoizedModel.videoCount, 1);
+assert.equal(initialMemoizedModel.statusCounts.unreviewed, 1);
+assert.equal(
+  insights.getMemoizedInsightsModel(memoizedCache, memoizedInput),
+  initialMemoizedModel,
+  "unchanged revisions must return the memoized model",
+);
+
+const decidedMemoizedModel = insights.getMemoizedInsightsModel(memoizedCache, {
+  ...memoizedInput,
+  decisions: { memoized: { status: "keep" } },
+  decisionRevision: 1,
+});
+assert.notEqual(decidedMemoizedModel, initialMemoizedModel);
+assert.notEqual(memoizedCache.videoFacts, initialMemoizedFacts);
+assert.equal(memoizedCache.videoFacts[0].durationSeconds, 90);
+assert.equal(memoizedCache.videoFacts[0].ageDays, 10);
+assert.equal(decidedMemoizedModel.statusCounts.keep, 1);
+assert.equal(decidedMemoizedModel.statusCounts.unreviewed, 0);
+
+const datasetMemoizedModel = insights.getMemoizedInsightsModel(memoizedCache, {
+  ...memoizedInput,
+  videos: [...memoizedInput.videos, {
+    videoId: "second",
+    channel: "Other channel",
+    uploaded: "",
+  }],
+  decisions: { memoized: { status: "keep" } },
+  datasetRevision: 2,
+  decisionRevision: 1,
+});
+assert.equal(datasetMemoizedModel.videoCount, 2);
+assert.equal(memoizedCache.datasetRevision, 2);
+
 console.log("channel insights domain test passed");
