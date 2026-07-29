@@ -27,6 +27,10 @@ const dependencyGraph = {
   "docs/assets/js/domain/filters.js": [
     "docs/assets/js/domain/decisions.js",
   ],
+  "docs/assets/js/domain/insights.js": [
+    "docs/assets/js/domain/decisions.js",
+    "docs/assets/js/domain/filters.js",
+  ],
   "docs/assets/js/domain/time-budget.js": [
     "docs/assets/js/domain/decisions.js",
     "docs/assets/js/domain/filters.js",
@@ -55,6 +59,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/decisions.js",
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/filters.js",
+    "docs/assets/js/domain/insights.js",
     "docs/assets/js/storage.js",
   ],
   "docs/assets/js/ui/dom.js": [],

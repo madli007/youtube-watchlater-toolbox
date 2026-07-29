@@ -10,6 +10,7 @@ const modulePaths = [
   "docs/assets/js/domain/watchlater-import.js",
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
+  "docs/assets/js/domain/insights.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/domain/grouping.js",
   "docs/assets/js/domain/workspace.js",
@@ -32,6 +33,7 @@ const {
   watchLaterImport,
   importComparison,
   filters,
+  insights,
   timeBudget,
   grouping,
   workspace,
@@ -146,6 +148,10 @@ assert.deepEqual(plain(filters.getAdvancedFilterEntries({
   { key: "availability", label: "Available only" },
   { key: "note", label: "Has note" },
 ]);
+assert.equal(insights.getAgeBucket(366), "1y+");
+assert.deepEqual(plain(insights.buildChannelInsights([], {})), plain(
+  insights.createEmptyInsightsModel(),
+));
 
 const durationStats = timeBudget.calculateDurationStats([
   { videoId: "keep", channel: "A", durationSeconds: 600, suggestedTags: ["dev"] },

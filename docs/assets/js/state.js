@@ -9,13 +9,14 @@
   } = app.domain.decisions;
   const { normalizeSavedViews } = app.domain.filters;
   const { createEmptyImportComparison } = app.domain.importComparison;
+  const { createEmptyInsightsCache } = app.domain.insights;
 
   /**
    * Creates the single mutable application state container.
    *
    * Persistent fields: decisions, history, userRules, channelRules, savedViews,
    * datasetBaseline, timeBudgetHours, and previewProgress.
-   * Dataset fields: videos, lastImport, and importComparison.
+   * Dataset fields: videos, lastImport, importComparison, and insightsCache.
    * Transient UI fields: selections, active filters/editors, rendered limits,
    * grouping cache, current preview state, and preview timers.
    */
@@ -37,6 +38,7 @@
       lastImport: null,
       datasetView: "all",
       importComparison: createEmptyImportComparison(),
+      insightsCache: createEmptyInsightsCache(),
       datasetBaseline: persistence.loadDatasetBaseline(),
       editingVideoId: "",
       editingRuleName: "",

@@ -1154,7 +1154,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 2.1 — VideoFact in channel agregacije
 
-- [ ] **Slice 2.1 zaključen**
+- [x] **Slice 2.1 zaključen**
 - **Cilj:** ustvariti en čist, testiran derived model.
 - **Prizadeto:** novi `docs/assets/js/domain/insights.js`, `state.js`, testni loader.
 - **Podatki:** samo derived cache, brez nove persistence.

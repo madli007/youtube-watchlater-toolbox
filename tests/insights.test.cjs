@@ -1,0 +1,247 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const projectRoot = path.resolve(__dirname, "..");
+const modulePaths = [
+  "docs/assets/js/config.js",
+  "docs/assets/js/domain/decisions.js",
+  "docs/assets/js/domain/filters.js",
+  "docs/assets/js/domain/insights.js",
+];
+const sandbox = {};
+vm.createContext(sandbox);
+for (const relativePath of modulePaths) {
+  const source = fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
+  assert.doesNotMatch(
+    source,
+    /\b(?:document|localStorage|sessionStorage)\b/,
+    `${relativePath} must remain a pure domain module`,
+  );
+  vm.runInContext(source, sandbox, { filename: relativePath });
+}
+
+const { insights } = sandbox.WatchLaterApp.domain;
+const plain = value => JSON.parse(JSON.stringify(value));
+const anchor = "2026-07-01T12:00:00.000Z";
+
+assert.deepEqual(plain(insights.AGE_BUCKET_KEYS), [
+  "0-7d",
+  "8-30d",
+  "1-3m",
+  "3-6m",
+  "6-12m",
+  "1y+",
+  "unknown",
+]);
+assert.equal(insights.getAgeBucket(0), "0-7d");
+assert.equal(insights.getAgeBucket(7.999), "0-7d");
+assert.equal(insights.getAgeBucket(8), "8-30d");
+assert.equal(insights.getAgeBucket(30.999), "8-30d");
+assert.equal(insights.getAgeBucket(31), "1-3m");
+assert.equal(insights.getAgeBucket(90.999), "1-3m");
+assert.equal(insights.getAgeBucket(91), "3-6m");
+assert.equal(insights.getAgeBucket(182.999), "3-6m");
+assert.equal(insights.getAgeBucket(183), "6-12m");
+assert.equal(insights.getAgeBucket(365.999), "6-12m");
+assert.equal(insights.getAgeBucket(366), "1y+");
+assert.equal(insights.getAgeBucket(null), "unknown");
+assert.equal(insights.getAgeBucket(-1), "unknown");
+
+assert.equal(
+  insights.getChannelKey("https://www.youtube.com/@Example/videos?view=0", "Old name"),
+  "url:@example",
+);
+assert.equal(
+  insights.getChannelKey("https://youtube.com/channel/UC-AbC/featured", "Channel"),
+  "url:channel/uc-abc",
+);
+assert.equal(insights.getChannelKey("", " Čudežni   Kanal "), "name:cudezni kanal");
+assert.equal(insights.getChannelKey("", ""), "name:(unknown)");
+
+const videos = [
+  {
+    videoId: "zero",
+    channel: "Alpha",
+    channelUrl: "https://www.youtube.com/@Alpha",
+    durationSeconds: 60,
+    uploaded: "today",
+    viewCountApprox: 10,
+  },
+  {
+    videoId: "eight",
+    channel: "Alpha",
+    channelUrl: "https://youtube.com/@alpha/videos",
+    durationSeconds: 120,
+    uploaded: "8 days ago",
+    views: "2K views",
+  },
+  {
+    videoId: "month",
+    channel: "Alpha renamed",
+    channelUrl: "/@ALPHA?feature=shared",
+    durationSeconds: null,
+    uploaded: "31 days ago",
+  },
+  {
+    videoId: "quarter",
+    channel: "Alpha",
+    channelUrl: "youtube.com/@alpha",
+    durationSeconds: 240,
+    uploaded: "91 days ago",
+    isUnavailable: true,
+  },
+  {
+    videoId: "half-year",
+    channel: "Alpha renamed",
+    channelUrl: "https://m.youtube.com/@alpha/featured",
+    durationSeconds: 300,
+    uploaded: "183 days ago",
+  },
+  {
+    videoId: "year",
+    channel: "Čudežni Kanal",
+    durationSeconds: 360,
+    uploaded: "366 days ago",
+  },
+  {
+    videoId: "fallback",
+    channel: "cudezni   kanal",
+    durationSeconds: -1,
+    uploaded: "not available",
+  },
+  {
+    videoId: "unknown-channel",
+    channel: "",
+    durationSeconds: 480,
+    uploaded: "",
+  },
+  { title: "Missing video ID" },
+];
+const decisions = {
+  zero: { status: "keep", updatedAt: "2026-06-01T00:00:00.000Z" },
+  eight: { status: "maybe" },
+  month: { status: "delete" },
+  quarter: { status: "archive" },
+  "half-year": { status: "keep" },
+};
+const facts = insights.deriveVideoFacts(
+  videos,
+  decisions,
+  {
+    sourceExportedAt: anchor,
+    importedAt: "2026-07-02T12:00:00.000Z",
+    importComparison: { newIds: ["eight", "fallback"] },
+  },
+  anchor,
+);
+
+assert.equal(facts.length, 8);
+assert.deepEqual(plain(facts.map(fact => fact.ageBucket)), [
+  "0-7d",
+  "8-30d",
+  "1-3m",
+  "3-6m",
+  "6-12m",
+  "1y+",
+  "unknown",
+  "unknown",
+]);
+assert.equal(facts[0].approxPublishedAt, anchor);
+assert.equal(facts[2].approxPublishedAt, "2026-05-31T12:00:00.000Z");
+assert.equal(facts[1].viewCountApprox, 2000);
+assert.equal(facts[6].durationSeconds, null);
+assert.equal(facts[3].isUnavailable, true);
+assert.equal(facts[1].isNewSinceLastImport, true);
+assert.equal(facts[0].decisionUpdatedAt, "2026-06-01T00:00:00.000Z");
+
+const agedFact = insights.deriveVideoFacts(
+  [{ videoId: "anchored", uploaded: "30 days ago" }],
+  {},
+  { sourceExportedAt: anchor },
+  "2026-07-11T12:00:00.000Z",
+)[0];
+assert.equal(agedFact.ageDays, 40);
+assert.equal(agedFact.approxPublishedAt, "2026-06-01T12:00:00.000Z");
+const legacyFact = insights.deriveVideoFacts(
+  [{ videoId: "legacy-anchor", uploaded: "1 day ago" }],
+  {},
+  { importedAt: "2026-06-20T12:00:00.000Z" },
+  "2026-06-22T12:00:00.000Z",
+)[0];
+assert.equal(legacyFact.ageDays, 3);
+assert.equal(legacyFact.approxPublishedAt, "2026-06-19T12:00:00.000Z");
+
+const model = insights.buildChannelInsights(facts);
+assert.equal(model.videoCount, 8);
+assert.equal(model.channelCount, 3);
+assert.equal(model.knownDurationCount, 6);
+assert.equal(model.totalDurationSeconds, 1560);
+assert.equal(model.knownAgeCount, 6);
+assert.equal(model.averageAgeDays, 679 / 6);
+assert.equal(model.oldestVideo.videoId, "year");
+assert.deepEqual(plain(model.statusCounts), {
+  keep: 2,
+  maybe: 1,
+  delete: 1,
+  unreviewed: 3,
+  archive: 1,
+});
+assert.equal(model.ageBuckets["0-7d"].count, 1);
+assert.equal(model.ageBuckets["8-30d"].durationSeconds, 120);
+assert.equal(model.ageBuckets["1-3m"].knownDurationCount, 0);
+assert.equal(model.ageBuckets["3-6m"].count, 1);
+assert.equal(model.ageBuckets["6-12m"].count, 1);
+assert.equal(model.ageBuckets["1y+"].count, 1);
+assert.equal(model.ageBuckets.unknown.count, 2);
+assert.equal(model.coverage.durationPercent, 75);
+assert.equal(model.coverage.agePercent, 75);
+assert.equal(model.coverage.channelIdentityPercent, 62.5);
+
+const alpha = model.channels.find(channel => channel.channelKey === "url:@alpha");
+assert.equal(alpha.channelName, "Alpha");
+assert.equal(alpha.totalCount, 5);
+assert.equal(alpha.knownDurationCount, 4);
+assert.equal(alpha.totalDurationSeconds, 720);
+assert.equal(alpha.knownAgeCount, 5);
+assert.equal(alpha.averageAgeDays, 313 / 5);
+assert.equal(alpha.oldestAgeDays, 183);
+assert.equal(alpha.oldestUntouchedCount, 0);
+assert.equal(alpha.newSinceLastImportCount, 1);
+assert.deepEqual(plain(alpha.statusCounts), {
+  keep: 2,
+  maybe: 1,
+  delete: 1,
+  unreviewed: 0,
+  archive: 1,
+});
+assert.equal(alpha.ageBuckets["6-12m"].durationSeconds, 300);
+assert.equal(alpha.persistence, null);
+
+const fallback = model.channels.find(
+  channel => channel.channelKey === "name:cudezni kanal",
+);
+assert.equal(fallback.totalCount, 2);
+assert.equal(fallback.oldestUntouchedCount, 2);
+assert.equal(fallback.newSinceLastImportCount, 1);
+
+const reviewedModel = insights.buildChannelInsights(facts, {
+  statuses: ["keep", "maybe", "delete", "archive"],
+});
+assert.equal(reviewedModel.videoCount, 5);
+assert.equal(reviewedModel.channelCount, 1);
+assert.equal(reviewedModel.statusCounts.unreviewed, 0);
+
+assert.deepEqual(
+  plain(insights.buildChannelInsights([], {})),
+  plain(insights.createEmptyInsightsModel()),
+);
+assert.deepEqual(plain(insights.createEmptyInsightsCache()), {
+  datasetRevision: -1,
+  decisionRevision: -1,
+  videoFacts: [],
+  model: plain(insights.createEmptyInsightsModel()),
+});
+
+console.log("channel insights domain test passed");

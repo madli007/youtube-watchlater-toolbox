@@ -9,6 +9,7 @@ const modulePaths = [
   "docs/assets/js/domain/decisions.js",
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
+  "docs/assets/js/domain/insights.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/domain/grouping.js",
   "docs/assets/js/domain/workspace.js",
@@ -105,6 +106,10 @@ async function main() {
   assert.deepEqual([...state.selectedIds], []);
   assert.deepEqual([...state.activeTags], []);
   assert.equal(state.activeView, "triage");
+  assert.equal(state.insightsCache.datasetRevision, -1);
+  assert.equal(state.insightsCache.decisionRevision, -1);
+  assert.deepEqual(plain(state.insightsCache.videoFacts), []);
+  assert.equal(state.insightsCache.model.videoCount, 0);
 
   state.decisions.two = {
     status: "maybe",

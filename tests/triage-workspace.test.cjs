@@ -33,6 +33,7 @@ const expectedApplicationScripts = [
   "./assets/js/domain/watchlater-import.js",
   "./assets/js/domain/import-comparison.js",
   "./assets/js/domain/filters.js",
+  "./assets/js/domain/insights.js",
   "./assets/js/domain/time-budget.js",
   "./assets/js/domain/grouping.js",
   "./assets/js/domain/workspace.js",
@@ -166,7 +167,7 @@ vm.runInContext(source, sandbox);
 assert.ok(sandbox.WatchLaterApp, "controlled application namespace not exposed");
 assert.deepEqual(
   Object.keys(sandbox.WatchLaterApp.domain),
-  ["decisions", "watchLaterImport", "importComparison", "filters", "timeBudget", "grouping", "workspace"],
+  ["decisions", "watchLaterImport", "importComparison", "filters", "insights", "timeBudget", "grouping", "workspace"],
 );
 assert.ok(
   Object.values(sandbox.WatchLaterApp.domain).every(Object.isFrozen),
