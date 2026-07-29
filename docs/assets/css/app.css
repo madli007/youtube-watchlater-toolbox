@@ -939,10 +939,10 @@
 
     .video-row {
       display: grid;
-      grid-template-columns: 28px 138px minmax(0, 1fr) auto;
-      gap: 12px;
+      grid-template-columns: 24px 120px minmax(0, 1fr) auto;
+      gap: 10px;
       align-items: start;
-      padding: 10px;
+      padding: 8px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-left-width: 4px;
@@ -977,7 +977,7 @@
     .row-check {
       width: 18px;
       height: 18px;
-      margin: 50px 0 0;
+      margin: 25px 0 0;
       accent-color: var(--accent);
     }
 
@@ -991,7 +991,7 @@
     }
 
     .thumb {
-      width: 138px;
+      width: 120px;
       aspect-ratio: 16 / 9;
       object-fit: cover;
       background: #0b0c0f;
@@ -1004,6 +1004,10 @@
       font-size: 14px;
       line-height: 19px;
       letter-spacing: 0;
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
     }
 
     .meta {
@@ -1024,7 +1028,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
-      margin-top: 7px;
+      margin-top: 5px;
     }
 
     .tag {
@@ -1043,45 +1047,134 @@
       border-color: #2d6a48;
     }
 
+    .tag.more-tags {
+      color: var(--muted);
+      background: var(--panel-3);
+      border-color: var(--border);
+      font-weight: 700;
+    }
+
     .video-note {
-      margin: 7px 0 0;
+      max-width: 72ch;
+      margin: 5px 0 0;
+      overflow: hidden;
       color: #d7dce4;
       font-size: 12px;
-      white-space: pre-wrap;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .status-actions {
-      display: grid;
-      grid-template-columns: 1fr;
+    .row-actions {
+      position: relative;
+      display: flex;
       gap: 6px;
-      min-width: 92px;
+      align-items: center;
     }
 
-    .status-actions button {
-      min-height: 30px;
+    .decision-controls {
+      display: inline-flex;
+    }
+
+    .decision-controls button {
+      min-width: 34px;
+      min-height: 32px;
       padding: 5px 8px;
       font-size: 12px;
+      border-radius: 0;
     }
 
-    .status-actions .is-active[data-action-status="keep"] {
+    .decision-controls button:first-child {
+      border-radius: 7px 0 0 7px;
+    }
+
+    .decision-controls button + button {
+      margin-left: -1px;
+    }
+
+    .decision-controls button:last-child {
+      border-radius: 0 7px 7px 0;
+    }
+
+    .decision-controls .is-active[data-action-status="keep"] {
       color: #03120a;
       background: var(--keep);
       border-color: var(--keep);
       font-weight: 800;
     }
 
-    .status-actions .is-active[data-action-status="maybe"] {
+    .decision-controls .is-active[data-action-status="maybe"] {
       color: #1b1202;
       background: var(--maybe);
       border-color: var(--maybe);
       font-weight: 800;
     }
 
-    .status-actions .is-active[data-action-status="delete"] {
+    .decision-controls .is-active[data-action-status="delete"] {
       color: #1b0506;
       background: var(--delete);
       border-color: var(--delete);
       font-weight: 800;
+    }
+
+    .icon-button {
+      width: 34px;
+      min-width: 34px;
+      min-height: 32px;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .preview-button {
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    .video-overflow {
+      position: relative;
+    }
+
+    .video-overflow.is-open {
+      z-index: 10;
+    }
+
+    .video-overflow-trigger {
+      color: var(--muted);
+      font-size: 20px;
+      letter-spacing: 1px;
+    }
+
+    .video-overflow-menu {
+      position: absolute;
+      top: calc(100% + 5px);
+      right: 0;
+      z-index: 10;
+      min-width: 180px;
+      padding: 5px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .video-overflow-menu[hidden] {
+      display: none;
+    }
+
+    .video-overflow-item {
+      display: block;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 8px;
+      background: transparent;
+      border: 0;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .video-overflow-item:hover,
+    .video-overflow-item:focus-visible {
+      background: #343b48;
+      outline: none;
     }
 
     .quick-preview-dialog {
@@ -1539,9 +1632,9 @@
         width: 96px;
       }
 
-      .status-actions {
+      .row-actions {
         grid-column: 2 / 4;
-        grid-template-columns: repeat(4, minmax(70px, 1fr));
+        justify-content: flex-end;
       }
 
       .quick-preview-layout {

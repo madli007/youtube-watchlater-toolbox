@@ -195,38 +195,98 @@ const dynamicElement = () => {
   const listeners = {};
   const classes = new Set();
   const children = [];
-  return {
+  const attributes = new Map();
+  const element = {
     children,
     dataset: {},
+    className: "",
+    hidden: false,
+    disabled: false,
     classList: {
-      add(name) {
-        classes.add(name);
+      add(...names) {
+        names.forEach(name => classes.add(name));
+      },
+      remove(...names) {
+        names.forEach(name => classes.delete(name));
+      },
+      toggle(name, force) {
+        if (force) classes.add(name);
+        else classes.delete(name);
       },
       contains(name) {
-        return classes.has(name);
+        return classes.has(name) || element.className.split(/\s+/).includes(name);
       },
     },
     addEventListener(type, listener) {
       listeners[type] = listener;
     },
+    dispatch(type, event = {}) {
+      const dispatched = {
+        target: event.target || element,
+        key: event.key,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+        stopPropagation() {},
+      };
+      listeners[type]?.(dispatched);
+      return dispatched;
+    },
     click() {
-      listeners.click?.({ target: this });
+      return element.dispatch("click");
     },
     append(...items) {
-      children.push(...items);
+      items.forEach(item => {
+        item.parentElement = element;
+        children.push(item);
+      });
     },
     appendChild(item) {
+      item.parentElement = element;
       children.push(item);
       return item;
     },
     replaceChildren(...items) {
       children.splice(0, children.length, ...items);
     },
-    closest() {
+    setAttribute(name, value) {
+      attributes.set(name, String(value));
+    },
+    getAttribute(name) {
+      return attributes.get(name);
+    },
+    querySelector(selector) {
+      return element.querySelectorAll(selector)[0] || null;
+    },
+    querySelectorAll(selector) {
+      const matches = [];
+      const matchesSelector = candidate => {
+        if (selector === '[role="menuitem"]') return candidate.getAttribute?.("role") === "menuitem";
+        if (selector.startsWith(".")) return candidate.classList?.contains(selector.slice(1));
+        return false;
+      };
+      const visit = candidate => {
+        if (matchesSelector(candidate)) matches.push(candidate);
+        candidate.children?.forEach(visit);
+      };
+      children.forEach(visit);
+      return matches;
+    },
+    closest(selector) {
+      let candidate = element;
+      while (candidate) {
+        if (selector === '[role="menuitem"]' && candidate.getAttribute?.("role") === "menuitem") return candidate;
+        if (selector.startsWith(".") && candidate.classList?.contains(selector.slice(1))) return candidate;
+        candidate = candidate.parentElement;
+      }
       return null;
+    },
+    focus() {
+      sandbox.document.activeElement = element;
     },
     textContent: "",
   };
+  return element;
 };
 sandbox.document.createElement = dynamicElement;
 let statusChange = null;
@@ -274,14 +334,52 @@ const videoRow = rowUi.createVideoRow({
   title: "Fixture video",
   channel: "Fixture channel",
   duration: "4:00",
-  suggestedTags: ["docs"],
+  suggestedTags: ["docs", "javascript", "testing", "accessibility"],
   badges: ["HD"],
 });
 assert.equal(videoRow.dataset.videoId, "video-1");
 assert.equal(videoRow.dataset.status, "maybe");
 assert.equal(videoRow.classList.contains("is-current"), true);
 assert.equal(videoRow.children.length, 4);
-assert.equal(videoRow.children[3].children.length, 7, "video rows must retain all existing actions");
+const rowContent = videoRow.children[2];
+const rowTags = rowContent.children[2];
+assert.equal(rowTags.children.at(-1).textContent, "+2", "dense rows must collapse excess tags");
+const rowActions = videoRow.children[3];
+const decisionControls = rowActions.children[0];
+assert.deepEqual(
+  decisionControls.children.map(button => button.textContent),
+  ["K", "M", "D"],
+  "the three primary decisions must remain directly visible",
+);
+assert.equal(decisionControls.children[1].getAttribute("aria-pressed"), "true");
+assert.match(decisionControls.children[1].getAttribute("aria-label"), /^Maybe /);
+const previewButton = rowActions.children[1];
+assert.equal(previewButton.textContent, "▶");
+assert.match(previewButton.getAttribute("aria-label"), /^Preview /);
+assert.match(previewButton.title, /Preview this video/);
+const overflow = rowActions.children[2];
+const overflowTrigger = overflow.children[0];
+const overflowMenu = overflow.children[1];
+assert.equal(overflowTrigger.getAttribute("aria-haspopup"), "menu");
+assert.deepEqual(
+  overflowMenu.children.map(button => button.textContent),
+  ["Reset to unreviewed", "Edit tags / note", "Open on YouTube"],
+  "secondary actions must remain available in the overflow menu",
+);
+overflowTrigger.click();
+assert.equal(overflowMenu.hidden, false);
+assert.equal(overflowTrigger.getAttribute("aria-expanded"), "true");
+assert.equal(sandbox.document.activeElement, overflowMenu.children[0]);
+const escapeEvent = overflowMenu.dispatch("keydown", { key: "Escape" });
+assert.equal(escapeEvent.defaultPrevented, true);
+assert.equal(overflowMenu.hidden, true);
+assert.equal(sandbox.document.activeElement, overflowTrigger);
+const arrowOpenEvent = overflowTrigger.dispatch("keydown", { key: "ArrowDown" });
+assert.equal(arrowOpenEvent.defaultPrevented, true);
+assert.equal(overflowMenu.hidden, false);
+assert.equal(sandbox.document.activeElement, overflowMenu.children[0]);
+overflowMenu.dispatch("keydown", { key: "ArrowDown" });
+assert.equal(sandbox.document.activeElement, overflowMenu.children[1]);
 
 const dashboardsUi = sandbox.WatchLaterApp.ui.dashboards.createDashboardsUi({
   state: {},

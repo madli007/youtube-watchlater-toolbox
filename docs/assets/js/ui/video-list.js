@@ -16,6 +16,12 @@
     const renderStats = (...args) => context.renderStats(...args);
     const updateBulkLabels = (...args) => context.updateBulkLabels(...args);
 
+    function initializeVideoList() {
+      document.addEventListener("click", event => {
+        if (!event.target.closest?.(".video-overflow")) closeVideoOverflowMenus();
+      });
+    }
+
     function getRenderedVideos() {
       return getFilteredVideos().slice(0, state.renderedCount);
     }
@@ -159,20 +165,33 @@
         tags.appendChild(badge);
       });
       const decisionTags = getDecision(video.videoId).tags || [];
-      video.suggestedTags.forEach(tag => {
+      const taggedItems = [
+        ...(video.suggestedTags || []).map(tag => ({
+          className: "tag",
+          label: `Suggested: ${tag}`,
+          title: "Suggested by a keyword rule",
+        })),
+        ...decisionTags.map(tag => ({
+          className: "tag manual-tag",
+          label: `Manual: ${tag}`,
+          title: "Added manually",
+        })),
+      ];
+      taggedItems.slice(0, 3).forEach(item => {
         const chip = document.createElement("span");
-        chip.className = "tag";
-        chip.textContent = `Suggested: ${tag}`;
-        chip.title = "Suggested by a keyword rule";
+        chip.className = item.className;
+        chip.textContent = item.label;
+        chip.title = item.title;
         tags.appendChild(chip);
       });
-      decisionTags.forEach(tag => {
-        const chip = document.createElement("span");
-        chip.className = "tag manual-tag";
-        chip.textContent = `Manual: ${tag}`;
-        chip.title = "Added manually";
-        tags.appendChild(chip);
-      });
+      if (taggedItems.length > 3) {
+        const moreTags = document.createElement("span");
+        moreTags.className = "tag more-tags";
+        moreTags.textContent = `+${taggedItems.length - 3}`;
+        moreTags.title = taggedItems.slice(3).map(item => item.label).join(", ");
+        moreTags.setAttribute("aria-label", `${taggedItems.length - 3} more tags: ${moreTags.title}`);
+        tags.appendChild(moreTags);
+      }
 
       content.append(title, meta, tags);
       const note = getDecision(video.videoId).note;
@@ -180,23 +199,26 @@
         const noteElement = document.createElement("p");
         noteElement.className = "video-note";
         noteElement.textContent = note;
+        noteElement.title = note;
         content.appendChild(noteElement);
       }
 
       const actions = document.createElement("div");
-      actions.className = "status-actions";
-      actions.append(
-        createStatusButton(video.videoId, "keep", status),
-        createStatusButton(video.videoId, "maybe", status),
-        createStatusButton(video.videoId, "delete", status),
-        createStatusButton(video.videoId, "unreviewed", status, "Reset"),
-        createEditVideoButton(video),
-        createPreviewButton(video),
-        createOpenButton(video),
+      actions.className = "row-actions";
+
+      const decisionControls = document.createElement("div");
+      decisionControls.className = "decision-controls";
+      decisionControls.setAttribute("role", "group");
+      decisionControls.setAttribute("aria-label", `Decision for ${video.title || "untitled video"}`);
+      decisionControls.append(
+        createStatusButton(video.videoId, "keep", status, "K", `Keep ${video.title || "video"}`),
+        createStatusButton(video.videoId, "maybe", status, "M", `Maybe ${video.title || "video"}`),
+        createStatusButton(video.videoId, "delete", status, "D", `Delete ${video.title || "video"}`),
       );
+      actions.append(decisionControls, createPreviewButton(video), createOverflowMenu(video, status));
 
       row.addEventListener("click", event => {
-        if (event.target.closest("button, a, input")) return;
+        if (event.target.closest("button, a, input, .video-overflow")) return;
         state.currentId = video.videoId;
         render();
       });
@@ -214,12 +236,15 @@
       return row;
     }
 
-    function createStatusButton(videoId, status, currentStatus, label) {
+    function createStatusButton(videoId, status, currentStatus, label, accessibleLabel) {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.actionStatus = status;
       button.textContent = label || status[0].toUpperCase() + status.slice(1);
-      if (status === currentStatus) button.classList.add("is-active");
+      if (accessibleLabel) button.setAttribute("aria-label", accessibleLabel);
+      const isActive = status === currentStatus;
+      if (isActive) button.classList.add("is-active");
+      if (status !== "unreviewed") button.setAttribute("aria-pressed", String(isActive));
       button.addEventListener("click", () => {
         setStatusAndAdvance(videoId, status);
       });
@@ -229,7 +254,9 @@
     function createOpenButton(video) {
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = "Open";
+      button.className = "video-overflow-item";
+      button.setAttribute("role", "menuitem");
+      button.textContent = "Open on YouTube";
       button.addEventListener("click", () => {
         window.open(video.cleanUrl || video.url, "_blank", "noreferrer");
       });
@@ -239,7 +266,9 @@
     function createPreviewButton(video) {
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = "Preview";
+      button.className = "icon-button preview-button";
+      button.textContent = "▶";
+      button.setAttribute("aria-label", `Preview ${video.title || "video"}`);
       button.disabled = Boolean(video.isUnavailable);
       button.title = video.isUnavailable ? "This video is unavailable." : "Preview this video (p)";
       button.addEventListener("click", () => openQuickPreview(video.videoId));
@@ -249,12 +278,107 @@
     function createEditVideoButton(video) {
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = "Tags / note";
+      button.className = "video-overflow-item";
+      button.setAttribute("role", "menuitem");
+      button.textContent = "Edit tags / note";
       button.addEventListener("click", () => openVideoEditor(video.videoId));
       return button;
     }
 
+    function createOverflowMenu(video, status) {
+      const root = document.createElement("div");
+      root.className = "video-overflow";
+
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "icon-button video-overflow-trigger";
+      trigger.textContent = "⋯";
+      trigger.title = "More video actions";
+      trigger.setAttribute("aria-label", `More actions for ${video.title || "video"}`);
+      trigger.setAttribute("aria-haspopup", "menu");
+      trigger.setAttribute("aria-expanded", "false");
+
+      const menu = document.createElement("div");
+      menu.className = "video-overflow-menu";
+      menu.hidden = true;
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("aria-label", `More actions for ${video.title || "video"}`);
+
+      const reset = createStatusButton(
+        video.videoId,
+        "unreviewed",
+        status,
+        "Reset to unreviewed",
+        `Reset ${video.title || "video"} to unreviewed`,
+      );
+      reset.className = "video-overflow-item";
+      reset.setAttribute("role", "menuitem");
+      menu.append(reset, createEditVideoButton(video), createOpenButton(video));
+      root.append(trigger, menu);
+
+      trigger.addEventListener("click", event => {
+        event.stopPropagation();
+        const shouldOpen = menu.hidden;
+        closeVideoOverflowMenus(root);
+        setOverflowOpen(root, shouldOpen, shouldOpen);
+      });
+      trigger.addEventListener("keydown", event => {
+        if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+        event.preventDefault();
+        closeVideoOverflowMenus(root);
+        setOverflowOpen(root, true);
+        const items = getEnabledMenuItems(menu);
+        const target = event.key === "ArrowUp" ? items.at(-1) : items[0];
+        target?.focus();
+      });
+      menu.addEventListener("click", event => {
+        if (event.target.closest('[role="menuitem"]')) setOverflowOpen(root, false);
+      });
+      menu.addEventListener("keydown", event => {
+        const items = getEnabledMenuItems(menu);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setOverflowOpen(root, false);
+          trigger.focus();
+          return;
+        }
+        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || !items.length) return;
+        event.preventDefault();
+        const currentIndex = items.indexOf(document.activeElement);
+        let nextIndex;
+        if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = items.length - 1;
+        else if (event.key === "ArrowDown") nextIndex = (currentIndex + 1 + items.length) % items.length;
+        else nextIndex = (currentIndex - 1 + items.length) % items.length;
+        items[nextIndex].focus();
+      });
+
+      return root;
+    }
+
+    function getEnabledMenuItems(menu) {
+      return Array.from(menu.querySelectorAll('[role="menuitem"]')).filter(item => !item.disabled);
+    }
+
+    function setOverflowOpen(root, isOpen, focusFirst = false) {
+      const trigger = root.querySelector(".video-overflow-trigger");
+      const menu = root.querySelector(".video-overflow-menu");
+      if (!trigger || !menu) return;
+      menu.hidden = !isOpen;
+      root.classList.toggle("is-open", isOpen);
+      trigger.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen && focusFirst) getEnabledMenuItems(menu)[0]?.focus();
+    }
+
+    function closeVideoOverflowMenus(exceptRoot = null) {
+      const roots = els.videoList?.querySelectorAll?.(".video-overflow.is-open") || [];
+      roots.forEach(root => {
+        if (root !== exceptRoot) setOverflowOpen(root, false);
+      });
+    }
+
     return Object.freeze({
+      initializeVideoList,
       getRenderedVideos,
       maybeRenderMore,
       scrollCurrentIntoView,
@@ -265,6 +389,7 @@
       createOpenButton,
       createPreviewButton,
       createEditVideoButton,
+      createOverflowMenu,
     });
   }
 

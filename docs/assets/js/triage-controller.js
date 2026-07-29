@@ -192,6 +192,7 @@
       applyAllPendingChannelRules,
     } = dialogUi;
     const {
+      initializeVideoList,
       getRenderedVideos,
       maybeRenderMore,
       scrollCurrentIntoView,
@@ -225,6 +226,7 @@
       renderSavedViews();
       bindEvents();
       initializeTriageView();
+      initializeVideoList();
       initializeActionMenus();
       initializeNavigation();
     }

@@ -1108,7 +1108,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 1.4 — Dense video row
 
-- [ ] **Slice 1.4 zaključen**
+- [x] **Slice 1.4 zaključen**
 - **Cilj:** zmanjšati višino vrstice in ohraniti vse informacije/akcije.
 - **Prizadeto:** `app.css`, `ui/video-list.js`, `ui/dialogs.js` za overflow/preview/editor povezave.
 - **Podatki:** brez sprememb.
