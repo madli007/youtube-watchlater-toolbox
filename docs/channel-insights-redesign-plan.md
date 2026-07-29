@@ -1047,8 +1047,8 @@ Te številke so cilji za profiliranje, ne avtomatsko zagotovljene konstante.
 ### Glavni tracker
 
 - [x] **Faza 0:** strukturni refaktor in stabilizacija.
-- [ ] **Faza 1:** navigacija, Triage cleanup, akcijski meniji in dense video item.
-- [ ] **Faza 2:** osnovni Channel Insights.
+- [x] **Faza 1:** navigacija, Triage cleanup, akcijski meniji in dense video item.
+- [x] **Faza 2:** osnovni Channel Insights.
 - [ ] **Faza 3:** series detection, group detail in manual merge/split.
 - [ ] **Faza 4:** import history, backlog persistence, accessibility in performance.
 
