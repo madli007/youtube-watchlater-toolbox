@@ -1323,6 +1323,37 @@
     function chooseGroupWinner(group, strategy) {
       const members = Array.isArray(group?.members) ? group.members.filter(video => video?.videoId) : [];
       if (!members.length) return null;
+      if (strategy === "earliest-episode") {
+        if (group?.type !== "series") return null;
+        const parsedById = new Map(
+          (Array.isArray(group.parsedMembers) ? group.parsedMembers : [])
+            .filter(item => item?.video?.videoId)
+            .map(item => [item.video.videoId, item]),
+        );
+        const episodeEntries = members.map((video, order) => {
+          const sequence = (parsedById.get(video.videoId) || parseSeriesTitle(video)).sequence;
+          const position = sequence?.episode ?? sequence?.part;
+          if (!Number.isFinite(position)) return null;
+          return {
+            video,
+            order,
+            season: Number.isFinite(sequence.season) ? sequence.season : null,
+            position,
+          };
+        }).filter(Boolean);
+        const knownSeasons = episodeEntries
+          .map(item => item.season)
+          .filter(Number.isFinite);
+        const fallbackSeason = knownSeasons.length ? Math.min(...knownSeasons) : 0;
+        const rankedEpisodes = episodeEntries.map(item => ({
+          ...item,
+          season: item.season ?? fallbackSeason,
+        }));
+        rankedEpisodes.sort((left, right) => left.season - right.season
+          || left.position - right.position
+          || left.order - right.order);
+        return rankedEpisodes[0]?.video || null;
+      }
       const ranked = members.map((video, order) => {
         const value = strategy === "most-viewed"
           ? (finiteNumberOrNull(video.viewCountApprox) ?? parseApproximateViewCount(video.views))

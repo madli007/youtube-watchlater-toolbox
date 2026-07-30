@@ -252,6 +252,14 @@ const groups = grouping.buildVideoGroups([
 assert.equal(groups.length, 1);
 assert.equal(groups[0].type, "series");
 assert.equal(grouping.chooseGroupWinner(groups[0], "newest").videoId, "episode-2");
+assert.equal(grouping.chooseGroupWinner(groups[0], "earliest-episode").videoId, "episode-1");
+assert.equal(grouping.chooseGroupWinner({
+  type: "series",
+  members: [
+    { videoId: "season-2", title: "Great Show S02E01", channel: "Channel A" },
+    { videoId: "season-1", title: "Great Show S01E10", channel: "Channel A" },
+  ],
+}, "earliest-episode").videoId, "season-1");
 assert.deepEqual(plain(grouping.buildVideoGroups(null)), []);
 assert.equal(grouping.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
 const groupStatusById = {

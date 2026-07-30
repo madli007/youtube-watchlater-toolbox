@@ -924,6 +924,7 @@ assert.ok(groupingApi.calculateTitleSimilarity(
   "JavaScript Async Await Guide for Beginners",
 ) >= 0.74);
 assert.equal(groupingApi.normalizeDuplicateTitle("Great Song (Official Video) [4K]"), "great song");
+assert.equal(groupingApi.chooseGroupWinner(seriesGroup, "earliest-episode").videoId, "series-1");
 assert.equal(groupingApi.chooseGroupWinner(seriesGroup, "newest").videoId, "series-2");
 assert.equal(groupingApi.chooseGroupWinner(seriesGroup, "most-viewed").videoId, "series-2");
 assert.equal(groupingApi.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);

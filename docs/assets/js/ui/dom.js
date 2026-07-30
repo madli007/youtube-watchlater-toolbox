@@ -113,6 +113,7 @@
     "groupsKeepAll",
     "groupsMaybeAll",
     "groupsDeleteAll",
+    "groupsKeepEarliestEpisode",
     "groupsKeepNewest",
     "groupsKeepMostViewed",
     "groupsEditAlias",

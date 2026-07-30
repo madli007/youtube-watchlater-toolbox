@@ -213,6 +213,7 @@ const elementNames = [
   "groupsKeepAll",
   "groupsMaybeAll",
   "groupsDeleteAll",
+  "groupsKeepEarliestEpisode",
   "groupsKeepNewest",
   "groupsKeepMostViewed",
   "groupsEditAlias",
@@ -368,13 +369,21 @@ assert.equal(els.groupsDetailMembers.children.length, 2);
 assert.equal(els.groupsDetailMembers.children[0].children[3].textContent, "S1 \u00b7 E1");
 assert.match(els.groupsDetailConfidence.textContent, /^Auto/);
 assert.equal(els.groupsKeepAll.disabled, false);
+assert.equal(els.groupsKeepEarliestEpisode.disabled, false);
 assert.equal(els.groupsKeepNewest.disabled, true, "unknown upload age disables the newest recommendation");
+
+els.groupsKeepEarliestEpisode.listeners.click();
+assert.match(latestConfirm, /earliest episode/i);
+assert.equal(getStatus("series-1"), "keep");
+assert.equal(getStatus("series-2"), "delete");
+state.decisions = decisions.applyHistoryEntry(state.decisions, state.history.shift());
+view.renderGroups();
 
 els.groupsKeepAll.listeners.click();
 assert.equal(getStatus("series-2"), "keep");
 assert.equal(state.history[0].action, "group-decision");
 assert.equal(state.history[0].affectedCount, 1, "the snapshot only contains changed members");
-assert.equal(saveCount, 1);
+assert.equal(saveCount, 2);
 state.decisions = decisions.applyHistoryEntry(state.decisions, state.history.shift());
 view.renderGroups();
 assert.equal(getStatus("series-2"), "unreviewed", "the group snapshot restores the previous status");
@@ -413,6 +422,7 @@ assert.equal(els.groupsKeepAll.disabled, true, "review-confidence groups start w
 assert.equal(els.groupsConfirmMatch.hidden, false);
 els.groupsConfirmMatch.listeners.click();
 assert.equal(els.groupsKeepAll.disabled, false);
+assert.equal(els.groupsKeepEarliestEpisode.disabled, true, "non-series groups have no earliest episode action");
 assert.equal(els.groupsKeepNewest.disabled, true, "confirmation cannot invent missing age data");
 assert.equal(els.groupsKeepMostViewed.disabled, true, "confirmation cannot invent missing view data");
 
@@ -494,6 +504,7 @@ assert.match(html, /id=["']groupsDetailReasons["']/i);
 assert.match(html, /id=["']groupsDetailMembers["']/i);
 assert.match(html, /id=["']groupsConfirmMatch["']/i);
 assert.match(html, /id=["']groupsKeepAll["']/i);
+assert.match(html, /id=["']groupsKeepEarliestEpisode["']/i);
 assert.match(html, /id=["']groupsKeepNewest["']/i);
 assert.match(html, /id=["']groupsOpenInTriage["']/i);
 assert.match(

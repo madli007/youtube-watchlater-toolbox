@@ -204,6 +204,7 @@
       els.groupsKeepAll.addEventListener("click", () => applySelectedGroupStatus("keep"));
       els.groupsMaybeAll.addEventListener("click", () => applySelectedGroupStatus("maybe"));
       els.groupsDeleteAll.addEventListener("click", () => applySelectedGroupStatus("delete"));
+      els.groupsKeepEarliestEpisode.addEventListener("click", () => applySelectedGroupWinner("earliest-episode"));
       els.groupsKeepNewest.addEventListener("click", () => applySelectedGroupWinner("newest"));
       els.groupsKeepMostViewed.addEventListener("click", () => applySelectedGroupWinner("most-viewed"));
       els.groupsEditAlias.addEventListener("click", editSelectedGroupAlias);
@@ -444,6 +445,7 @@
     function renderGroupActions(group) {
       const requiresConfirmation = getGroupConfidenceKind(group) === "review"
         && !confirmedReviewGroupIds.has(group.id);
+      const earliestEpisodeWinner = chooseGroupWinner(group, "earliest-episode");
       const newestWinner = chooseGroupWinner(group, "newest");
       const viewedWinner = chooseGroupWinner(group, "most-viewed");
       const channels = getGroupChannels(group);
@@ -456,6 +458,12 @@
         button.disabled = requiresConfirmation;
         button.title = requiresConfirmation ? "Confirm this review group to enable bulk decisions" : "";
       });
+      setRecommendationAvailability(
+        els.groupsKeepEarliestEpisode,
+        earliestEpisodeWinner,
+        "episode number",
+        requiresConfirmation,
+      );
       setRecommendationAvailability(
         els.groupsKeepNewest,
         newestWinner,
@@ -652,7 +660,11 @@
       const group = getSelectedGroup();
       if (!guardGroupAction(group)) return;
       const winner = chooseGroupWinner(group, strategy);
-      const metric = strategy === "newest" ? "upload age" : "view count";
+      const metric = strategy === "newest"
+        ? "upload age"
+        : strategy === "earliest-episode"
+          ? "episode number"
+          : "view count";
       if (!winner) {
         context.showToast(`This group has no usable ${metric} data.`);
         return;
@@ -664,7 +676,11 @@
       }
 
       const protectedWarning = getProtectedWarning(plan.changedDeleteIds);
-      const strategyLabel = strategy === "newest" ? "newest" : "most viewed";
+      const strategyLabel = strategy === "newest"
+        ? "newest"
+        : strategy === "earliest-episode"
+          ? "earliest episode"
+          : "most viewed";
       const ok = context.window.confirm([
         `Keep only the ${strategyLabel} video in “${group.label}”?`,
         "",
