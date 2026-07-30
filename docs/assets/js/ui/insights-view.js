@@ -105,8 +105,10 @@
         renderInsights();
       },
       navigateToTriageFromInsights = () => {},
+      createResponsiveDrawerController = () => ({ sync() {} }),
       now = () => Date.now(),
       document: documentRef = root.document,
+      window: windowRef = root,
     } = context;
     const getNow = typeof now === "function" ? now : () => now;
     let renderedDatasetRevision = -1;
@@ -114,6 +116,23 @@
     let renderedMatrixSignature = "";
     let showAllChannels = false;
     let initialized = false;
+    let lastSelectedChannelKey = "";
+
+    function findChannelButton(channelKey) {
+      if (!channelKey || typeof els.insightsMatrixBody.querySelectorAll !== "function") return null;
+      return Array.from(els.insightsMatrixBody.querySelectorAll(".insights-channel-button"))
+        .find(button => button.dataset.channelKey === channelKey) || null;
+    }
+
+    const detailDrawer = createResponsiveDrawerController({
+      container: els.insightsChannelDetail,
+      closeButton: els.closeInsightsDetail,
+      window: windowRef,
+      document: documentRef,
+      onClose() {
+        navigateToInsightsChannel("");
+      },
+    });
 
     function getImportHistorySignature() {
       return (Array.isArray(state.importHistory) ? state.importHistory : [])
@@ -553,6 +572,8 @@
         els.insightsWorkspace.classList.toggle("has-detail", false);
         els.insightsChannelDetail.hidden = true;
         els.insightsSelectedChannel.textContent = "Select a channel row to keep it in context.";
+        detailDrawer.sync(false);
+        lastSelectedChannelKey = "";
         return null;
       }
 
@@ -573,6 +594,8 @@
         els.insightsWorkspace.classList.toggle("has-detail", false);
         els.insightsChannelDetail.hidden = true;
         els.insightsSelectedChannel.textContent = "Select a channel row to keep it in context.";
+        detailDrawer.sync(false);
+        lastSelectedChannelKey = "";
         return null;
       }
 
@@ -696,6 +719,13 @@
           : "New-since-last-import comparison unavailable",
       );
       renderPersistence(detail);
+      const selectedChannelKey = state.selectedChannelKey;
+      detailDrawer.sync(true, {
+        autofocus: state.activeView === "insights"
+          && selectedChannelKey !== lastSelectedChannelKey,
+        restoreFocus: () => findChannelButton(selectedChannelKey),
+      });
+      lastSelectedChannelKey = selectedChannelKey;
       return detail;
     }
 

@@ -134,6 +134,7 @@ const elementNames = [
   "insightsShowAll",
   "insightsWorkspace",
   "insightsChannelDetail",
+  "closeInsightsDetail",
   "insightsDetailTitle",
   "insightsDetailMeta",
   "insightsViewVideos",

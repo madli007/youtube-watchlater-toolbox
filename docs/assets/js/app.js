@@ -25,6 +25,7 @@
     createVideoListUi: app.ui.videoList.createVideoListUi,
     createDashboardsUi: app.ui.dashboards.createDashboardsUi,
     createActionMenusUi: app.ui.actionMenus.createActionMenusUi,
+    createResponsiveDrawerController: app.ui.accessibility.createResponsiveDrawerController,
     createInsightsViewUi: app.ui.insightsView.createInsightsViewUi,
     createGroupsViewUi: app.ui.groupsView.createGroupsViewUi,
     createNavigationUi: app.ui.navigation.createNavigationUi,

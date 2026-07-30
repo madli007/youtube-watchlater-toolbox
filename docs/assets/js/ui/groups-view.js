@@ -122,9 +122,12 @@
       getGroupingOverrideDiagnostics,
       normalizeGroupingOverrides,
       removeGroupingOverride,
+      createResponsiveDrawerController = () => ({ sync() {} }),
+      window: windowRef = root,
     } = context;
     const confirmedReviewGroupIds = new Set();
     let confirmedDatasetRevision = state.datasetRevision;
+    let lastSelectedGroupId = "";
     const getStatus = videoId => context.getStatus(videoId);
     const navigateToGroupsGroup = groupId => {
       if (typeof context.navigateToGroupsGroup === "function") {
@@ -136,6 +139,20 @@
       state.selectedGroupMemberIds.clear();
       renderGroups();
     };
+    function findGroupButton(groupId) {
+      if (!groupId || typeof els.groupsList.querySelectorAll !== "function") return null;
+      return Array.from(els.groupsList.querySelectorAll(".group-summary-row"))
+        .find(button => button.dataset.groupId === groupId) || null;
+    }
+    const detailDrawer = createResponsiveDrawerController({
+      container: els.groupsDetail,
+      closeButton: els.closeGroupsDetail,
+      window: windowRef,
+      document: documentRef,
+      onClose() {
+        navigateToGroupsGroup("");
+      },
+    });
 
     function getAllGroups() {
       return getMemoizedVideoGroups(state.groupingCache, {
@@ -324,6 +341,8 @@
       els.groupsBrowser.hidden = true;
       els.groupsEmptyState.hidden = false;
       els.groupsShowMore.hidden = true;
+      detailDrawer.sync(false);
+      lastSelectedGroupId = "";
       els.groupsEmptyTitle.textContent = title;
       els.groupsEmptyDescription.textContent = description;
       els.groupsImportJsonAction.hidden = !showImport;
@@ -399,7 +418,11 @@
     function renderGroupDetail(group) {
       els.groupsBrowser.classList.toggle("has-detail", Boolean(group));
       els.groupsDetail.hidden = !group;
-      if (!group) return;
+      if (!group) {
+        detailDrawer.sync(false);
+        lastSelectedGroupId = "";
+        return;
+      }
 
       els.groupsDetailTitle.textContent = group.label;
       const channels = getGroupChannels(group);
@@ -431,6 +454,13 @@
         const parsed = parsedById.get(video.videoId) || parseSeriesTitle(video);
         return createMemberRow(video, parsed);
       }));
+      const selectedGroupId = group.id;
+      detailDrawer.sync(true, {
+        autofocus: state.activeView === "groups"
+          && selectedGroupId !== lastSelectedGroupId,
+        restoreFocus: () => findGroupButton(selectedGroupId),
+      });
+      lastSelectedGroupId = selectedGroupId;
     }
 
     function getSelectedGroup() {

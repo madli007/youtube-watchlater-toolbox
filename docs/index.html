@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="./assets/css/app.css">
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">Skip to main content</a>
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -81,6 +82,7 @@
       </div>
     </header>
 
+    <main id="mainContent" class="main-content" tabindex="-1">
     <section id="triageView" class="view-shell" role="tabpanel" aria-labelledby="triageTab" data-view-panel="triage">
     <section class="filters" aria-label="Filters">
       <input id="searchInput" type="search" placeholder="Search title, channel, views, tags..." aria-label="Search videos">
@@ -198,7 +200,7 @@
     </section>
 
     <div class="workspace">
-      <main class="main">
+      <div class="main">
         <section class="stats" aria-label="Stats">
           <div class="stat"><strong id="totalCount">0</strong><span>Total</span></div>
           <div class="stat"><strong id="visibleCount">0</strong><span>Visible</span></div>
@@ -235,7 +237,7 @@
         <section id="videoList" class="video-list" aria-label="Videos">
           <div class="empty">No JSON imported yet.</div>
         </section>
-      </main>
+      </div>
 
       <aside class="sidebar" aria-label="Summary">
         <section class="panel">
@@ -369,7 +371,7 @@
         </header>
 
         <p id="insightsMatrixStatus" class="insights-matrix-status" aria-live="polite"></p>
-        <div class="insights-table-scroll" tabindex="0" aria-label="Scrollable channel age matrix">
+        <div class="insights-table-scroll" role="region" tabindex="0" aria-labelledby="insightsMatrixTitle" aria-describedby="insightsMatrixStatus insightsMatrixCaption">
           <table class="insights-table">
             <caption id="insightsMatrixCaption">Video count by channel and approximate age</caption>
             <thead>
@@ -394,14 +396,17 @@
           <button id="insightsShowAll" type="button" hidden>Show all channels</button>
         </div>
       </section>
-      <aside id="insightsChannelDetail" class="insights-channel-detail" aria-labelledby="insightsDetailTitle" hidden>
+      <aside id="insightsChannelDetail" class="insights-channel-detail responsive-detail-drawer" aria-labelledby="insightsDetailTitle" tabindex="-1" hidden>
         <header class="insights-detail-header">
           <div>
             <p class="placeholder-eyebrow">Selected channel</p>
             <h2 id="insightsDetailTitle">Channel detail</h2>
             <p id="insightsDetailMeta" class="insights-detail-meta"></p>
           </div>
-          <button id="insightsViewVideos" type="button">View videos</button>
+          <div class="detail-header-actions">
+            <button id="insightsViewVideos" type="button">View videos</button>
+            <button id="closeInsightsDetail" class="drawer-close" type="button" aria-label="Close channel detail">Close</button>
+          </div>
         </header>
 
         <section class="insights-detail-block" aria-labelledby="insightsBacklogTitle">
@@ -606,14 +611,17 @@
           <button id="groupsShowMore" class="groups-show-more" type="button" hidden>Show more groups</button>
         </section>
 
-        <aside id="groupsDetail" class="groups-detail" aria-labelledby="groupsDetailTitle" hidden>
+        <aside id="groupsDetail" class="groups-detail responsive-detail-drawer" aria-labelledby="groupsDetailTitle" tabindex="-1" hidden>
           <header class="groups-detail-header">
             <div>
               <p class="placeholder-eyebrow">Selected group</p>
               <h2 id="groupsDetailTitle"></h2>
               <p id="groupsDetailMeta" class="groups-detail-meta"></p>
             </div>
-            <span id="groupsDetailConfidence" class="group-confidence-badge"></span>
+            <div class="detail-header-actions">
+              <span id="groupsDetailConfidence" class="group-confidence-badge"></span>
+              <button id="closeGroupsDetail" class="drawer-close" type="button" aria-label="Close group detail">Close</button>
+            </div>
           </header>
           <section class="groups-detail-actions" aria-label="Group decisions">
             <p id="groupsDetailSafety" class="groups-detail-safety"></p>
@@ -650,6 +658,7 @@
         </aside>
       </div>
     </section>
+    </main>
   </div>
   <dialog id="quickPreviewDialog" class="quick-preview-dialog" aria-labelledby="quickPreviewTitle">
     <div class="quick-preview-panel">
@@ -711,9 +720,9 @@
       <p class="scope-text">Shortcuts pause while you type in an input, select, note, or tag field.</p>
     </div>
   </dialog>
-  <dialog id="videoEditorDialog">
+  <dialog id="videoEditorDialog" aria-labelledby="videoEditorHeading">
     <form id="videoEditorForm" class="dialog-form" method="dialog">
-      <h2>Edit tags and note</h2>
+      <h2 id="videoEditorHeading">Edit tags and note</h2>
       <p id="videoEditorTitle" class="scope-text"></p>
       <div>
         <strong>Suggested tags</strong>
@@ -733,10 +742,10 @@
       </div>
     </form>
   </dialog>
-  <dialog id="rulesDialog">
+  <dialog id="rulesDialog" aria-labelledby="rulesDialogTitle">
     <form id="ruleEditorForm" class="dialog-form">
       <div>
-        <h2>Tag rules</h2>
+        <h2 id="rulesDialogTitle">Tag rules</h2>
         <p class="scope-text">A rule suggests a tag when a positive keyword matches, no negative keyword matches, and its optional channel matches.</p>
       </div>
       <div id="ruleList" class="rule-list"></div>
@@ -766,10 +775,10 @@
       </div>
     </form>
   </dialog>
-  <dialog id="channelRulesDialog">
+  <dialog id="channelRulesDialog" aria-labelledby="channelRulesDialogTitle">
     <form id="channelRuleEditorForm" class="dialog-form">
       <div>
-        <h2>Channel rules</h2>
+        <h2 id="channelRulesDialogTitle">Channel rules</h2>
         <p class="scope-text">Defaults preserve existing decisions. “Always” modes may replace an existing status, but every application creates an undo snapshot.</p>
       </div>
       <div id="channelRuleList" class="rule-list"></div>
@@ -810,10 +819,10 @@
       </div>
     </form>
   </dialog>
-  <dialog id="groupingAliasDialog">
+  <dialog id="groupingAliasDialog" aria-labelledby="groupingAliasDialogTitle">
     <form id="groupingAliasForm" class="dialog-form">
       <div>
-        <h2>Edit series alias</h2>
+        <h2 id="groupingAliasDialogTitle">Edit series alias</h2>
         <p id="groupingAliasContext" class="scope-text"></p>
       </div>
       <label>
@@ -827,7 +836,7 @@
       </div>
     </form>
   </dialog>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!--
     Classic scripts are intentionally ordered by dependency:
@@ -848,6 +857,7 @@
   <script src="./assets/js/browser-io.js"></script>
   <script src="./assets/js/state.js"></script>
   <script src="./assets/js/ui/dom.js"></script>
+  <script src="./assets/js/ui/accessibility.js"></script>
   <script src="./assets/js/ui/triage-view.js"></script>
   <script src="./assets/js/ui/dialogs.js"></script>
   <script src="./assets/js/ui/video-list.js"></script>

@@ -42,6 +42,7 @@ const expectedApplicationScripts = [
   "./assets/js/browser-io.js",
   "./assets/js/state.js",
   "./assets/js/ui/dom.js",
+  "./assets/js/ui/accessibility.js",
   "./assets/js/ui/triage-view.js",
   "./assets/js/ui/dialogs.js",
   "./assets/js/ui/video-list.js",
@@ -178,7 +179,7 @@ assert.ok(
 );
 assert.deepEqual(
   Object.keys(sandbox.WatchLaterApp.ui),
-  ["dom", "triageView", "dialogs", "videoList", "dashboards", "actionMenus", "insightsView", "groupsView", "navigation"],
+  ["dom", "accessibility", "triageView", "dialogs", "videoList", "dashboards", "actionMenus", "insightsView", "groupsView", "navigation"],
   "UI modules must be registered in dependency order",
 );
 assert.ok(

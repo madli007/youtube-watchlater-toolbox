@@ -75,6 +75,7 @@ const dependencyGraph = {
     "docs/assets/js/storage.js",
   ],
   "docs/assets/js/ui/dom.js": [],
+  "docs/assets/js/ui/accessibility.js": [],
   "docs/assets/js/ui/triage-view.js": [
     "docs/assets/js/domain/filters.js",
   ],
@@ -98,6 +99,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/workspace.js",
     "docs/assets/js/browser-io.js",
     "docs/assets/js/ui/triage-view.js",
+    "docs/assets/js/ui/accessibility.js",
     "docs/assets/js/ui/dialogs.js",
     "docs/assets/js/ui/video-list.js",
     "docs/assets/js/ui/dashboards.js",
@@ -112,6 +114,7 @@ const dependencyGraph = {
     "docs/assets/js/browser-io.js",
     "docs/assets/js/state.js",
     "docs/assets/js/ui/dom.js",
+    "docs/assets/js/ui/accessibility.js",
     "docs/assets/js/ui/triage-view.js",
     "docs/assets/js/ui/action-menus.js",
     "docs/assets/js/ui/insights-view.js",

@@ -30,6 +30,7 @@
       createVideoListUi,
       createDashboardsUi,
       createActionMenusUi,
+      createResponsiveDrawerController,
       createInsightsViewUi,
       createGroupsViewUi,
       createNavigationUi,
@@ -192,6 +193,7 @@
       createChannelName,
       restoreHistoryEntry,
       renderBadgeOptions,
+      createResponsiveDrawerController,
     };
     const triageViewUi = createTriageViewUi(uiContext);
     Object.assign(uiContext, triageViewUi);

@@ -205,6 +205,7 @@ const elementNames = [
   "groupsMergeSelected",
   "groupsClearSelected",
   "groupsDetail",
+  "closeGroupsDetail",
   "groupsDetailTitle",
   "groupsDetailMeta",
   "groupsDetailConfidence",

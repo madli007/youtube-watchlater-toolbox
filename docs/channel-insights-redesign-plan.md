@@ -1323,7 +1323,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 4.5 — Accessibility in responsive polishing
 
-- [ ] **Slice 4.5 zaključen**
+- [x] **Slice 4.5 zaključen**
 - **Cilj:** dokončati keyboard, screen-reader in mobilno uporabo.
 - **Prizadeto:** `app.css`, `docs/index.html`, `ui/navigation.js`, `ui/action-menus.js`, `ui/triage-view.js`, `ui/insights-view.js`, `ui/groups-view.js`, `ui/dialogs.js`.
 - **Podatki:** brez sprememb.
