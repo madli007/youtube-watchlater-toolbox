@@ -73,8 +73,10 @@ node tests/bootstrap-architecture.test.cjs
 node tests/action-menus.test.cjs
 node tests/navigation.test.cjs
 node tests/triage-view.test.cjs
+node tests/video-list-performance.test.cjs
 node tests/insights.test.cjs
 node tests/insights-view.test.cjs
+node tests/performance-stabilization.test.cjs
 node tests/import-history.test.cjs
 node tests/workspace-extension.test.cjs
 node tests/grouping-parser.test.cjs

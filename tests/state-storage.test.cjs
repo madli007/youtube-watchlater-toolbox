@@ -140,6 +140,9 @@ async function main() {
   assert.equal(state.activeView, "triage");
   assert.equal(state.datasetRevision, 0);
   assert.equal(state.decisionRevision, 0);
+  assert.equal(state.filteredVideosCache.datasetRevision, -1);
+  assert.equal(state.filteredVideosCache.decisionRevision, -1);
+  assert.equal(state.filteredVideosCache.recomputeCount, 0);
   assert.equal(state.insightsMeasure, "count");
   assert.equal(state.insightsSort, "backlog");
   assert.equal(state.selectedChannelKey, "");
@@ -147,8 +150,12 @@ async function main() {
   assert.equal(state.insightsCache.decisionRevision, -1);
   assert.deepEqual(plain(state.insightsCache.videoFacts), []);
   assert.equal(state.insightsCache.model.videoCount, 0);
+  assert.equal(state.insightsCache.factRecomputeCount, 0);
+  assert.equal(state.insightsCache.decisionRefreshCount, 0);
+  assert.equal(state.insightsCache.modelRecomputeCount, 0);
   assert.equal(state.groupingCache.datasetRevision, -1);
   assert.equal(state.groupingCache.overrideRevision, -1);
+  assert.equal(state.groupingCache.recomputeCount, 0);
   assert.deepEqual(plain(state.groupingCache.groups), []);
   assert.equal(state.groupingCache.diagnostics, null);
 

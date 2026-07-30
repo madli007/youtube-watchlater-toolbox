@@ -225,9 +225,9 @@
       showToast(`Kept “${winner.title || winner.videoId}” and marked ${loserIds.length} group members delete.`);
     }
 
-    function renderStats() {
+    function renderStats(filteredVideos = getFilteredVideos()) {
       const total = state.videos.length;
-      const visible = getFilteredVideos().length;
+      const visible = filteredVideos.length;
       const counts = countStatuses(state.videos);
 
       els.totalCount.textContent = total;
@@ -260,9 +260,9 @@
         : `Legacy array without export metadata; imported ${formatted}, and import time is the age anchor.`;
     }
 
-    function updateBulkLabels() {
+    function updateBulkLabels(filteredVideos = getFilteredVideos()) {
       const selected = state.selectedIds.size;
-      const visible = getFilteredVideos().length;
+      const visible = filteredVideos.length;
       const scope = selected || visible;
       const scopeName = selected ? "selected" : "visible";
 

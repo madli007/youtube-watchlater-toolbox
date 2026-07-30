@@ -1312,7 +1312,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 4.4 — Performance stabilizacija
 
-- [ ] **Slice 4.4 zaključen**
+- [x] **Slice 4.4 zaključen**
 - **Cilj:** doseči odziven Triage in Insights pri 5.000+ videih.
 - **Prizadeto:** `state.js`, `app.js`, `ui/video-list.js`, `ui/insights-view.js`, `ui/groups-view.js`, relevantni domain moduli.
 - **Podatki:** transient revision counters.

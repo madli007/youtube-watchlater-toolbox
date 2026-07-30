@@ -319,6 +319,47 @@
         .trim();
     }
 
+    function createEmptyFilteredVideosCache() {
+      return {
+        datasetRevision: -1,
+        decisionRevision: -1,
+        filterKey: "",
+        scopeIds: null,
+        videos: [],
+        recomputeCount: 0,
+      };
+    }
+
+    function getMemoizedFilteredVideos(cache, input = {}, compute = () => []) {
+      const target = cache && typeof cache === "object"
+        ? cache
+        : createEmptyFilteredVideosCache();
+      const datasetRevision = Number.isInteger(input.datasetRevision)
+        ? input.datasetRevision
+        : 0;
+      const decisionRevision = Number.isInteger(input.decisionRevision)
+        ? input.decisionRevision
+        : 0;
+      const filterKey = String(input.filterKey || "");
+      const scopeIds = input.scopeIds || null;
+
+      if (target.datasetRevision === datasetRevision
+        && target.decisionRevision === decisionRevision
+        && target.filterKey === filterKey
+        && target.scopeIds === scopeIds) {
+        return target.videos;
+      }
+
+      const videos = compute();
+      target.datasetRevision = datasetRevision;
+      target.decisionRevision = decisionRevision;
+      target.filterKey = filterKey;
+      target.scopeIds = scopeIds;
+      target.videos = Array.isArray(videos) ? videos : [];
+      target.recomputeCount = Number(target.recomputeCount || 0) + 1;
+      return target.videos;
+    }
+
   app.domain.filters = Object.freeze({
       AGE_BUCKET_FILTERS,
       getApproximateAgeBucket,
@@ -336,5 +377,7 @@
       getChannelOptionPage,
       channelMatchesQuery,
       normalizeSearchText,
+      createEmptyFilteredVideosCache,
+      getMemoizedFilteredVideos,
   });
 })(globalThis);

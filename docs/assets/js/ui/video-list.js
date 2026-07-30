@@ -16,6 +16,12 @@
     const navigateToGroupsVideo = (...args) => context.navigateToGroupsVideo(...args);
     const renderStats = (...args) => context.renderStats(...args);
     const updateBulkLabels = (...args) => context.updateBulkLabels(...args);
+    let renderedVideoIds = [];
+    let renderedCurrentId = "";
+    const renderDiagnostics = {
+      fullRenderCount: 0,
+      patchRenderCount: 0,
+    };
 
     function initializeVideoList() {
       document.addEventListener("click", event => {
@@ -23,8 +29,8 @@
       });
     }
 
-    function getRenderedVideos() {
-      return getFilteredVideos().slice(0, state.renderedCount);
+    function getRenderedVideos(filteredVideos = getFilteredVideos()) {
+      return filteredVideos.slice(0, state.renderedCount);
     }
 
     function maybeRenderMore() {
@@ -32,11 +38,12 @@
       const nearBottom = window.innerHeight + window.scrollY > document.body.offsetHeight - 900;
       if (!nearBottom) return;
 
-      const total = getFilteredVideos().length;
+      const filteredVideos = getFilteredVideos();
+      const total = filteredVideos.length;
       if (state.renderedCount < total) {
         state.renderedCount += PAGE_SIZE;
-        renderVideoList();
-        renderStats();
+        renderVideoList(filteredVideos);
+        renderStats(filteredVideos);
       }
     }
 
@@ -52,8 +59,7 @@
       });
     }
 
-    function ensureCurrentVisible() {
-      const videos = getFilteredVideos();
+    function ensureCurrentVisible(videos = getFilteredVideos()) {
       if (!videos.length) {
         state.currentId = "";
         return;
@@ -64,21 +70,35 @@
       }
     }
 
-    function renderVideoList() {
-      const videos = getRenderedVideos();
-      const total = getFilteredVideos().length;
+    function renderVideoList(filteredVideos = getFilteredVideos(), options = {}) {
+      const videos = getRenderedVideos(filteredVideos);
+      const total = filteredVideos.length;
+      const nextVideoIds = videos.map(video => video.videoId);
 
       if (!state.videos.length) {
         els.videoList.innerHTML = '<div class="empty">No JSON imported yet.</div>';
+        renderedVideoIds = [];
+        renderedCurrentId = "";
         return;
       }
 
       if (!videos.length) {
         els.videoList.innerHTML = '<div class="empty">No videos match the current filters.</div>';
+        renderedVideoIds = [];
+        renderedCurrentId = "";
+        return;
+      }
+
+      if (patchRenderedRows(videos, nextVideoIds, options.changedVideoIds)) {
+        renderedCurrentId = state.currentId;
+        renderDiagnostics.patchRenderCount++;
         return;
       }
 
       els.videoList.replaceChildren(...videos.map(video => createVideoRow(video)));
+      renderedVideoIds = nextVideoIds;
+      renderedCurrentId = state.currentId;
+      renderDiagnostics.fullRenderCount++;
 
       if (videos.length < total) {
         const more = document.createElement("button");
@@ -86,11 +106,47 @@
         more.textContent = `Show more (${videos.length} / ${total})`;
         more.addEventListener("click", () => {
           state.renderedCount += PAGE_SIZE;
-          renderVideoList();
-          renderStats();
+          const currentFilteredVideos = getFilteredVideos();
+          renderVideoList(currentFilteredVideos);
+          renderStats(currentFilteredVideos);
         });
         els.videoList.appendChild(more);
       }
+    }
+
+    function patchRenderedRows(videos, nextVideoIds, changedVideoIds) {
+      const changed = Array.isArray(changedVideoIds)
+        ? changedVideoIds.filter(Boolean)
+        : [];
+      if (!changed.length
+        || nextVideoIds.length !== renderedVideoIds.length
+        || nextVideoIds.some((videoId, index) => videoId !== renderedVideoIds[index])
+        || typeof els.videoList.querySelector !== "function") {
+        return false;
+      }
+
+      const videosById = new Map(videos.map(video => [video.videoId, video]));
+      const idsToRefresh = new Set([
+        ...changed,
+        renderedCurrentId,
+        state.currentId,
+      ]);
+      for (const videoId of idsToRefresh) {
+        const video = videosById.get(videoId);
+        if (!video) continue;
+        const row = Array.from(els.videoList.children || [])
+          .find(child => child?.dataset?.videoId === videoId);
+        if (!row || typeof row.replaceWith !== "function") return false;
+        row.replaceWith(createVideoRow(video));
+      }
+      return true;
+    }
+
+    function getRenderDiagnostics() {
+      return {
+        ...renderDiagnostics,
+        renderedVideoCount: renderedVideoIds.length,
+      };
     }
 
     function createVideoRow(video) {
@@ -403,6 +459,7 @@
       scrollCurrentIntoView,
       ensureCurrentVisible,
       renderVideoList,
+      getRenderDiagnostics,
       createVideoRow,
       createStatusButton,
       createOpenButton,

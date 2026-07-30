@@ -616,6 +616,9 @@
       decisionRevision: -1,
       videoFacts: [],
       model: createEmptyInsightsModel(),
+      factRecomputeCount: 0,
+      decisionRefreshCount: 0,
+      modelRecomputeCount: 0,
     };
   }
 
@@ -662,14 +665,17 @@
         input.importContext,
         input.now,
       );
+      target.factRecomputeCount = Number(target.factRecomputeCount || 0) + 1;
     } else if (decisionsChanged) {
       target.videoFacts = refreshVideoFactDecisions(
         target.videoFacts,
         input.decisions,
       );
+      target.decisionRefreshCount = Number(target.decisionRefreshCount || 0) + 1;
     }
 
     target.model = buildChannelInsights(target.videoFacts, input.options);
+    target.modelRecomputeCount = Number(target.modelRecomputeCount || 0) + 1;
     target.datasetRevision = datasetRevision;
     target.decisionRevision = decisionRevision;
     return target.model;

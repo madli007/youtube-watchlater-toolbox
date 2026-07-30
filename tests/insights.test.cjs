@@ -503,6 +503,9 @@ assert.deepEqual(plain(insights.createEmptyInsightsCache()), {
   decisionRevision: -1,
   videoFacts: [],
   model: plain(insights.createEmptyInsightsModel()),
+  factRecomputeCount: 0,
+  decisionRefreshCount: 0,
+  modelRecomputeCount: 0,
 });
 
 const memoizedCache = insights.createEmptyInsightsCache();
@@ -528,6 +531,8 @@ const initialMemoizedModel = insights.getMemoizedInsightsModel(
 const initialMemoizedFacts = memoizedCache.videoFacts;
 assert.equal(initialMemoizedModel.videoCount, 1);
 assert.equal(initialMemoizedModel.statusCounts.unreviewed, 1);
+assert.equal(memoizedCache.factRecomputeCount, 1);
+assert.equal(memoizedCache.modelRecomputeCount, 1);
 assert.equal(
   insights.getMemoizedInsightsModel(memoizedCache, memoizedInput),
   initialMemoizedModel,
@@ -545,6 +550,9 @@ assert.equal(memoizedCache.videoFacts[0].durationSeconds, 90);
 assert.equal(memoizedCache.videoFacts[0].ageDays, 10);
 assert.equal(decidedMemoizedModel.statusCounts.keep, 1);
 assert.equal(decidedMemoizedModel.statusCounts.unreviewed, 0);
+assert.equal(memoizedCache.factRecomputeCount, 1);
+assert.equal(memoizedCache.decisionRefreshCount, 1);
+assert.equal(memoizedCache.modelRecomputeCount, 2);
 
 const datasetMemoizedModel = insights.getMemoizedInsightsModel(memoizedCache, {
   ...memoizedInput,

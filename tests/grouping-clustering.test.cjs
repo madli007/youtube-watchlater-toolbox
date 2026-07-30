@@ -198,11 +198,13 @@ const cachedGroups = grouping.getMemoizedVideoGroups(cache, {
   datasetRevision: 1,
 });
 assert.equal(cachedGroups, firstGroups, "unchanged dataset revisions should reuse the group array");
+assert.equal(cache.recomputeCount, 1);
 const refreshedGroups = grouping.getMemoizedVideoGroups(cache, {
   videos: crossChannelGroups,
   datasetRevision: 2,
 });
 assert.notEqual(refreshedGroups, firstGroups);
+assert.equal(cache.recomputeCount, 2);
 const overrideRefreshedGroups = grouping.getMemoizedVideoGroups(cache, {
   videos: crossChannelGroups,
   datasetRevision: 2,
@@ -222,5 +224,6 @@ assert.notEqual(
   "manual override revisions must invalidate the grouping cache",
 );
 assert.equal(cache.datasetRevision, 2);
+assert.equal(cache.recomputeCount, 3);
 
 console.log("grouping clustering test passed");

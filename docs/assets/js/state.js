@@ -8,6 +8,7 @@
     normalizeChannelRules,
   } = app.domain.decisions;
   const { normalizeSavedViews } = app.domain.filters;
+  const { createEmptyFilteredVideosCache } = app.domain.filters;
   const { createEmptyImportComparison } = app.domain.importComparison;
   const { createEmptyInsightsCache } = app.domain.insights;
   const { normalizeImportHistory } = app.domain.importHistory;
@@ -37,6 +38,7 @@
       activeView: "triage",
       datasetRevision: 0,
       decisionRevision: 0,
+      filteredVideosCache: createEmptyFilteredVideosCache(),
       insightsMeasure: "count",
       insightsSort: "backlog",
       selectedChannelKey: "",

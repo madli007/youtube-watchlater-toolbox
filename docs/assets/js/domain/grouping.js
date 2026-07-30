@@ -1291,6 +1291,7 @@
         overrideRevision: -1,
         groups: [],
         diagnostics: null,
+        recomputeCount: 0,
       };
     }
 
@@ -1317,6 +1318,7 @@
       target.datasetRevision = datasetRevision;
       target.overrideRevision = overrideRevision;
       target.diagnostics = diagnostics;
+      target.recomputeCount = Number(target.recomputeCount || 0) + 1;
       return target.groups;
     }
 

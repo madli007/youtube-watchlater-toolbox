@@ -88,6 +88,7 @@
       buildInsightsTriageFilters,
       filterChannelOptions,
       getChannelOptionPage,
+      getMemoizedFilteredVideos,
     } = filters;
     const {
       getMemoizedInsightsModel,
@@ -252,6 +253,7 @@
       scrollCurrentIntoView,
       ensureCurrentVisible,
       renderVideoList,
+      getRenderDiagnostics,
     } = videoListUi;
     const {
       renderStats,
@@ -543,6 +545,7 @@
 
     function refreshEnrichedVideos() {
       state.videos = state.videos.map(video => enrichVideo(toWorkspaceVideo(video)));
+      state.datasetRevision++;
     }
 
     function getDecision(videoId) {
@@ -588,6 +591,7 @@
       render({
         scrollToCurrent: true,
         focusCurrent: Boolean(options.focusCurrent),
+        changedVideoIds: [videoId],
       });
     }
 
@@ -685,13 +689,20 @@
 
     function getFilteredVideos() {
       const filters = captureFilterState();
-      const datasetIds = getDatasetViewIds(state.datasetView);
-
-      return getSortedVideos(filterVideosByIdScope(state.videos, state.triageScopeIds).filter(video => {
-        if (datasetIds && !datasetIds.has(video.videoId)) return false;
-        if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
-        return videoMatchesFilters(video, getDecision(video.videoId), filters);
-      }));
+      const filterKey = JSON.stringify(filters);
+      return getMemoizedFilteredVideos(state.filteredVideosCache, {
+        datasetRevision: state.datasetRevision,
+        decisionRevision: state.decisionRevision,
+        filterKey,
+        scopeIds: state.triageScopeIds,
+      }, () => {
+        const datasetIds = getDatasetViewIds(state.datasetView);
+        return getSortedVideos(filterVideosByIdScope(state.videos, state.triageScopeIds).filter(video => {
+          if (datasetIds && !datasetIds.has(video.videoId)) return false;
+          if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
+          return videoMatchesFilters(video, getDecision(video.videoId), filters);
+        }));
+      });
     }
 
     function getVideoTags(video) {
@@ -745,13 +756,14 @@
         return;
       }
       if (state.activeView !== "triage") return;
-      ensureCurrentVisible();
-      renderStats();
-      renderVideoList();
+      const filteredVideos = getFilteredVideos();
+      ensureCurrentVisible(filteredVideos);
+      renderStats(filteredVideos);
+      renderVideoList(filteredVideos, options);
       renderSidebar();
       renderHistory();
       renderImportComparison();
-      updateBulkLabels();
+      updateBulkLabels(filteredVideos);
       renderCompactFilters();
       if (options.scrollToCurrent) {
         scrollCurrentIntoView({ focus: Boolean(options.focusCurrent) });
@@ -1634,6 +1646,23 @@
         formatPreviewTime,
         handleShortcuts,
         getInsightsModel,
+        getFilteredVideos,
+        getPerformanceDiagnostics() {
+          return {
+            filteredVideos: {
+              recomputeCount: state.filteredVideosCache.recomputeCount,
+            },
+            insights: {
+              factRecomputeCount: state.insightsCache.factRecomputeCount,
+              decisionRefreshCount: state.insightsCache.decisionRefreshCount,
+              modelRecomputeCount: state.insightsCache.modelRecomputeCount,
+            },
+            groups: {
+              recomputeCount: state.groupingCache.recomputeCount,
+            },
+            videoList: getRenderDiagnostics(),
+          };
+        },
         importFile,
         clearImportHistory,
       }),
