@@ -284,7 +284,7 @@
       els.exportVisible.disabled = !visible;
       els.exportDecisions.disabled = !Object.keys(state.decisions).length;
       els.exportWorkspace.disabled = !state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length;
-      els.undoBulk.disabled = !state.history.some(entry => ["bulk-status", "channel-rule", "similarity-group"].includes(entry.action));
+      context.syncUndoAvailability();
     }
 
     function renderImportComparison() {

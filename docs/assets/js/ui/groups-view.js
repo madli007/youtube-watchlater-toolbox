@@ -112,7 +112,13 @@
       document: documentRef,
       getMemoizedVideoGroups,
       parseSeriesTitle,
+      chooseGroupWinner,
+      createGroupDecisionPlan,
+      applyDecisionPlan,
+      getProtectedChannelMatches,
     } = context;
+    const confirmedReviewGroupIds = new Set();
+    let confirmedDatasetRevision = state.datasetRevision;
     const getStatus = videoId => context.getStatus(videoId);
     const navigateToGroupsGroup = groupId => {
       if (typeof context.navigateToGroupsGroup === "function") {
@@ -178,6 +184,13 @@
         state.renderedGroupCount += GROUP_PAGE_SIZE;
         renderGroups();
       });
+      els.groupsConfirmMatch.addEventListener("click", confirmSelectedGroup);
+      els.groupsOpenInTriage.addEventListener("click", openSelectedGroupInTriage);
+      els.groupsKeepAll.addEventListener("click", () => applySelectedGroupStatus("keep"));
+      els.groupsMaybeAll.addEventListener("click", () => applySelectedGroupStatus("maybe"));
+      els.groupsDeleteAll.addEventListener("click", () => applySelectedGroupStatus("delete"));
+      els.groupsKeepNewest.addEventListener("click", () => applySelectedGroupWinner("newest"));
+      els.groupsKeepMostViewed.addEventListener("click", () => applySelectedGroupWinner("most-viewed"));
     }
 
     function syncControls(allGroups) {
@@ -219,6 +232,10 @@
     }
 
     function renderGroups() {
+      if (confirmedDatasetRevision !== state.datasetRevision) {
+        confirmedReviewGroupIds.clear();
+        confirmedDatasetRevision = state.datasetRevision;
+      }
       const allGroups = getAllGroups();
       syncControls(allGroups);
       const selectedGroup = resolveSelectedGroup(allGroups);
@@ -354,6 +371,7 @@
       ].join(" \u00b7 ");
       els.groupsDetailConfidence.textContent = formatConfidence(group);
       els.groupsDetailConfidence.className = `group-confidence-badge is-${getGroupConfidenceKind(group)}`;
+      renderGroupActions(group);
       const reasons = (group.reasons?.length ? group.reasons : [group.reason])
         .filter(Boolean)
         .map(reason => {
@@ -370,6 +388,157 @@
         const parsed = parsedById.get(video.videoId) || parseSeriesTitle(video);
         return createMemberRow(video, parsed);
       }));
+    }
+
+    function getSelectedGroup() {
+      return getAllGroups().find(group => group.id === state.selectedGroupId) || null;
+    }
+
+    function isGroupActionEnabled(group) {
+      return Boolean(group)
+        && (getGroupConfidenceKind(group) !== "review" || confirmedReviewGroupIds.has(group.id));
+    }
+
+    function renderGroupActions(group) {
+      const requiresConfirmation = getGroupConfidenceKind(group) === "review"
+        && !confirmedReviewGroupIds.has(group.id);
+      const newestWinner = chooseGroupWinner(group, "newest");
+      const viewedWinner = chooseGroupWinner(group, "most-viewed");
+
+      els.groupsConfirmMatch.hidden = !requiresConfirmation;
+      els.groupsDetailSafety.textContent = requiresConfirmation
+        ? "This match needs review. Confirm the group before applying decisions to multiple videos."
+        : "Every multi-video decision creates a local undo snapshot.";
+      [els.groupsKeepAll, els.groupsMaybeAll, els.groupsDeleteAll].forEach(button => {
+        button.disabled = requiresConfirmation;
+        button.title = requiresConfirmation ? "Confirm this review group to enable bulk decisions" : "";
+      });
+      setRecommendationAvailability(
+        els.groupsKeepNewest,
+        newestWinner,
+        "upload age",
+        requiresConfirmation,
+      );
+      setRecommendationAvailability(
+        els.groupsKeepMostViewed,
+        viewedWinner,
+        "view count",
+        requiresConfirmation,
+      );
+    }
+
+    function setRecommendationAvailability(button, winner, metric, requiresConfirmation) {
+      button.disabled = requiresConfirmation || !winner;
+      if (requiresConfirmation) {
+        button.title = "Confirm this review group to enable bulk decisions";
+      } else if (winner) {
+        button.title = `Keep “${winner.title || winner.videoId}” and mark the other group members delete`;
+      } else {
+        button.title = `No ${metric} data is available for this group`;
+      }
+    }
+
+    function confirmSelectedGroup() {
+      const group = getSelectedGroup();
+      if (!group || getGroupConfidenceKind(group) !== "review") return;
+      confirmedReviewGroupIds.add(group.id);
+      renderGroupDetail(group);
+      context.showToast(`Enabled bulk decisions for “${group.label}”.`);
+    }
+
+    function openSelectedGroupInTriage() {
+      const group = getSelectedGroup();
+      if (!group) return;
+      const videoIds = group.members.map(video => video.videoId).filter(Boolean);
+      context.navigateToTriageFromInsights({ videoIds });
+      context.showToast(`Selected ${videoIds.length} videos from “${group.label}”.`);
+    }
+
+    function applySelectedGroupStatus(status) {
+      const group = getSelectedGroup();
+      if (!guardGroupAction(group)) return;
+      const plan = createGroupDecisionPlan(group, { status }, getStatus);
+      if (!plan.changedIds.length) {
+        context.showToast(`Every video in this group is already ${status}.`);
+        return;
+      }
+      if (status === "delete" && !confirmDeletePlan(group, plan)) return;
+      commitGroupPlan(
+        group,
+        plan,
+        `${group.label}: ${plan.changedIds.length} group members → ${status}`,
+        `Marked ${plan.changedIds.length} group members as ${status}.`,
+      );
+    }
+
+    function applySelectedGroupWinner(strategy) {
+      const group = getSelectedGroup();
+      if (!guardGroupAction(group)) return;
+      const winner = chooseGroupWinner(group, strategy);
+      const metric = strategy === "newest" ? "upload age" : "view count";
+      if (!winner) {
+        context.showToast(`This group has no usable ${metric} data.`);
+        return;
+      }
+      const plan = createGroupDecisionPlan(group, { winnerId: winner.videoId }, getStatus);
+      if (!plan.changedIds.length) {
+        context.showToast("This recommendation is already applied.");
+        return;
+      }
+
+      const protectedWarning = getProtectedWarning(plan.changedDeleteIds);
+      const strategyLabel = strategy === "newest" ? "newest" : "most viewed";
+      const ok = context.window.confirm([
+        `Keep only the ${strategyLabel} video in “${group.label}”?`,
+        "",
+        `Keep: ${winner.title || winner.videoId}`,
+        `Mark delete: ${plan.deleteIds.length} other group members.${protectedWarning}`,
+        "",
+        "A local undo snapshot will be created.",
+      ].join("\n"));
+      if (!ok) return;
+
+      commitGroupPlan(
+        group,
+        plan,
+        `${group.label}: kept ${strategyLabel}, deleted ${plan.deleteIds.length}`,
+        `Kept “${winner.title || winner.videoId}” and marked ${plan.deleteIds.length} group members delete.`,
+        winner.videoId,
+      );
+    }
+
+    function guardGroupAction(group) {
+      if (!group) return false;
+      if (isGroupActionEnabled(group)) return true;
+      context.showToast("Confirm this review group before applying bulk decisions.");
+      return false;
+    }
+
+    function confirmDeletePlan(group, plan) {
+      const warning = getProtectedWarning(plan.changedDeleteIds);
+      return context.window.confirm(
+        `Mark all ${plan.changedIds.length} pending members of “${group.label}” as delete?${warning}\n\nA local undo snapshot will be created.`,
+      );
+    }
+
+    function getProtectedWarning(videoIds) {
+      const matches = getProtectedChannelMatches(state.videos, videoIds, state.channelRules);
+      if (!matches.length) return "";
+      const channels = Array.from(new Set(matches.map(match => match.channel)));
+      return `\n\nWarning: ${matches.length} videos that would be marked delete belong to protected channels: ${channels.join(", ")}.`;
+    }
+
+    function commitGroupPlan(group, plan, description, toastMessage, currentId = "") {
+      if (!context.addHistoryEntry(description, "group-decision", plan.changedIds)) {
+        context.showToast("Group change cancelled because the local safety snapshot could not be saved.");
+        return;
+      }
+      state.decisions = applyDecisionPlan(state.decisions, plan);
+      state.selectedIds.clear();
+      state.currentId = currentId || plan.changedIds[0] || state.currentId;
+      context.saveDecisions();
+      context.render();
+      context.showToast(toastMessage);
     }
 
     function createMemberRow(video, parsed) {

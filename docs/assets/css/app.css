@@ -1659,6 +1659,44 @@
       font-size: 12px;
     }
 
+    .groups-detail-actions {
+      display: grid;
+      gap: 10px;
+      padding: 14px 18px;
+      background: #0d0f13;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .groups-detail-safety {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .groups-primary-actions,
+    .groups-recommendation-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .groups-detail-actions button {
+      min-height: 34px;
+    }
+
+    .groups-detail-actions > #groupsOpenInTriage {
+      justify-self: start;
+    }
+
+    .groups-detail-actions > #groupsConfirmMatch {
+      justify-self: start;
+      color: #071015;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 800;
+    }
+
     .groups-detail-block {
       padding: 16px 18px;
       border-bottom: 1px solid var(--border);

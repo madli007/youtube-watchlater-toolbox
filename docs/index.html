@@ -599,6 +599,20 @@
             </div>
             <span id="groupsDetailConfidence" class="group-confidence-badge"></span>
           </header>
+          <section class="groups-detail-actions" aria-label="Group decisions">
+            <p id="groupsDetailSafety" class="groups-detail-safety"></p>
+            <button id="groupsConfirmMatch" type="button" hidden>Confirm group match</button>
+            <div class="groups-primary-actions" role="group" aria-label="Apply one status to the group">
+              <button id="groupsKeepAll" class="keep-button" type="button">Keep all</button>
+              <button id="groupsMaybeAll" class="maybe-button" type="button">Maybe all</button>
+              <button id="groupsDeleteAll" class="danger" type="button">Delete all</button>
+            </div>
+            <div class="groups-recommendation-actions" role="group" aria-label="Keep one recommended video">
+              <button id="groupsKeepNewest" type="button">Keep newest only</button>
+              <button id="groupsKeepMostViewed" type="button">Keep most viewed only</button>
+            </div>
+            <button id="groupsOpenInTriage" type="button">Select &amp; open in Triage</button>
+          </section>
           <section class="groups-detail-block" aria-labelledby="groupsReasonsTitle">
             <h3 id="groupsReasonsTitle">Why these videos match</h3>
             <ul id="groupsDetailReasons" class="groups-reason-list"></ul>

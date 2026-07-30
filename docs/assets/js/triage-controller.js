@@ -52,6 +52,9 @@
       normalizeDecision,
       normalizeTags,
       areDecisionsEqual,
+      createGroupDecisionPlan,
+      applyDecisionPlan,
+      isUndoableBulkHistoryEntry,
       createHistoryEntry,
       createSnapshotId,
       mergeHistoryEntries,
@@ -115,6 +118,8 @@
       splitInputValues,
       normalizeTags,
       areDecisionsEqual,
+      createGroupDecisionPlan,
+      applyDecisionPlan,
       normalizeFilterState,
       getAdvancedFilterEntries,
       buildInsightsTriageFilters,
@@ -154,6 +159,7 @@
       handleFilterChange,
       getTagCounts,
       addHistoryEntry,
+      syncUndoAvailability,
       getActiveFilterSummary,
       getInboxIds,
       createChannelName,
@@ -683,6 +689,7 @@
     }
 
     function renderActiveView(options = {}) {
+      syncUndoAvailability();
       if (state.activeView === "insights") {
         renderInsights();
         return;
@@ -1385,8 +1392,12 @@
       return false;
     }
 
+    function syncUndoAvailability() {
+      els.undoBulk.disabled = !state.history.some(isUndoableBulkHistoryEntry);
+    }
+
     function undoLastBulkChange() {
-      const entry = state.history.find(candidate => ["bulk-status", "channel-rule", "similarity-group"].includes(candidate.action));
+      const entry = state.history.find(isUndoableBulkHistoryEntry);
       if (!entry) {
         showToast("No bulk, channel-rule, or video-group change is available to undo.");
         return;

@@ -1255,7 +1255,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 3.4 — Skupinske odločitve in undo
 
-- [ ] **Slice 3.4 zaključen**
+- [x] **Slice 3.4 zaključen**
 - **Cilj:** prenesti obstoječe group bulk akcije brez varnostne regresije.
 - **Prizadeto:** `ui/groups-view.js`, `domain/decisions.js`, `domain/grouping.js`, `storage.js`, `app.js`.
 - **Podatki:** obstoječi decisions/history shemi.

@@ -4,6 +4,12 @@
   const app = root.WatchLaterApp ||= {};
   app.domain ||= {};
     const { MAX_HISTORY_ENTRIES } = app.config;
+    const UNDOABLE_BULK_ACTIONS = Object.freeze([
+      "bulk-status",
+      "channel-rule",
+      "similarity-group",
+      "group-decision",
+    ]);
 
     function ruleMatchesVideo(video, rule) {
       const normalized = normalizeRule(rule);
@@ -246,6 +252,59 @@
       return Number.isFinite(time) ? time : 0;
     }
 
+    function createGroupDecisionPlan(group, target = {}, getStatus = () => "unreviewed") {
+      const memberIds = Array.from(new Set(
+        (Array.isArray(group?.members) ? group.members : [])
+          .map(video => String(video?.videoId || ""))
+          .filter(Boolean),
+      ));
+      const status = ["keep", "maybe", "delete"].includes(target.status)
+        ? target.status
+        : "";
+      const winnerId = memberIds.includes(target.winnerId) ? target.winnerId : "";
+      const targetStatuses = {};
+
+      if (status) {
+        memberIds.forEach(videoId => {
+          targetStatuses[videoId] = status;
+        });
+      } else if (winnerId) {
+        memberIds.forEach(videoId => {
+          targetStatuses[videoId] = videoId === winnerId ? "keep" : "delete";
+        });
+      }
+
+      const changedIds = memberIds.filter(videoId =>
+        targetStatuses[videoId] && getStatus(videoId) !== targetStatuses[videoId]
+      );
+      return {
+        memberIds,
+        changedIds,
+        deleteIds: memberIds.filter(videoId => targetStatuses[videoId] === "delete"),
+        changedDeleteIds: changedIds.filter(videoId => targetStatuses[videoId] === "delete"),
+        winnerId,
+        targetStatuses,
+      };
+    }
+
+    function applyDecisionPlan(decisions, plan, updatedAt = new Date().toISOString()) {
+      const next = { ...(decisions && typeof decisions === "object" ? decisions : {}) };
+      for (const videoId of plan?.changedIds || []) {
+        const status = plan?.targetStatuses?.[videoId];
+        if (!["keep", "maybe", "delete"].includes(status)) continue;
+        next[videoId] = {
+          ...normalizeDecision(next[videoId] || {}),
+          status,
+          updatedAt,
+        };
+      }
+      return next;
+    }
+
+    function isUndoableBulkHistoryEntry(entry) {
+      return UNDOABLE_BULK_ACTIONS.includes(String(entry?.action || ""));
+    }
+
     function createHistoryEntry(description, action, beforeDecisions, createdAt = new Date().toISOString(), id = "") {
       const normalizedDecisions = normalizeBeforeDecisions(beforeDecisions);
       return {
@@ -328,11 +387,15 @@
       normalizeTags,
       areDecisionsEqual,
       getDecisionTime,
+      createGroupDecisionPlan,
+      applyDecisionPlan,
+      isUndoableBulkHistoryEntry,
       createHistoryEntry,
       createSnapshotId,
       normalizeBeforeDecisions,
       normalizeHistory,
       mergeHistoryEntries,
       applyHistoryEntry,
+      UNDOABLE_BULK_ACTIONS,
   });
 })(globalThis);

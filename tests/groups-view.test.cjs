@@ -23,7 +23,7 @@ for (const relativePath of [
   );
 }
 
-const { grouping } = sandbox.WatchLaterApp.domain;
+const { decisions, grouping } = sandbox.WatchLaterApp.domain;
 const {
   filterVideoGroups,
   formatSequence,
@@ -110,7 +110,9 @@ const statuses = {
   "similar-1": "maybe",
   "similar-2": "keep",
 };
-const getStatus = videoId => statuses[videoId] || "unreviewed";
+let decisionState = null;
+const getStatus = videoId =>
+  decisionState?.decisions?.[videoId]?.status || statuses[videoId] || "unreviewed";
 
 assert.deepEqual(
   filterVideoGroups(groups, { search: "episode 2" }, getStatus).map(group => group.id),
@@ -201,6 +203,14 @@ const elementNames = [
   "groupsDetailTitle",
   "groupsDetailMeta",
   "groupsDetailConfidence",
+  "groupsDetailSafety",
+  "groupsConfirmMatch",
+  "groupsKeepAll",
+  "groupsMaybeAll",
+  "groupsDeleteAll",
+  "groupsKeepNewest",
+  "groupsKeepMostViewed",
+  "groupsOpenInTriage",
   "groupsDetailReasons",
   "groupsDetailMembers",
 ];
@@ -211,6 +221,20 @@ els.fileInput.click = () => {
 };
 const state = {
   videos: [],
+  decisions: Object.fromEntries(
+    Object.entries(statuses)
+      .filter(([, status]) => status !== "unreviewed")
+      .map(([videoId, status]) => [videoId, {
+        status,
+        tags: [],
+        note: "",
+        updatedAt: "2026-07-30T08:00:00.000Z",
+      }]),
+  ),
+  history: [],
+  channelRules: [],
+  selectedIds: new Set(),
+  currentId: "",
   lastImport: null,
   datasetRevision: 0,
   groupingCache: {},
@@ -224,21 +248,66 @@ const state = {
   selectedGroupId: "",
   groupFocusVideoId: "",
 };
+decisionState = state;
 let currentGroups = [];
 let navigatedGroupId = "";
+let triageVideoIds = [];
+let latestToast = "";
+let latestConfirm = "";
+let confirmResult = true;
+let saveCount = 0;
 const view = createGroupsViewUi({
   state,
   els,
   getStatus,
+  createGroupDecisionPlan: decisions.createGroupDecisionPlan,
+  applyDecisionPlan: decisions.applyDecisionPlan,
+  getProtectedChannelMatches: decisions.getProtectedChannelMatches,
   getMemoizedVideoGroups() {
     return currentGroups;
   },
+  chooseGroupWinner: grouping.chooseGroupWinner,
   parseSeriesTitle: grouping.parseSeriesTitle,
   navigateToGroupsGroup(groupId) {
     navigatedGroupId = groupId;
     state.selectedGroupId = groupId;
     state.groupFocusVideoId = "";
     view.renderGroups();
+  },
+  navigateToTriageFromInsights({ videoIds }) {
+    triageVideoIds = videoIds;
+  },
+  addHistoryEntry(description, action, videoIds) {
+    const beforeDecisions = {};
+    for (const videoId of videoIds) {
+      beforeDecisions[videoId] = Object.hasOwn(state.decisions, videoId)
+        ? decisions.normalizeDecision(state.decisions[videoId])
+        : null;
+    }
+    state.history.unshift(decisions.createHistoryEntry(
+      description,
+      action,
+      beforeDecisions,
+      "2026-07-30T10:00:00.000Z",
+      `group-snapshot-${state.history.length + 1}`,
+    ));
+    return true;
+  },
+  saveDecisions() {
+    saveCount++;
+    return true;
+  },
+  render() {
+    view.renderGroups();
+  },
+  showToast(message) {
+    latestToast = message;
+  },
+  window: {
+    confirm(message) {
+      latestConfirm = message;
+      return confirmResult;
+    },
   },
   document: {
     createElement,
@@ -270,16 +339,54 @@ assert.equal(els.groupsDetailTitle.textContent, "The last of us");
 assert.equal(els.groupsDetailMembers.children.length, 2);
 assert.equal(els.groupsDetailMembers.children[0].children[2].textContent, "S1 \u00b7 E1");
 assert.match(els.groupsDetailConfidence.textContent, /^Auto/);
+assert.equal(els.groupsKeepAll.disabled, false);
+assert.equal(els.groupsKeepNewest.disabled, true, "unknown upload age disables the newest recommendation");
+
+els.groupsKeepAll.listeners.click();
+assert.equal(getStatus("series-2"), "keep");
+assert.equal(state.history[0].action, "group-decision");
+assert.equal(state.history[0].affectedCount, 1, "the snapshot only contains changed members");
+assert.equal(saveCount, 1);
+state.decisions = decisions.applyHistoryEntry(state.decisions, state.history.shift());
+view.renderGroups();
+assert.equal(getStatus("series-2"), "unreviewed", "the group snapshot restores the previous status");
+
+state.decisions["series-2"] = {
+  status: "keep",
+  tags: [],
+  note: "",
+  updatedAt: "2026-07-30T11:00:00.000Z",
+};
+const noOpHistoryCount = state.history.length;
+els.groupsKeepAll.listeners.click();
+assert.equal(state.history.length, noOpHistoryCount, "a no-op group action must not create a snapshot");
+assert.match(latestToast, /already keep/i);
 
 els.groupsList.children[1].children[0].listeners.click();
 assert.equal(navigatedGroupId, "duplicate-documentary");
 assert.equal(els.groupsDetailTitle.textContent, "A shared documentary");
+state.decisions["duplicate-1"].status = "maybe";
+state.channelRules = [{ channel: "Channel A", protected: true }];
+confirmResult = true;
+els.groupsDeleteAll.listeners.click();
+assert.match(latestConfirm, /protected channels: Channel A/i);
+assert.equal(getStatus("duplicate-1"), "delete");
+assert.equal(state.history[0].affectedCount, 1);
+els.groupsOpenInTriage.listeners.click();
+assert.deepEqual(triageVideoIds, ["duplicate-1", "duplicate-2"]);
 
 els.groupsType.value = "similar";
 els.groupsType.listeners.change();
 assert.equal(state.groupType, "similar");
 assert.equal(els.groupsList.children.length, 1);
 assert.match(els.groupsSummary.textContent, /^1 of 3 groups/);
+els.groupsList.children[0].children[0].listeners.click();
+assert.equal(els.groupsKeepAll.disabled, true, "review-confidence groups start with bulk actions locked");
+assert.equal(els.groupsConfirmMatch.hidden, false);
+els.groupsConfirmMatch.listeners.click();
+assert.equal(els.groupsKeepAll.disabled, false);
+assert.equal(els.groupsKeepNewest.disabled, true, "confirmation cannot invent missing age data");
+assert.equal(els.groupsKeepMostViewed.disabled, true, "confirmation cannot invent missing view data");
 
 els.groupsSearch.value = "not present";
 els.groupsSearch.listeners.input();
@@ -320,6 +427,10 @@ assert.match(html, /id=["']groupsList["'][^>]*role=["']list["']/i);
 assert.match(html, /id=["']groupsDetail["'][^>]*aria-labelledby=["']groupsDetailTitle["']/i);
 assert.match(html, /id=["']groupsDetailReasons["']/i);
 assert.match(html, /id=["']groupsDetailMembers["']/i);
+assert.match(html, /id=["']groupsConfirmMatch["']/i);
+assert.match(html, /id=["']groupsKeepAll["']/i);
+assert.match(html, /id=["']groupsKeepNewest["']/i);
+assert.match(html, /id=["']groupsOpenInTriage["']/i);
 assert.doesNotMatch(html, /Coming in Phase 3/i);
 
 console.log("series groups view test passed");

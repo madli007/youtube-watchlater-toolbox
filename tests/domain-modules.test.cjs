@@ -254,6 +254,25 @@ assert.equal(groups[0].type, "series");
 assert.equal(grouping.chooseGroupWinner(groups[0], "newest").videoId, "episode-2");
 assert.deepEqual(plain(grouping.buildVideoGroups(null)), []);
 assert.equal(grouping.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
+const groupStatusById = {
+  "episode-1": "keep",
+  "episode-2": "unreviewed",
+};
+const groupPlan = decisions.createGroupDecisionPlan(
+  groups[0],
+  { winnerId: "episode-2" },
+  videoId => groupStatusById[videoId],
+);
+assert.deepEqual(plain(groupPlan.changedIds), ["episode-1", "episode-2"]);
+assert.deepEqual(plain(groupPlan.changedDeleteIds), ["episode-1"]);
+const plannedDecisions = decisions.applyDecisionPlan({
+  "episode-1": { status: "keep", tags: ["series"], note: "note", updatedAt: "" },
+}, groupPlan, "2026-07-30T12:00:00.000Z");
+assert.equal(plannedDecisions["episode-1"].status, "delete");
+assert.deepEqual(plain(plannedDecisions["episode-1"].tags), ["series"]);
+assert.equal(plannedDecisions["episode-2"].status, "keep");
+assert.equal(decisions.isUndoableBulkHistoryEntry({ action: "group-decision" }), true);
+assert.equal(decisions.isUndoableBulkHistoryEntry({ action: "snapshot-restore" }), false);
 const parsedSeriesTitle = grouping.parseSeriesTitle({
   videoId: "parsed",
   title: "Reacting to Great Show Episodes 3 & 4 Full Reaction",
