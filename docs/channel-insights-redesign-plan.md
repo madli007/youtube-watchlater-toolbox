@@ -1222,7 +1222,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 3.1 — Novi parser naslovov
 
-- [ ] **Slice 3.1 zaključen**
+- [x] **Slice 3.1 zaključen**
 - **Cilj:** robustna normalizacija, wrapper removal in season/episode extraction.
 - **Prizadeto:** `domain/grouping.js`, grouping fixtures in testi.
 - **Podatki:** nov `ParsedSeriesTitle`, še brez storage.

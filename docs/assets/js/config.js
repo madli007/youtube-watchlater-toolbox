@@ -18,6 +18,23 @@
     "del", "de", "der", "die", "das", "el", "la", "le", "les", "un", "una", "und", "y",
     "official", "video", "audio", "hd", "uhd", "full",
   ]);
+  const GROUPING_WRAPPER_TERMS = Object.freeze([
+    "watching for the first time",
+    "first time watching",
+    "episode reaction",
+    "group reaction",
+    "movie reaction",
+    "full reaction",
+    "reacting to",
+    "reaction to",
+    "reacts to",
+    "watchalong",
+    "breakdown",
+    "reaction",
+    "reacts",
+    "review",
+    "recap",
+  ]);
   const RULES = {
     reactions: ["reaction", "reacts", "first time watching", "group reaction", "movie reaction", "episode reaction", "watching for the first time", "after show reacts", "#strugglenation", "blind wave", "reel rejects", "the normies", "holden & jen", "kat & sonny", "the 354 squad", "sean tanktop", "mary cherry", "just stef", "alyska"],
     marvel: ["marvel", "mcu", "daredevil", "punisher", "spider-noir", "spider noir", "spider-man", "spiderman", "captain america", "black panther", "ant-man", "wakanda", "avengers", "loki", "thor", "wanda", "deadpool", "x-men", "fantastic four", "moon knight", "hawkeye", "she-hulk", "doctor strange", "iron man", "secret invasion"],
@@ -54,6 +71,7 @@
     BULK_CONFIRM_THRESHOLD,
     MAX_HISTORY_ENTRIES,
     GROUPING_STOP_WORDS,
+    GROUPING_WRAPPER_TERMS,
     RULES,
   });
 })(globalThis);

@@ -3,9 +3,10 @@
 
   const app = root.WatchLaterApp ||= {};
   app.domain ||= {};
-    const { GROUPING_STOP_WORDS } = app.config;
+    const { GROUPING_STOP_WORDS, GROUPING_WRAPPER_TERMS } = app.config;
     const { dedupeVideos } = app.domain.importComparison;
     const { finiteNumberOrNull, parseApproximateAgeDays, parseApproximateViewCount } = app.domain.filters;
+    const { getChannelKey } = app.domain.insights;
 
     function normalizeGroupingTitle(value) {
       return String(value || "")
@@ -25,44 +26,318 @@
         .trim();
     }
 
-    function getSeriesSignature(video) {
-      const title = normalizeGroupingTitle(video?.title);
-      if (!title) return null;
-      const patterns = [
-        { regex: /\bs(?:eason)?\s*0*(\d{1,3})\s*e(?:p(?:isode)?)?\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\b0*(\d{1,3})\s*x\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\bseason\s*0*(\d{1,3})\s*(?:episode|ep)\s*0*(\d{1,4})\b/u, season: 1, episode: 2 },
-        { regex: /\b(?:episode|ep|part|pt|chapter)\s*#?\s*0*(\d{1,4})\b/u, episode: 1 },
-        { regex: /(?:^|\s)#\s*0*(\d{1,4})\b/u, episode: 1 },
-      ];
+    function normalizeSeriesSyntax(value) {
+      return String(value || "")
+        .normalize("NFKD")
+        .replace(/\p{M}+/gu, "")
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[‐‑‒–—−]/gu, "-")
+        .replace(/[^\p{L}\p{N}#/-]+/gu, " ")
+        .replace(/\s*([/-])\s*/g, "$1")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
 
-      let match = null;
-      let pattern = null;
-      for (const candidate of patterns) {
-        match = title.match(candidate.regex);
-        if (match) {
-          pattern = candidate;
-          break;
+    function escapeRegExp(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function removeGenericWrappers(value) {
+      let title = normalizeSeriesSyntax(value);
+      const removed = [];
+      const terms = [...GROUPING_WRAPPER_TERMS]
+        .map(term => normalizeGroupingTitle(term))
+        .filter(Boolean)
+        .sort((left, right) => right.length - left.length);
+
+      let changed = true;
+      while (title && changed) {
+        changed = false;
+        for (const term of terms) {
+          const escaped = escapeRegExp(term).replace(/\s+/g, "\\s+");
+          const prefix = new RegExp(`^${escaped}(?:\\s+|$)`, "u");
+          const suffix = new RegExp(`(?:^|\\s+)${escaped}$`, "u");
+          if (prefix.test(title)) {
+            title = title.replace(prefix, " ").replace(/\s+/g, " ").trim();
+            removed.push(term);
+            changed = true;
+            break;
+          }
+          if (suffix.test(title)) {
+            title = title.replace(suffix, " ").replace(/\s+/g, " ").trim();
+            removed.push(term);
+            changed = true;
+            break;
+          }
         }
       }
 
-      if (!match) {
-        const trailing = title.match(/\b0*(\d{1,3})\s*$/u);
-        const number = trailing ? Number(trailing[1]) : null;
-        if (!trailing || (number >= 1900 && number <= 2099)) return null;
-        match = trailing;
-        pattern = { regex: /\b0*(\d{1,3})\s*$/u, episode: 1 };
+      return {
+        title,
+        removed: Array.from(new Set(removed)),
+      };
+    }
+
+    function sequenceFromMatch(match, definition) {
+      const season = definition.seasonGroup
+        ? Number(match[definition.seasonGroup])
+        : null;
+      const first = definition.firstGroup
+        ? Number(match[definition.firstGroup])
+        : null;
+      const second = definition.secondGroup && match[definition.secondGroup]
+        ? Number(match[definition.secondGroup])
+        : null;
+      const separator = definition.separatorGroup && match[definition.separatorGroup]
+        ? match[definition.separatorGroup]
+        : "";
+      const numbers = [first, second].filter(number => Number.isFinite(number));
+      const isRange = second !== null && separator === "-";
+
+      return {
+        kind: definition.kind,
+        format: definition.format,
+        season: Number.isFinite(season) ? season : null,
+        episode: definition.kind === "episode" || definition.kind === "trailing"
+          ? (numbers[0] ?? null)
+          : null,
+        episodes: definition.kind === "episode" || definition.kind === "trailing"
+          ? numbers
+          : [],
+        part: definition.kind === "part" || definition.kind === "chapter"
+          ? (numbers[0] ?? null)
+          : null,
+        parts: definition.kind === "part" || definition.kind === "chapter"
+          ? numbers
+          : [],
+        qualifier: definition.qualifierGroup
+          ? String(match[definition.qualifierGroup] || "").replace(/\s+/g, " ").trim()
+          : null,
+        range: isRange ? { start: first, end: second } : null,
+        raw: match[0].trim(),
+      };
+    }
+
+    function findExplicitSequence(title) {
+      const definitions = [
+        {
+          regex: /\bs\s*0*(\d{1,3})\s*e(?:p(?:isode)?)?\s*0*(\d{1,4})(?:\s*(\/|and|-)\s*(?:e(?:p(?:isode)?)?\s*)?0*(\d{1,4}))?\b/u,
+          kind: "episode",
+          format: "season-episode",
+          seasonGroup: 1,
+          firstGroup: 2,
+          separatorGroup: 3,
+          secondGroup: 4,
+        },
+        {
+          regex: /\bseason\s*0*(\d{1,3})\s*(?:episode|episodes|ep)\s*0*(\d{1,4})(?:\s*(\/|and|-)\s*(?:e(?:p(?:isode)?)?\s*)?0*(\d{1,4}))?\b/u,
+          kind: "episode",
+          format: "season-episode-words",
+          seasonGroup: 1,
+          firstGroup: 2,
+          separatorGroup: 3,
+          secondGroup: 4,
+        },
+        {
+          regex: /\b0*(\d{1,3})\s*x\s*0*(\d{1,4})(?:\s*(\/|and|-)\s*0*(\d{1,4}))?\b/u,
+          kind: "episode",
+          format: "season-x-episode",
+          seasonGroup: 1,
+          firstGroup: 2,
+          separatorGroup: 3,
+          secondGroup: 4,
+        },
+        {
+          regex: /\b(?:episode|episodes|ep)\s*#?\s*0*(\d{1,4})(?:\s*(\/|and|-)\s*(?:e(?:p(?:isode)?)?\s*)?0*(\d{1,4}))?\b/u,
+          kind: "episode",
+          format: "episode",
+          firstGroup: 1,
+          separatorGroup: 2,
+          secondGroup: 3,
+        },
+        {
+          regex: /(?:^|\s)#\s*0*(\d{1,4})\b/u,
+          kind: "episode",
+          format: "hash-episode",
+          firstGroup: 1,
+        },
+        {
+          regex: /\b(part|pt|chapter)\s*#?\s*0*(\d{1,4})(?:\s*(\/|and|-)\s*0*(\d{1,4}))?\b/u,
+          kind: null,
+          format: "part",
+          firstGroup: 2,
+          separatorGroup: 3,
+          secondGroup: 4,
+          kindGroup: 1,
+        },
+        {
+          regex: /\b(?:season\s*0*(\d{1,3})\s+)?((?:season|series)\s+finale|finale|special|pilot)\b/u,
+          kind: "qualifier",
+          format: "qualifier",
+          seasonGroup: 1,
+          qualifierGroup: 2,
+        },
+      ];
+
+      for (const definition of definitions) {
+        const match = title.match(definition.regex);
+        if (!match) continue;
+        const resolvedDefinition = definition.kindGroup
+          ? {
+            ...definition,
+            kind: match[definition.kindGroup] === "chapter" ? "chapter" : "part",
+          }
+          : definition;
+        return {
+          index: match.index,
+          length: match[0].length,
+          sequence: sequenceFromMatch(match, resolvedDefinition),
+        };
+      }
+      return null;
+    }
+
+    function findTrailingSequence(title) {
+      const rangeMatch = title.match(/\b0*(\d{1,3})(-)0*(\d{1,3})\s*$/u);
+      if (rangeMatch) {
+        return {
+          index: rangeMatch.index,
+          length: rangeMatch[0].length,
+          sequence: sequenceFromMatch(rangeMatch, {
+            kind: "episode",
+            format: "unlabeled-range",
+            firstGroup: 1,
+            separatorGroup: 2,
+            secondGroup: 3,
+          }),
+        };
       }
 
-      const base = title.replace(pattern.regex, " ").replace(/\s+/g, " ").trim();
-      const meaningful = getSimilarityTokens(base);
-      if (!base || !meaningful.length || base.length < 3) return null;
-      const channel = normalizeGroupingTitle(video?.channel) || "unknown channel";
+      const trailingMatch = title.match(/\b0*(\d{1,4})\s*$/u);
+      if (!trailingMatch) return null;
+      const number = Number(trailingMatch[1]);
+      const prefix = title.slice(0, trailingMatch.index).trim();
+      if ((number >= 1900 && number <= 2099)
+        || /\b(?:4k|8k|1080p|720p)\s*$/u.test(title)
+        || !prefix) {
+        return null;
+      }
       return {
-        key: `${channel}|${base}`,
+        index: trailingMatch.index,
+        length: trailingMatch[0].length,
+        sequence: sequenceFromMatch(trailingMatch, {
+          kind: "trailing",
+          format: "trailing-number",
+          firstGroup: 1,
+        }),
+      };
+    }
+
+    function removeRepeatedChannel(base, channelName) {
+      const normalizedChannel = normalizeGroupingTitle(channelName);
+      if (!normalizedChannel || normalizedChannel.length < 3) {
+        return { base, removed: false };
+      }
+      const escaped = escapeRegExp(normalizedChannel).replace(/\s+/g, "\\s+");
+      const prefix = new RegExp(`^${escaped}(?:\\s+|$)`, "u");
+      const suffix = new RegExp(`(?:^|\\s+)${escaped}$`, "u");
+      const withoutPrefix = base.replace(prefix, " ").replace(/\s+/g, " ").trim();
+      if (withoutPrefix && withoutPrefix !== base) return { base: withoutPrefix, removed: true };
+      const withoutSuffix = base.replace(suffix, " ").replace(/\s+/g, " ").trim();
+      if (withoutSuffix && withoutSuffix !== base) return { base: withoutSuffix, removed: true };
+      return { base, removed: false };
+    }
+
+    function getTitleInitialism(value) {
+      const words = normalizeGroupingTitle(value)
+        .split(" ")
+        .filter(word => word && !/^\d+$/u.test(word));
+      return words.length >= 2 ? words.map(word => word[0]).join("") : "";
+    }
+
+    function parseSeriesTitle(video) {
+      const originalTitle = String(video?.title || "");
+      const normalizedTitle = normalizeSeriesSyntax(originalTitle);
+      const channelKey = getChannelKey(video?.channelUrl, video?.channel);
+      const warnings = [];
+      const reasons = [
+        channelKey.startsWith("url:")
+          ? "canonical channel URL"
+          : "normalized channel name",
+      ];
+
+      const firstWrapperPass = removeGenericWrappers(normalizedTitle);
+      const matched = findExplicitSequence(firstWrapperPass.title)
+        || findTrailingSequence(firstWrapperPass.title);
+      let sequence = matched?.sequence || null;
+      let withoutSequence = firstWrapperPass.title;
+      if (matched) {
+        withoutSequence = `${withoutSequence.slice(0, matched.index)} ${withoutSequence.slice(matched.index + matched.length)}`
+          .replace(/\s+/g, " ")
+          .trim();
+        reasons.push(`detected ${sequence.format}`);
+      }
+
+      const wrappers = firstWrapperPass.removed;
+      if (wrappers.length) reasons.push(`removed wrapper: ${wrappers.join(", ")}`);
+
+      let base = normalizeGroupingTitle(withoutSequence);
+      const channelResult = removeRepeatedChannel(base, video?.channel);
+      base = channelResult.base;
+      if (channelResult.removed) reasons.push("removed repeated channel name");
+
+      if (sequence?.range) warnings.push("multiple-episode-range");
+      else if ((sequence?.episodes.length || sequence?.parts.length) > 1) {
+        warnings.push("multiple-episode-list");
+      }
+      if (sequence?.format === "unlabeled-range") warnings.push("unlabeled-sequence");
+      if (sequence?.format === "trailing-number") warnings.push("unlabeled-sequence");
+      if (sequence?.kind === "part"
+        && /\b(?:movie|film)\b/u.test(normalizeGroupingTitle(originalTitle))) {
+        warnings.push("ambiguous-movie-part");
+      }
+      if (!sequence && /\b(?:19|20)\d{2}\b/u.test(normalizedTitle)) {
+        warnings.push("year-not-treated-as-episode");
+      }
+      if (!sequence && /\b(?:4k|8k|1080p|720p)\b/u.test(normalizedTitle)) {
+        warnings.push("resolution-not-treated-as-episode");
+      }
+      if (!base) warnings.push("missing-series-base");
+
+      const tokens = getSimilarityTokens(base);
+      const initialism = getTitleInitialism(base);
+      const canonicalBase = base;
+      reasons.push(base ? `base: ${base}` : "no usable base");
+
+      return {
+        video,
+        channelKey,
+        originalTitle,
+        normalizedTitle,
+        titleWithoutWrappers: normalizeGroupingTitle(firstWrapperPass.title),
         base,
-        season: pattern.season ? Number(match[pattern.season]) : 0,
-        episode: pattern.episode ? Number(match[pattern.episode]) : 0,
+        canonicalBase,
+        tokens,
+        initialism,
+        sequence,
+        wrappers,
+        warnings,
+        reasons,
+        debugReason: reasons.join(" · "),
+      };
+    }
+
+    function getSeriesSignature(video) {
+      const parsed = parseSeriesTitle(video);
+      const { base, sequence } = parsed;
+      if (!sequence || !base || !parsed.tokens.length || base.length < 3) return null;
+      return {
+        key: `${parsed.channelKey}|${base}`,
+        base,
+        season: sequence.season ?? 0,
+        episode: sequence.episode ?? sequence.part ?? 0,
+        parsed,
       };
     }
 
@@ -268,6 +543,10 @@
   app.domain.grouping = Object.freeze({
       normalizeGroupingTitle,
       normalizeDuplicateTitle,
+      normalizeSeriesSyntax,
+      removeGenericWrappers,
+      getTitleInitialism,
+      parseSeriesTitle,
       getSeriesSignature,
       getSimilarityTokens,
       calculateTitleSimilarity,

@@ -1,0 +1,167 @@
+[
+  {
+    "name": "compact season and episode",
+    "video": { "title": "The Last of Us S01E02 Reaction", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "season-episode",
+    "season": 1,
+    "episodes": [2],
+    "wrappers": ["reaction"]
+  },
+  {
+    "name": "spaced compact season and episode",
+    "video": { "title": "The Last of Us S1 E2", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "season-episode",
+    "season": 1,
+    "episodes": [2]
+  },
+  {
+    "name": "x notation",
+    "video": { "title": "The Last of Us 1x03", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "season-x-episode",
+    "season": 1,
+    "episodes": [3]
+  },
+  {
+    "name": "season and episode words",
+    "video": { "title": "The Last of Us Season 2 Episode 4 Review", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "season-episode-words",
+    "season": 2,
+    "episodes": [4],
+    "wrappers": ["review"]
+  },
+  {
+    "name": "episode abbreviation",
+    "video": { "title": "The Last of Us Ep. 5", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "episode",
+    "episodes": [5]
+  },
+  {
+    "name": "hash episode",
+    "video": { "title": "The Last of Us #6", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "hash-episode",
+    "episodes": [6]
+  },
+  {
+    "name": "chapter number",
+    "video": { "title": "Build Log — Chapter 6", "channel": "Maker" },
+    "base": "build log",
+    "format": "part",
+    "kind": "chapter",
+    "parts": [6]
+  },
+  {
+    "name": "season finale",
+    "video": { "title": "The Last of Us Season 1 Finale Reaction", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "qualifier",
+    "season": 1,
+    "qualifier": "finale",
+    "wrappers": ["reaction"]
+  },
+  {
+    "name": "special",
+    "video": { "title": "Doctor Who Holiday Special", "channel": "Whovians" },
+    "base": "doctor who holiday",
+    "format": "qualifier",
+    "qualifier": "special"
+  },
+  {
+    "name": "pilot",
+    "video": { "title": "Severance Pilot Breakdown", "channel": "TV Club" },
+    "base": "severance",
+    "format": "qualifier",
+    "qualifier": "pilot",
+    "wrappers": ["breakdown"]
+  },
+  {
+    "name": "episode list",
+    "video": { "title": "Andor Episodes 3 & 4 Reaction", "channel": "Reactors" },
+    "base": "andor",
+    "format": "episode",
+    "episodes": [3, 4],
+    "warnings": ["multiple-episode-list"]
+  },
+  {
+    "name": "episode range",
+    "video": { "title": "Andor Episodes 5-7 Reaction", "channel": "Reactors" },
+    "base": "andor",
+    "format": "episode",
+    "episodes": [5, 7],
+    "range": { "start": 5, "end": 7 },
+    "warnings": ["multiple-episode-range"]
+  },
+  {
+    "name": "unlabeled trailing range",
+    "video": { "title": "Andor 8-9", "channel": "Reactors" },
+    "base": "andor",
+    "format": "unlabeled-range",
+    "episodes": [8, 9],
+    "range": { "start": 8, "end": 9 },
+    "warnings": ["multiple-episode-range", "unlabeled-sequence"]
+  },
+  {
+    "name": "compact episode list",
+    "video": { "title": "Andor S01E03/E04 Reaction", "channel": "Reactors" },
+    "base": "andor",
+    "format": "season-episode",
+    "season": 1,
+    "episodes": [3, 4]
+  },
+  {
+    "name": "prefix wrapper",
+    "video": { "title": "Reacting to The Last of Us Episode 7", "channel": "Reactors" },
+    "base": "the last of us",
+    "format": "episode",
+    "episodes": [7],
+    "wrappers": ["reacting to"]
+  },
+  {
+    "name": "channel repeated in title",
+    "video": {
+      "title": "Reactors — The Last of Us Episode 8",
+      "channel": "Reactors",
+      "channelUrl": "https://www.youtube.com/@Reactors"
+    },
+    "base": "the last of us",
+    "format": "episode",
+    "episodes": [8],
+    "channelKey": "url:@reactors"
+  },
+  {
+    "name": "movie part is ambiguous",
+    "video": { "title": "Dune Movie Part 2 Review", "channel": "Cinema Club" },
+    "base": "dune movie",
+    "format": "part",
+    "kind": "part",
+    "parts": [2],
+    "warnings": ["ambiguous-movie-part"]
+  },
+  {
+    "name": "year is not an episode",
+    "video": { "title": "Best Movies of 2024", "channel": "Cinema Club" },
+    "base": "best movies of 2024",
+    "format": null,
+    "warnings": ["year-not-treated-as-episode"]
+  },
+  {
+    "name": "resolution is not an episode",
+    "video": { "title": "Nature Walk 4K", "channel": "Outdoors" },
+    "base": "nature walk 4k",
+    "format": null,
+    "warnings": ["resolution-not-treated-as-episode"]
+  },
+  {
+    "name": "wrapper word inside base is preserved",
+    "video": { "title": "The Reaction Episode 1", "channel": "Drama Club" },
+    "base": "the reaction",
+    "format": "episode",
+    "episodes": [1],
+    "wrappers": []
+  }
+]

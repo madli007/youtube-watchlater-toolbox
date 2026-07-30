@@ -43,6 +43,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 assert.equal(config.STORAGE_KEY, "watchlater-triage-decisions-v1");
 assert.equal(config.PAGE_SIZE, 220);
 assert.equal(config.GROUPING_STOP_WORDS.has("official"), true);
+assert.equal(config.GROUPING_WRAPPER_TERMS.includes("reacting to"), true);
 assert.equal(Object.isFrozen(config), true);
 assert.equal(Object.isFrozen(config.RULES), true);
 
@@ -253,6 +254,15 @@ assert.equal(groups[0].type, "series");
 assert.equal(grouping.chooseGroupWinner(groups[0], "newest").videoId, "episode-2");
 assert.deepEqual(plain(grouping.buildVideoGroups(null)), []);
 assert.equal(grouping.chooseGroupWinner({ members: [{ videoId: "unknown" }] }, "newest"), null);
+const parsedSeriesTitle = grouping.parseSeriesTitle({
+  videoId: "parsed",
+  title: "Reacting to Great Show Episodes 3 & 4 Full Reaction",
+  channel: "Channel A",
+});
+assert.equal(parsedSeriesTitle.base, "great show");
+assert.deepEqual(plain(parsedSeriesTitle.sequence.episodes), [3, 4]);
+assert.equal(parsedSeriesTitle.initialism, "gs");
+assert.ok(parsedSeriesTitle.warnings.includes("multiple-episode-list"));
 
 const exportedAt = "2026-07-28T12:00:00.000Z";
 const payload = workspace.buildWorkspacePayload({
