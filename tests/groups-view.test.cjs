@@ -196,9 +196,14 @@ const elementNames = [
   "groupsStatus",
   "groupsOnlyUndecided",
   "groupsClearFilters",
+  "groupsOverridesPanel",
+  "groupsOverridesCount",
+  "groupsOverridesList",
   "groupsSummary",
   "groupsList",
   "groupsShowMore",
+  "groupsMergeSelected",
+  "groupsClearSelected",
   "groupsDetail",
   "groupsDetailTitle",
   "groupsDetailMeta",
@@ -210,6 +215,8 @@ const elementNames = [
   "groupsDeleteAll",
   "groupsKeepNewest",
   "groupsKeepMostViewed",
+  "groupsEditAlias",
+  "groupsSplitMembers",
   "groupsOpenInTriage",
   "groupsDetailReasons",
   "groupsDetailMembers",
@@ -247,6 +254,10 @@ const state = {
   groupOnlyUndecided: false,
   selectedGroupId: "",
   groupFocusVideoId: "",
+  selectedGroupIds: new Set(),
+  selectedGroupMemberIds: new Set(),
+  groupingOverrides: grouping.createEmptyGroupingOverrides(),
+  groupingOverrideRevision: 0,
 };
 decisionState = state;
 let currentGroups = [];
@@ -268,6 +279,23 @@ const view = createGroupsViewUi({
   },
   chooseGroupWinner: grouping.chooseGroupWinner,
   parseSeriesTitle: grouping.parseSeriesTitle,
+  createAliasOverride: grouping.createAliasOverride,
+  createMergeOverride: grouping.createMergeOverride,
+  createSplitOverride: grouping.createSplitOverride,
+  getGroupingOverrideDiagnostics: grouping.getGroupingOverrideDiagnostics,
+  normalizeGroupingOverrides: grouping.normalizeGroupingOverrides,
+  removeGroupingOverride: grouping.removeGroupingOverride,
+  createSnapshotId() {
+    return `override-${state.groupingOverrideRevision + 1}`;
+  },
+  saveGroupingOverrides(value) {
+    state.groupingOverrides = grouping.normalizeGroupingOverrides(value);
+    state.groupingOverrideRevision++;
+    return true;
+  },
+  openGroupingAliasEditor(_group, onSave) {
+    onSave("Canonical alias");
+  },
   navigateToGroupsGroup(groupId) {
     navigatedGroupId = groupId;
     state.selectedGroupId = groupId;
@@ -337,7 +365,7 @@ assert.equal(els.groupsList.children.length, 3);
 assert.equal(els.groupsDetail.hidden, false);
 assert.equal(els.groupsDetailTitle.textContent, "The last of us");
 assert.equal(els.groupsDetailMembers.children.length, 2);
-assert.equal(els.groupsDetailMembers.children[0].children[2].textContent, "S1 \u00b7 E1");
+assert.equal(els.groupsDetailMembers.children[0].children[3].textContent, "S1 \u00b7 E1");
 assert.match(els.groupsDetailConfidence.textContent, /^Auto/);
 assert.equal(els.groupsKeepAll.disabled, false);
 assert.equal(els.groupsKeepNewest.disabled, true, "unknown upload age disables the newest recommendation");
@@ -362,7 +390,7 @@ els.groupsKeepAll.listeners.click();
 assert.equal(state.history.length, noOpHistoryCount, "a no-op group action must not create a snapshot");
 assert.match(latestToast, /already keep/i);
 
-els.groupsList.children[1].children[0].listeners.click();
+els.groupsList.children[1].children[1].listeners.click();
 assert.equal(navigatedGroupId, "duplicate-documentary");
 assert.equal(els.groupsDetailTitle.textContent, "A shared documentary");
 state.decisions["duplicate-1"].status = "maybe";
@@ -380,7 +408,7 @@ els.groupsType.listeners.change();
 assert.equal(state.groupType, "similar");
 assert.equal(els.groupsList.children.length, 1);
 assert.match(els.groupsSummary.textContent, /^1 of 3 groups/);
-els.groupsList.children[0].children[0].listeners.click();
+els.groupsList.children[0].children[1].listeners.click();
 assert.equal(els.groupsKeepAll.disabled, true, "review-confidence groups start with bulk actions locked");
 assert.equal(els.groupsConfirmMatch.hidden, false);
 els.groupsConfirmMatch.listeners.click();
@@ -396,6 +424,43 @@ els.groupsClearFilters.listeners.click();
 assert.equal(state.groupSearch, "");
 assert.equal(state.groupType, "all");
 assert.equal(els.groupsList.children.length, 3);
+
+let firstMergeCheckbox = els.groupsList.children[0].children[0];
+firstMergeCheckbox.checked = true;
+firstMergeCheckbox.listeners.change();
+let secondMergeCheckbox = els.groupsList.children[1].children[0];
+secondMergeCheckbox.checked = true;
+secondMergeCheckbox.listeners.change();
+assert.equal(els.groupsMergeSelected.disabled, false);
+els.groupsMergeSelected.listeners.click();
+assert.match(latestToast, /different channels cannot be merged/i);
+assert.equal(state.groupingOverrides.merges.length, 0);
+els.groupsClearSelected.listeners.click();
+assert.equal(state.selectedGroupIds.size, 0);
+
+state.selectedGroupId = "series-tlou";
+view.renderGroups();
+els.groupsEditAlias.listeners.click();
+assert.equal(state.groupingOverrides.aliases.length, 1);
+assert.equal(state.groupingOverrides.aliases[0].to, "canonical alias");
+assert.equal(els.groupsOverridesPanel.hidden, false);
+assert.equal(els.groupsOverridesList.children.length, 1);
+els.groupsOverridesList.children[0].children[2].listeners.click();
+assert.equal(state.groupingOverrides.aliases.length, 0, "a manual correction can be removed");
+assert.equal(els.groupsOverridesPanel.hidden, true);
+
+state.selectedGroupId = "series-tlou";
+view.renderGroups();
+const splitCheckbox = els.groupsDetailMembers.children[0].children[0];
+splitCheckbox.checked = true;
+splitCheckbox.listeners.change();
+assert.equal(els.groupsSplitMembers.disabled, false);
+els.groupsSplitMembers.listeners.click();
+assert.equal(state.groupingOverrides.splits.length, 1);
+assert.deepEqual([...state.groupingOverrides.splits[0].memberIds], ["series-1"]);
+assert.equal(els.groupsOverridesList.children.length, 1);
+els.groupsOverridesList.children[0].children[2].listeners.click();
+assert.equal(state.groupingOverrides.splits.length, 0);
 
 currentGroups = Array.from({ length: 102 }, (_, index) => ({
   ...groups[0],
@@ -431,6 +496,11 @@ assert.match(html, /id=["']groupsConfirmMatch["']/i);
 assert.match(html, /id=["']groupsKeepAll["']/i);
 assert.match(html, /id=["']groupsKeepNewest["']/i);
 assert.match(html, /id=["']groupsOpenInTriage["']/i);
+assert.match(html, /id=["']groupsMergeSelected["']/i);
+assert.match(html, /id=["']groupsEditAlias["']/i);
+assert.match(html, /id=["']groupsSplitMembers["']/i);
+assert.match(html, /id=["']groupsOverridesList["']/i);
+assert.match(html, /id=["']groupingAliasDialog["']/i);
 assert.doesNotMatch(html, /Coming in Phase 3/i);
 
 console.log("series groups view test passed");

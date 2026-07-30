@@ -92,6 +92,15 @@ async function main() {
       one: 83.9,
       invalid: -1,
     }),
+    [config.GROUPING_OVERRIDES_STORAGE_KEY]: JSON.stringify({
+      aliases: [{
+        id: "alias-1",
+        channelKey: "url:@channel-a",
+        fromBases: ["old show"],
+        to: "canonical show",
+        createdAt: exportedAt,
+      }],
+    }),
   });
   const persistence = storageModule.createStorage(memory);
   const state = stateModule.createInitialState(persistence);
@@ -107,6 +116,10 @@ async function main() {
   assert.equal(state.timeBudgetHours, 2.5);
   assert.deepEqual(plain(state.insightsSettings), { decisionStaleDays: 90 });
   assert.deepEqual(plain(state.previewProgress), { one: 83 });
+  assert.equal(state.groupingOverrides.aliases[0].id, "alias-1");
+  assert.equal(state.groupingOverrideRevision, 0);
+  assert.deepEqual([...state.selectedGroupIds], []);
+  assert.deepEqual([...state.selectedGroupMemberIds], []);
   assert.deepEqual([...state.selectedIds], []);
   assert.deepEqual([...state.activeTags], []);
   assert.equal(state.activeView, "triage");
@@ -120,6 +133,7 @@ async function main() {
   assert.deepEqual(plain(state.insightsCache.videoFacts), []);
   assert.equal(state.insightsCache.model.videoCount, 0);
   assert.equal(state.groupingCache.datasetRevision, -1);
+  assert.equal(state.groupingCache.overrideRevision, -1);
   assert.deepEqual(plain(state.groupingCache.groups), []);
   assert.equal(state.groupingCache.diagnostics, null);
 
@@ -136,6 +150,13 @@ async function main() {
     true,
   );
   assert.equal(persistence.savePreviewProgress({ two: 42.8 }), true);
+  assert.equal(persistence.saveGroupingOverrides({
+    merges: [{
+      id: "merge-1",
+      channelKey: "url:@channel-a",
+      memberIds: ["one", "two"],
+    }],
+  }), true);
   const refreshed = stateModule.createInitialState(storageModule.createStorage(memory));
   assert.equal(refreshed.decisions.two.status, "maybe");
   assert.equal(refreshed.history[0].id, "history-1");
@@ -143,12 +164,14 @@ async function main() {
     decisionStaleDays: "off",
   });
   assert.deepEqual(plain(refreshed.previewProgress), { two: 42 });
+  assert.equal(refreshed.groupingOverrides.merges[0].id, "merge-1");
 
   const stored = memory.snapshot();
   assert.ok(Object.hasOwn(stored, "watchlater-triage-decisions-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-history-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-preview-progress-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-insights-settings-v1"));
+  assert.ok(Object.hasOwn(stored, "watchlater-triage-grouping-overrides-v1"));
 
   const corrupt = storageModule.createStorage(createMemoryStorage({
     [config.STORAGE_KEY]: "{broken",
@@ -167,6 +190,12 @@ async function main() {
     decisionStaleDays: 180,
   });
   assert.deepEqual(plain(emptyState.previewProgress), {});
+  assert.deepEqual(plain(emptyState.groupingOverrides), {
+    schemaVersion: 1,
+    aliases: [],
+    merges: [],
+    splits: [],
+  });
 
   const unavailable = storageModule.createStorage({
     getItem() {
@@ -185,6 +214,7 @@ async function main() {
     false,
   );
   assert.equal(unavailable.savePreviewProgress({ one: 10 }), false);
+  assert.equal(unavailable.saveGroupingOverrides({}), false);
 
   const workspacePayload = domain.workspace.buildWorkspacePayload({
     videos: [{ videoId: "one", title: "Video" }],
@@ -195,6 +225,7 @@ async function main() {
     history: state.history,
     timeBudgetHours: state.timeBudgetHours,
     previewProgress: state.previewProgress,
+    groupingOverrides: state.groupingOverrides,
     ui: { status: "keep", selectedIds: ["one"] },
   }, exportedAt);
   const workspaceRoundTrip = domain.workspace.parseWorkspacePayload(
@@ -204,6 +235,7 @@ async function main() {
   assert.equal(workspaceRoundTrip.history[0].id, "history-1");
   assert.equal(workspaceRoundTrip.timeBudgetHours, 2.5);
   assert.deepEqual(plain(workspaceRoundTrip.previewProgress), { one: 83 });
+  assert.equal(workspaceRoundTrip.groupingOverrides.aliases[0].id, "alias-1");
 
   assert.equal(await browserIo.readFileText({
     text: async () => "{\"videos\":[]}",

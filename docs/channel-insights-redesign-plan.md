@@ -1049,7 +1049,7 @@ Te številke so cilji za profiliranje, ne avtomatsko zagotovljene konstante.
 - [x] **Faza 0:** strukturni refaktor in stabilizacija.
 - [x] **Faza 1:** navigacija, Triage cleanup, akcijski meniji in dense video item.
 - [x] **Faza 2:** osnovni Channel Insights.
-- [ ] **Faza 3:** series detection, group detail in manual merge/split.
+- [x] **Faza 3:** series detection, group detail in manual merge/split.
 - [ ] **Faza 4:** import history, backlog persistence, accessibility in performance.
 
 Checkbox Faze se označi šele, ko so končani vsi njeni podrejeni checkboxi in izhodni kriteriji. Podrobni taski Faze 0 imajo en vir resnice v
@@ -1266,7 +1266,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 3.5 — Manual aliases, merge in split
 
-- [ ] **Slice 3.5 zaključen**
+- [x] **Slice 3.5 zaključen**
 - **Cilj:** uporabniku dati popravek napačnih detekcij.
 - **Prizadeto:** `domain/grouping.js`, `domain/workspace.js`, `storage.js`, `state.js`, `ui/groups-view.js`, `ui/dialogs.js`.
 - **Podatki:** `watchlater-triage-grouping-overrides-v1`.

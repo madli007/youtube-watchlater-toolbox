@@ -12,6 +12,7 @@
     TIME_BUDGET_STORAGE_KEY,
     INSIGHTS_SETTINGS_STORAGE_KEY,
     PREVIEW_PROGRESS_STORAGE_KEY,
+    GROUPING_OVERRIDES_STORAGE_KEY,
   } = app.config;
   const { normalizeHistory } = app.domain.decisions;
   const {
@@ -21,6 +22,7 @@
   const { normalizeTimeBudgetHours } = app.domain.timeBudget;
   const { normalizeInsightsSettings } = app.domain.insights;
   const { normalizePreviewProgress } = app.domain.workspace;
+  const { normalizeGroupingOverrides } = app.domain.grouping;
 
   function getDefaultStorage() {
     try {
@@ -148,6 +150,18 @@
           storage,
           PREVIEW_PROGRESS_STORAGE_KEY,
           normalizePreviewProgress(value),
+        );
+      },
+      loadGroupingOverrides() {
+        return normalizeGroupingOverrides(asObject(
+          readJson(storage, GROUPING_OVERRIDES_STORAGE_KEY, {}),
+        ));
+      },
+      saveGroupingOverrides(value) {
+        return writeJson(
+          storage,
+          GROUPING_OVERRIDES_STORAGE_KEY,
+          normalizeGroupingOverrides(value),
         );
       },
     });

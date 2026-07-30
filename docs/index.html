@@ -572,6 +572,12 @@
         <button id="groupsClearFilters" type="button">Clear</button>
       </section>
 
+      <details id="groupsOverridesPanel" class="groups-overrides-panel" hidden>
+        <summary>Manual corrections <span id="groupsOverridesCount">0</span></summary>
+        <p class="scope-text">Aliases, merges, and splits persist locally and travel with workspace exports. Stale corrections reference videos that are no longer present.</p>
+        <div id="groupsOverridesList" class="groups-overrides-list"></div>
+      </details>
+
       <section id="groupsEmptyState" class="groups-empty-state" aria-live="polite">
         <h2 id="groupsEmptyTitle">No dataset imported</h2>
         <p id="groupsEmptyDescription">Import a Watch Later JSON file to detect series, similar titles, and probable duplicates.</p>
@@ -584,6 +590,10 @@
             <div>
               <h2 id="groupsListTitle">Detected groups</h2>
               <p id="groupsSummary" class="scope-text" aria-live="polite"></p>
+            </div>
+            <div class="groups-selection-actions">
+              <button id="groupsMergeSelected" type="button" disabled>Merge selected</button>
+              <button id="groupsClearSelected" type="button" disabled>Clear selection</button>
             </div>
           </div>
           <div id="groupsList" class="groups-list" role="list"></div>
@@ -610,6 +620,10 @@
             <div class="groups-recommendation-actions" role="group" aria-label="Keep one recommended video">
               <button id="groupsKeepNewest" type="button">Keep newest only</button>
               <button id="groupsKeepMostViewed" type="button">Keep most viewed only</button>
+            </div>
+            <div class="groups-override-actions" role="group" aria-label="Correct group detection">
+              <button id="groupsEditAlias" type="button">Edit alias</button>
+              <button id="groupsSplitMembers" type="button" disabled>Split selected members</button>
             </div>
             <button id="groupsOpenInTriage" type="button">Select &amp; open in Triage</button>
           </section>
@@ -781,6 +795,23 @@
         <button id="applyChannelRule" type="button">Save &amp; apply this rule</button>
         <button id="closeChannelRules" type="button">Close</button>
         <button class="keep-button" type="submit">Save rule</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="groupingAliasDialog">
+    <form id="groupingAliasForm" class="dialog-form">
+      <div>
+        <h2>Edit series alias</h2>
+        <p id="groupingAliasContext" class="scope-text"></p>
+      </div>
+      <label>
+        Canonical series name
+        <input id="groupingAliasInput" type="text" maxlength="240" required>
+      </label>
+      <p class="scope-text">This alias applies only within the selected channel and can connect future imports that use the same title bases.</p>
+      <div class="dialog-actions">
+        <button id="cancelGroupingAlias" type="button">Cancel</button>
+        <button class="keep-button" type="submit">Save alias</button>
       </div>
     </form>
   </dialog>

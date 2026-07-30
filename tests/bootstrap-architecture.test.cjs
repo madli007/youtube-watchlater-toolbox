@@ -46,6 +46,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/filters.js",
     "docs/assets/js/domain/time-budget.js",
+    "docs/assets/js/domain/grouping.js",
   ],
   "docs/assets/js/storage.js": [
     "docs/assets/js/config.js",
@@ -53,6 +54,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/insights.js",
     "docs/assets/js/domain/time-budget.js",
+    "docs/assets/js/domain/grouping.js",
     "docs/assets/js/domain/workspace.js",
   ],
   "docs/assets/js/browser-io.js": [],
@@ -62,6 +64,7 @@ const dependencyGraph = {
     "docs/assets/js/domain/import-comparison.js",
     "docs/assets/js/domain/filters.js",
     "docs/assets/js/domain/insights.js",
+    "docs/assets/js/domain/grouping.js",
     "docs/assets/js/storage.js",
   ],
   "docs/assets/js/ui/dom.js": [],

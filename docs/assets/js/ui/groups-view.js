@@ -116,16 +116,24 @@
       createGroupDecisionPlan,
       applyDecisionPlan,
       getProtectedChannelMatches,
+      createAliasOverride,
+      createMergeOverride,
+      createSplitOverride,
+      getGroupingOverrideDiagnostics,
+      normalizeGroupingOverrides,
+      removeGroupingOverride,
     } = context;
     const confirmedReviewGroupIds = new Set();
     let confirmedDatasetRevision = state.datasetRevision;
     const getStatus = videoId => context.getStatus(videoId);
     const navigateToGroupsGroup = groupId => {
       if (typeof context.navigateToGroupsGroup === "function") {
+        state.selectedGroupMemberIds.clear();
         context.navigateToGroupsGroup(groupId);
         return;
       }
       state.selectedGroupId = groupId;
+      state.selectedGroupMemberIds.clear();
       renderGroups();
     };
 
@@ -133,6 +141,8 @@
       return getMemoizedVideoGroups(state.groupingCache, {
         videos: state.videos,
         datasetRevision: state.datasetRevision,
+        overrides: state.groupingOverrides,
+        overrideRevision: state.groupingOverrideRevision,
       });
     }
 
@@ -184,6 +194,11 @@
         state.renderedGroupCount += GROUP_PAGE_SIZE;
         renderGroups();
       });
+      els.groupsMergeSelected.addEventListener("click", mergeSelectedGroups);
+      els.groupsClearSelected.addEventListener("click", () => {
+        state.selectedGroupIds.clear();
+        renderGroups();
+      });
       els.groupsConfirmMatch.addEventListener("click", confirmSelectedGroup);
       els.groupsOpenInTriage.addEventListener("click", openSelectedGroupInTriage);
       els.groupsKeepAll.addEventListener("click", () => applySelectedGroupStatus("keep"));
@@ -191,6 +206,8 @@
       els.groupsDeleteAll.addEventListener("click", () => applySelectedGroupStatus("delete"));
       els.groupsKeepNewest.addEventListener("click", () => applySelectedGroupWinner("newest"));
       els.groupsKeepMostViewed.addEventListener("click", () => applySelectedGroupWinner("most-viewed"));
+      els.groupsEditAlias.addEventListener("click", editSelectedGroupAlias);
+      els.groupsSplitMembers.addEventListener("click", splitSelectedMembers);
     }
 
     function syncControls(allGroups) {
@@ -237,6 +254,10 @@
         confirmedDatasetRevision = state.datasetRevision;
       }
       const allGroups = getAllGroups();
+      const allGroupIds = new Set(allGroups.map(group => group.id));
+      state.selectedGroupIds = new Set(
+        Array.from(state.selectedGroupIds).filter(groupId => allGroupIds.has(groupId)),
+      );
       syncControls(allGroups);
       const selectedGroup = resolveSelectedGroup(allGroups);
       const groups = filterVideoGroups(allGroups, getFilters(), getStatus);
@@ -245,6 +266,7 @@
       ).size;
 
       els.groupsImportContext.textContent = getImportContext();
+      renderGroupingOverrides();
       if (!state.videos.length) {
         renderPageEmpty(
           "No dataset imported",
@@ -275,6 +297,11 @@
         `${typeCounts.similar || 0} similar`,
         `${typeCounts.duplicate || 0} duplicates`,
       ].join(" \u00b7 ");
+      els.groupsMergeSelected.disabled = state.selectedGroupIds.size < 2;
+      els.groupsMergeSelected.textContent = state.selectedGroupIds.size
+        ? `Merge selected (${state.selectedGroupIds.size})`
+        : "Merge selected";
+      els.groupsClearSelected.disabled = state.selectedGroupIds.size === 0;
 
       if (groups.length) {
         const renderedGroups = groups.slice(0, state.renderedGroupCount || GROUP_PAGE_SIZE);
@@ -314,6 +341,7 @@
     function createGroupSummary(group) {
       const item = documentRef.createElement("div");
       item.setAttribute("role", "listitem");
+      item.className = "group-summary-item";
       const button = documentRef.createElement("button");
       button.type = "button";
       button.className = "group-summary-row";
@@ -346,7 +374,17 @@
         : `${new Set(statuses).size > 1 ? "Mixed" : statuses[0] || "Decided"}`;
       button.append(main, badges, status);
       button.addEventListener("click", () => navigateToGroupsGroup(group.id));
-      item.append(button);
+      const selection = documentRef.createElement("input");
+      selection.type = "checkbox";
+      selection.className = "group-summary-select";
+      selection.checked = state.selectedGroupIds.has(group.id);
+      selection.setAttribute("aria-label", `Select ${group.label} for manual merge`);
+      selection.addEventListener("change", () => {
+        if (selection.checked) state.selectedGroupIds.add(group.id);
+        else state.selectedGroupIds.delete(group.id);
+        renderGroups();
+      });
+      item.append(selection, button);
       return item;
     }
 
@@ -371,6 +409,10 @@
       ].join(" \u00b7 ");
       els.groupsDetailConfidence.textContent = formatConfidence(group);
       els.groupsDetailConfidence.className = `group-confidence-badge is-${getGroupConfidenceKind(group)}`;
+      const validMemberIds = new Set(group.members.map(video => video.videoId));
+      state.selectedGroupMemberIds = new Set(
+        Array.from(state.selectedGroupMemberIds).filter(videoId => validMemberIds.has(videoId)),
+      );
       renderGroupActions(group);
       const reasons = (group.reasons?.length ? group.reasons : [group.reason])
         .filter(Boolean)
@@ -404,6 +446,7 @@
         && !confirmedReviewGroupIds.has(group.id);
       const newestWinner = chooseGroupWinner(group, "newest");
       const viewedWinner = chooseGroupWinner(group, "most-viewed");
+      const channels = getGroupChannels(group);
 
       els.groupsConfirmMatch.hidden = !requiresConfirmation;
       els.groupsDetailSafety.textContent = requiresConfirmation
@@ -419,6 +462,15 @@
         "upload age",
         requiresConfirmation,
       );
+      els.groupsEditAlias.disabled = channels.length !== 1;
+      els.groupsEditAlias.title = channels.length === 1
+        ? "Set a canonical series name for matching title bases in this channel"
+        : "Aliases cannot span multiple channels";
+      els.groupsSplitMembers.disabled = state.selectedGroupMemberIds.size === 0
+        || state.selectedGroupMemberIds.size >= group.members.length;
+      els.groupsSplitMembers.textContent = state.selectedGroupMemberIds.size
+        ? `Split selected members (${state.selectedGroupMemberIds.size})`
+        : "Split selected members";
       setRecommendationAvailability(
         els.groupsKeepMostViewed,
         viewedWinner,
@@ -444,6 +496,131 @@
       confirmedReviewGroupIds.add(group.id);
       renderGroupDetail(group);
       context.showToast(`Enabled bulk decisions for “${group.label}”.`);
+    }
+
+    function editSelectedGroupAlias() {
+      const group = getSelectedGroup();
+      if (!group) return;
+      context.openGroupingAliasEditor(group, alias => {
+        try {
+          const override = createAliasOverride(group, alias, {
+            id: context.createSnapshotId(),
+            createdAt: new Date().toISOString(),
+          });
+          const next = normalizeGroupingOverrides(state.groupingOverrides);
+          next.aliases = [...next.aliases, override];
+          state.groupFocusVideoId = group.members[0]?.videoId || "";
+          if (!context.saveGroupingOverrides(next)) {
+            context.showToast("The alias could not be saved locally.");
+            return false;
+          }
+          context.showToast(`Saved manual alias “${override.label || override.to}”.`);
+          context.render();
+          return true;
+        } catch (error) {
+          context.showToast(error.message || "The alias could not be created.");
+          return false;
+        }
+      });
+    }
+
+    function mergeSelectedGroups() {
+      const groups = getAllGroups().filter(group => state.selectedGroupIds.has(group.id));
+      try {
+        const override = createMergeOverride(groups, {
+          id: context.createSnapshotId(),
+          createdAt: new Date().toISOString(),
+        });
+        const next = normalizeGroupingOverrides(state.groupingOverrides);
+        next.merges = [...next.merges, override];
+        if (!context.saveGroupingOverrides(next)) {
+          context.showToast("The manual merge could not be saved locally.");
+          return;
+        }
+        state.selectedGroupIds.clear();
+        state.selectedGroupMemberIds.clear();
+        state.groupFocusVideoId = "";
+        state.selectedGroupId = `manual-${override.id}`;
+        context.render();
+        context.showToast(`Merged ${groups.length} groups into a manual group.`);
+      } catch (error) {
+        context.showToast(error.message || "The selected groups could not be merged.");
+      }
+    }
+
+    function splitSelectedMembers() {
+      const group = getSelectedGroup();
+      if (!group) return;
+      try {
+        const override = createSplitOverride(group, Array.from(state.selectedGroupMemberIds), {
+          id: context.createSnapshotId(),
+          createdAt: new Date().toISOString(),
+        });
+        const next = normalizeGroupingOverrides(state.groupingOverrides);
+        next.splits = [...next.splits, override];
+        if (!context.saveGroupingOverrides(next)) {
+          context.showToast("The manual split could not be saved locally.");
+          return;
+        }
+        state.selectedGroupMemberIds.clear();
+        state.groupFocusVideoId = "";
+        state.selectedGroupId = override.memberIds.length >= 2
+          ? `manual-${override.id}`
+          : "";
+        context.render();
+        context.showToast(`Split ${override.memberIds.length} member${override.memberIds.length === 1 ? "" : "s"} from the group.`);
+      } catch (error) {
+        context.showToast(error.message || "The selected members could not be split.");
+      }
+    }
+
+    function renderGroupingOverrides() {
+      const diagnostics = getGroupingOverrideDiagnostics(state.groupingOverrides, state.videos);
+      els.groupsOverridesPanel.hidden = diagnostics.length === 0;
+      els.groupsOverridesCount.textContent = String(diagnostics.length);
+      els.groupsOverridesList.replaceChildren(...diagnostics.map(diagnostic => {
+        const row = documentRef.createElement("div");
+        row.className = "groups-override-row";
+        const content = documentRef.createElement("div");
+        const title = documentRef.createElement("strong");
+        title.textContent = `${diagnostic.kind[0].toUpperCase()}${diagnostic.kind.slice(1)} · ${diagnostic.label}`;
+        const meta = documentRef.createElement("span");
+        meta.textContent = diagnostic.stale
+          ? diagnostic.orphanedIds.length
+            ? `${diagnostic.orphanedIds.length} orphaned IDs · stale`
+            : "No matching current videos · stale"
+          : `${diagnostic.matchedIds.length} current videos`;
+        content.append(title, meta);
+        const badge = createBadge(
+          diagnostic.stale ? "Stale" : "Active",
+          `group-confidence-badge is-${diagnostic.stale ? "review" : "manual"}`,
+        );
+        const remove = documentRef.createElement("button");
+        remove.type = "button";
+        remove.className = "danger";
+        remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove ${diagnostic.kind} correction ${diagnostic.label}`);
+        remove.addEventListener("click", () => removeOverride(diagnostic));
+        row.append(content, badge, remove);
+        return row;
+      }));
+    }
+
+    function removeOverride(diagnostic) {
+      if (!context.window.confirm(
+        `Remove the manual ${diagnostic.kind} correction “${diagnostic.label}”? Detected groups will be recalculated.`,
+      )) return;
+      const next = removeGroupingOverride(state.groupingOverrides, diagnostic.id);
+      if (!context.saveGroupingOverrides(next)) {
+        context.showToast("The correction could not be removed from local storage.");
+        return;
+      }
+      state.selectedGroupId = "";
+      state.groupFocusVideoId = "";
+      state.selectedGroupIds.clear();
+      state.selectedGroupMemberIds.clear();
+      context.render();
+      context.showToast("Removed the manual grouping correction.");
     }
 
     function openSelectedGroupInTriage() {
@@ -575,7 +752,17 @@
       const currentStatus = getStatus(video.videoId);
       status.className = `group-member-status is-${currentStatus}`;
       status.textContent = currentStatus;
-      row.append(index, content, sequence, status);
+      const selection = documentRef.createElement("input");
+      selection.type = "checkbox";
+      selection.className = "group-member-select";
+      selection.checked = state.selectedGroupMemberIds.has(video.videoId);
+      selection.setAttribute("aria-label", `Select ${video.title || video.videoId} for manual split`);
+      selection.addEventListener("change", () => {
+        if (selection.checked) state.selectedGroupMemberIds.add(video.videoId);
+        else state.selectedGroupMemberIds.delete(video.videoId);
+        renderGroupDetail(getSelectedGroup());
+      });
+      row.append(selection, index, content, sequence, status);
       return row;
     }
 

@@ -34,6 +34,8 @@
       return getMemoizedVideoGroups(state.groupingCache, {
         videos: state.videos,
         datasetRevision: state.datasetRevision,
+        overrides: state.groupingOverrides,
+        overrideRevision: state.groupingOverrideRevision,
       });
     }
 

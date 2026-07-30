@@ -87,6 +87,12 @@
       getMemoizedVideoGroups,
       chooseGroupWinner,
       parseSeriesTitle,
+      createAliasOverride,
+      createMergeOverride,
+      createSplitOverride,
+      getGroupingOverrideDiagnostics,
+      normalizeGroupingOverrides,
+      removeGroupingOverride,
     } = grouping;
     const {
       buildWorkspacePayload,
@@ -127,6 +133,12 @@
       getMemoizedVideoGroups,
       chooseGroupWinner,
       parseSeriesTitle,
+      createAliasOverride,
+      createMergeOverride,
+      createSplitOverride,
+      getGroupingOverrideDiagnostics,
+      normalizeGroupingOverrides,
+      removeGroupingOverride,
       buildTimeBudgetSummary,
       formatDuration,
       filterChannelOptions,
@@ -149,6 +161,7 @@
       saveChannelRules,
       saveTimeBudgetHours,
       saveInsightsSettings,
+      saveGroupingOverrides,
       renderTagFilters,
       getEffectiveRules,
       refreshEnrichedVideos,
@@ -206,6 +219,9 @@
       resetRuleEditor,
       saveRuleEditor,
       openChannelRulesDialog,
+      openGroupingAliasEditor,
+      saveGroupingAliasEditor,
+      closeGroupingAliasEditor,
       getChannelRuleChannelOptions,
       openChannelRuleChannelMenu,
       closeChannelRuleChannelMenu,
@@ -385,6 +401,8 @@
       els.applyChannelRule.addEventListener("click", applyCurrentChannelRule);
       els.applyAllChannelRules.addEventListener("click", applyAllPendingChannelRules);
       els.closeChannelRules.addEventListener("click", () => els.channelRulesDialog.close());
+      els.groupingAliasForm.addEventListener("submit", saveGroupingAliasEditor);
+      els.cancelGroupingAlias.addEventListener("click", closeGroupingAliasEditor);
       document.addEventListener("keydown", handleShortcuts);
       window.addEventListener("message", handlePreviewPlayerMessage);
       window.addEventListener("beforeunload", flushPreviewProgress);
@@ -433,6 +451,8 @@
         state.videos = deduped;
         state.datasetRevision++;
         state.selectedIds.clear();
+        state.selectedGroupIds.clear();
+        state.selectedGroupMemberIds.clear();
         state.activeTags.clear();
         state.activeChannels.clear();
         state.activeSavedViewId = "";
@@ -1160,7 +1180,13 @@
     }
 
     function exportWorkspace() {
-      if (!state.videos.length && !Object.keys(state.decisions).length && !state.channelRules.length) {
+      const groupingOverrideCount = state.groupingOverrides.aliases.length
+        + state.groupingOverrides.merges.length
+        + state.groupingOverrides.splits.length;
+      if (!state.videos.length
+        && !Object.keys(state.decisions).length
+        && !state.channelRules.length
+        && !groupingOverrideCount) {
         showToast("Nothing to export yet.");
         return;
       }
@@ -1176,6 +1202,7 @@
         history: state.history,
         timeBudgetHours: state.timeBudgetHours,
         previewProgress: state.previewProgress,
+        groupingOverrides: state.groupingOverrides,
         ui: getWorkspaceUiState(),
       });
       downloadJson(`watchlater_workspace_${getDateStamp()}.json`, payload);
@@ -1197,6 +1224,7 @@
           `Decisions: ${decisionCount}`,
           `Channel rules: ${incoming.channelRules.length}`,
           `History entries: ${incoming.history.length}`,
+          `Grouping corrections: ${incoming.groupingOverrides.aliases.length + incoming.groupingOverrides.merges.length + incoming.groupingOverrides.splits.length}`,
           "",
           "This replaces the current dataset, decisions, rules, saved views, and filters.",
         ].join("\n"));
@@ -1223,6 +1251,10 @@
         state.importComparison = incoming.importComparison;
         state.timeBudgetHours = incoming.timeBudgetHours;
         state.previewProgress = incoming.previewProgress;
+        state.groupingOverrides = incoming.groupingOverrides;
+        state.groupingOverrideRevision++;
+        state.selectedGroupIds.clear();
+        state.selectedGroupMemberIds.clear();
         state.decisions = incoming.decisions;
         state.videos = dedupeVideos(incoming.videos)
           .map(video => enrichVideo(video))
@@ -1241,6 +1273,7 @@
         persistence.saveChannelRules(state.channelRules);
         persistence.saveSavedViews(state.savedViews);
         persistence.saveTimeBudgetHours(state.timeBudgetHours);
+        persistence.saveGroupingOverrides(state.groupingOverrides);
         flushPreviewProgress();
         saveHistory();
         applyWorkspaceUi(incoming.ui);
@@ -1457,6 +1490,14 @@
 
     function saveInsightsSettings(value) {
       return persistence.saveInsightsSettings(value);
+    }
+
+    function saveGroupingOverrides(value = state.groupingOverrides) {
+      const normalized = normalizeGroupingOverrides(value);
+      if (!persistence.saveGroupingOverrides(normalized)) return false;
+      state.groupingOverrides = normalized;
+      state.groupingOverrideRevision++;
+      return true;
     }
 
     function handleShortcuts(event) {

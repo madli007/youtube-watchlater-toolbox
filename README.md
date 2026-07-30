@@ -18,7 +18,8 @@ The triage page:
 - keeps suggested tags visually separate from manual tags and lets each video store editable manual tags and a note;
 - calculates total watch time and time by status, channel, and tag; shows post-cleanup time, review progress, and weeks remaining for a saved weekly budget;
 - suggests a status-prioritized, shortest-first weekly shortlist from the currently visible non-delete videos and can select it for export or bulk actions;
-- detects episode/series patterns, similar same-channel titles, and probable duplicate or reuploaded videos locally within the visible scope;
+- detects episode/series patterns, similar same-channel titles, and probable duplicate or reuploaded videos locally across the full dataset;
+- supports persistent per-channel series aliases, same-channel manual group merges, member splits, and removable stale/orphaned corrections included in workspace snapshots;
 - shows every member of a detected group and supports selecting or marking the whole group, plus undoable “keep newest only” and “keep most viewed only” recommendations;
 - opens an in-app YouTube preview by button or the `p` shortcut without changing the current filters or list position, with a larger thumbnail, metadata, decision buttons, saved playback timestamps, and an optional playback-aware 30-second review timer;
 - stores decisions in browser `localStorage`;
@@ -74,6 +75,8 @@ node tests/insights.test.cjs
 node tests/insights-view.test.cjs
 node tests/grouping-parser.test.cjs
 node tests/grouping-clustering.test.cjs
+node tests/grouping-overrides.test.cjs
+node tests/groups-view.test.cjs
 node tests/userscript-reconciliation.test.cjs
 ```
 

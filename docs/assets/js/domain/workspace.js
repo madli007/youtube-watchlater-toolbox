@@ -7,8 +7,20 @@
     const importComparison = app.domain.importComparison;
     const { normalizeFilterState, normalizeSavedViews } = app.domain.filters;
     const { normalizeTimeBudgetHours } = app.domain.timeBudget;
+    const { normalizeGroupingOverrides } = app.domain.grouping;
     const { getPortableDecisions, normalizeChannelRules, normalizeHistory, normalizeUserRules } = decisions;
     const { normalizeImportComparison, normalizePlainObject } = importComparison;
+
+    function normalizeChannelInsightsExtension(value) {
+      const source = value && typeof value === "object" && !Array.isArray(value)
+        && (value.schemaVersion === undefined || value.schemaVersion === 1)
+        ? value
+        : {};
+      return {
+        schemaVersion: 1,
+        groupingOverrides: normalizeGroupingOverrides(source.groupingOverrides),
+      };
+    }
 
     function buildWorkspacePayload(workspace, exportedAt = new Date().toISOString()) {
       return {
@@ -27,6 +39,13 @@
           history: normalizeHistory(workspace.history),
           timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
           previewProgress: normalizePreviewProgress(workspace.previewProgress),
+          extensions: {
+            channelInsights: normalizeChannelInsightsExtension({
+              ...workspace.extensions?.channelInsights,
+              groupingOverrides: workspace.groupingOverrides
+                ?? workspace.extensions?.channelInsights?.groupingOverrides,
+            }),
+          },
           ui: normalizeWorkspaceUi(workspace.ui),
         },
       };
@@ -59,6 +78,11 @@
         history: normalizeHistory(workspace.history),
         timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
         previewProgress: normalizePreviewProgress(workspace.previewProgress),
+        groupingOverrides: normalizeChannelInsightsExtension(
+          workspace.extensions?.channelInsights || {
+            groupingOverrides: workspace.groupingOverrides,
+          },
+        ).groupingOverrides,
         ui: normalizeWorkspaceUi(workspace.ui),
       };
     }
@@ -96,5 +120,6 @@
       toWorkspaceVideo,
       normalizeWorkspaceUi,
       normalizePreviewProgress,
+      normalizeChannelInsightsExtension,
   });
 })(globalThis);

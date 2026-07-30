@@ -10,13 +10,14 @@
   const { normalizeSavedViews } = app.domain.filters;
   const { createEmptyImportComparison } = app.domain.importComparison;
   const { createEmptyInsightsCache } = app.domain.insights;
-  const { createEmptyGroupingCache } = app.domain.grouping;
+  const { createEmptyGroupingCache, normalizeGroupingOverrides } = app.domain.grouping;
 
   /**
    * Creates the single mutable application state container.
    *
    * Persistent fields: decisions, history, userRules, channelRules, savedViews,
-   * datasetBaseline, timeBudgetHours, insightsSettings, and previewProgress.
+   * datasetBaseline, timeBudgetHours, insightsSettings, previewProgress, and
+   * groupingOverrides.
    * Dataset fields: videos, lastImport, importComparison, revision counters,
    * and insightsCache.
    * Transient UI fields: selections, active filters/editors, rendered limits,
@@ -63,6 +64,10 @@
       groupOnlyUndecided: false,
       selectedGroupId: "",
       groupFocusVideoId: "",
+      selectedGroupIds: new Set(),
+      selectedGroupMemberIds: new Set(),
+      groupingOverrides: normalizeGroupingOverrides(persistence.loadGroupingOverrides()),
+      groupingOverrideRevision: 0,
       groupingCache: createEmptyGroupingCache(),
       previewVideoId: "",
       previewCurrentTime: 0,

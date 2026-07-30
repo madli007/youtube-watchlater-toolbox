@@ -10,6 +10,7 @@
     const SERIES_AUTO_THRESHOLD = 0.88;
     const SERIES_REVIEW_THRESHOLD = 0.72;
     const MAX_FUZZY_POSTING_SIZE = 40;
+    const GROUPING_OVERRIDES_SCHEMA_VERSION = 1;
 
     function normalizeGroupingTitle(value) {
       return String(value || "")
@@ -27,6 +28,190 @@
         .replace(/\b(?:official|music|lyric|lyrics|video|audio|hd|hq|uhd|4k|8k|1080p|720p|reupload|reuploaded|remaster|remastered)\b/gu, " ")
         .replace(/\s+/g, " ")
         .trim();
+    }
+
+    function createEmptyGroupingOverrides() {
+      return {
+        schemaVersion: GROUPING_OVERRIDES_SCHEMA_VERSION,
+        aliases: [],
+        merges: [],
+        splits: [],
+      };
+    }
+
+    function normalizeOverrideId(value) {
+      return String(value || "").trim().slice(0, 160);
+    }
+
+    function normalizeOverrideTimestamp(value) {
+      const text = String(value || "").trim();
+      return Number.isFinite(Date.parse(text)) ? new Date(text).toISOString() : "";
+    }
+
+    function normalizeOverrideMemberIds(value, minimum = 1) {
+      const ids = Array.from(new Set(
+        (Array.isArray(value) ? value : [])
+          .map(id => String(id || "").trim())
+          .filter(Boolean),
+      )).sort();
+      return ids.length >= minimum ? ids : [];
+    }
+
+    function normalizeAliasOverride(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const id = normalizeOverrideId(value.id);
+      const channelKey = String(value.channelKey || "").trim();
+      const fromBases = Array.from(new Set(
+        (Array.isArray(value.fromBases) ? value.fromBases : [value.from])
+          .map(normalizeGroupingTitle)
+          .filter(Boolean),
+      )).sort();
+      const to = normalizeGroupingTitle(value.to);
+      if (!id || !channelKey || !fromBases.length || !to) return null;
+      const usefulBases = fromBases.filter(base => base !== to);
+      if (!usefulBases.length) return null;
+      return {
+        id,
+        channelKey,
+        fromBases: usefulBases,
+        to,
+        label: String(value.label || "").trim().slice(0, 240),
+        createdAt: normalizeOverrideTimestamp(value.createdAt),
+      };
+    }
+
+    function normalizeMergeOverride(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const id = normalizeOverrideId(value.id);
+      const channelKey = String(value.channelKey || "").trim();
+      const memberIds = normalizeOverrideMemberIds(value.memberIds, 2);
+      if (!id || !channelKey || !memberIds.length) return null;
+      return {
+        id,
+        channelKey,
+        memberIds,
+        label: String(value.label || "").trim().slice(0, 240),
+        createdAt: normalizeOverrideTimestamp(value.createdAt),
+      };
+    }
+
+    function normalizeSplitOverride(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const id = normalizeOverrideId(value.id);
+      const channelKey = String(value.channelKey || "").trim();
+      const sourceMemberIds = normalizeOverrideMemberIds(value.sourceMemberIds, 2);
+      const sourceSet = new Set(sourceMemberIds);
+      const memberIds = normalizeOverrideMemberIds(value.memberIds, 1)
+        .filter(videoId => sourceSet.has(videoId));
+      if (!id || !channelKey || !sourceMemberIds.length || !memberIds.length
+        || memberIds.length >= sourceMemberIds.length) {
+        return null;
+      }
+      return {
+        id,
+        channelKey,
+        sourceMemberIds,
+        memberIds,
+        label: String(value.label || "").trim().slice(0, 240),
+        createdAt: normalizeOverrideTimestamp(value.createdAt),
+      };
+    }
+
+    function normalizeGroupingOverrides(value) {
+      const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+      const uniqueById = (items, normalizer) => {
+        const byId = new Map();
+        for (const item of Array.isArray(items) ? items : []) {
+          const normalized = normalizer(item);
+          if (normalized) byId.set(normalized.id, normalized);
+        }
+        return Array.from(byId.values());
+      };
+      return {
+        schemaVersion: GROUPING_OVERRIDES_SCHEMA_VERSION,
+        aliases: uniqueById(source.aliases, normalizeAliasOverride),
+        merges: uniqueById(source.merges, normalizeMergeOverride),
+        splits: uniqueById(source.splits, normalizeSplitOverride),
+      };
+    }
+
+    function removeGroupingOverride(overrides, overrideId) {
+      const normalized = normalizeGroupingOverrides(overrides);
+      const id = normalizeOverrideId(overrideId);
+      return {
+        ...normalized,
+        aliases: normalized.aliases.filter(item => item.id !== id),
+        merges: normalized.merges.filter(item => item.id !== id),
+        splits: normalized.splits.filter(item => item.id !== id),
+      };
+    }
+
+    function getVideoChannelKey(video) {
+      return getChannelKey(video?.channelUrl, video?.channel);
+    }
+
+    function createAliasOverride(group, alias, options = {}) {
+      const members = Array.isArray(group?.members) ? group.members : [];
+      const channelKeys = new Set(members.map(getVideoChannelKey).filter(Boolean));
+      if (channelKeys.size !== 1) {
+        throw new Error("A manual alias can only apply to one channel.");
+      }
+      const to = normalizeGroupingTitle(alias);
+      const fromBases = Array.from(new Set(
+        members.map(video => parseSeriesTitle(video).base).filter(Boolean),
+      ));
+      const normalized = normalizeAliasOverride({
+        id: options.id,
+        channelKey: Array.from(channelKeys)[0],
+        fromBases,
+        to,
+        label: String(alias || "").trim(),
+        createdAt: options.createdAt,
+      });
+      if (!normalized) throw new Error("Enter a different, usable alias for this group.");
+      return normalized;
+    }
+
+    function createMergeOverride(groups, options = {}) {
+      const sourceGroups = (Array.isArray(groups) ? groups : []).filter(Boolean);
+      if (sourceGroups.length < 2) throw new Error("Select at least two groups to merge.");
+      const members = dedupeVideos(sourceGroups.flatMap(group => group.members || []))
+        .filter(video => video?.videoId);
+      const channelKeys = new Set(members.map(getVideoChannelKey).filter(Boolean));
+      if (channelKeys.size !== 1) {
+        throw new Error("Groups from different channels cannot be merged.");
+      }
+      const normalized = normalizeMergeOverride({
+        id: options.id,
+        channelKey: Array.from(channelKeys)[0],
+        memberIds: members.map(video => video.videoId),
+        label: options.label || sourceGroups[0]?.label,
+        createdAt: options.createdAt,
+      });
+      if (!normalized) throw new Error("The selected groups do not contain enough videos to merge.");
+      return normalized;
+    }
+
+    function createSplitOverride(group, memberIds, options = {}) {
+      const members = dedupeVideos(Array.isArray(group?.members) ? group.members : [])
+        .filter(video => video?.videoId);
+      const channelKeys = new Set(members.map(getVideoChannelKey).filter(Boolean));
+      if (channelKeys.size !== 1) throw new Error("A split can only apply within one channel.");
+      const selected = normalizeOverrideMemberIds(memberIds, 1);
+      const normalized = normalizeSplitOverride({
+        id: options.id,
+        channelKey: Array.from(channelKeys)[0],
+        sourceMemberIds: members.map(video => video.videoId),
+        memberIds: selected,
+        label: options.label || group?.label,
+        createdAt: options.createdAt,
+      });
+      if (!normalized) {
+        throw new Error("Select some, but not all, group members to split.");
+      }
+      return normalized;
     }
 
     function normalizeSeriesSyntax(value) {
@@ -436,8 +621,11 @@
 
       const exactBase = left.base === right.base;
       const exactCanonicalBase = left.canonicalBase === right.canonicalBase;
+      const manualAlias = exactCanonicalBase
+        && (left.manualAliasOverrideIds?.length || right.manualAliasOverrideIds?.length);
       const initialismAlias = exactCanonicalBase
         && !exactBase
+        && !manualAlias
         && (left.aliasResolved || right.aliasResolved);
       const metrics = getTokenMatchMetrics(left.tokens, right.tokens);
       const titleSimilarity = calculateTitleSimilarity(left.tokens, right.tokens);
@@ -447,6 +635,9 @@
       if (exactBase) {
         score = 0.94;
         reasons.push("exact normalized base");
+      } else if (manualAlias) {
+        score = 0.93;
+        reasons.push("manual per-channel alias");
       } else if (initialismAlias) {
         score = 0.9;
         reasons.push("unambiguous initialism alias");
@@ -519,6 +710,7 @@
       }
 
       return items.map(item => {
+        if (item.manualAliasOverrideIds?.length) return item;
         const matches = expansions.get(item.base);
         if (!matches || matches.size !== 1) return item;
         const canonicalBase = Array.from(matches)[0];
@@ -528,6 +720,30 @@
           aliasResolved: true,
           reasons: [...item.reasons, `resolved initialism ${item.base} → ${canonicalBase}`],
           debugReason: `${item.debugReason} · resolved initialism ${item.base} → ${canonicalBase}`,
+        };
+      });
+    }
+
+    function applyManualAliases(items, overrides) {
+      const aliases = normalizeGroupingOverrides(overrides).aliases;
+      if (!aliases.length) return items;
+      const byChannelAndBase = new Map();
+      for (const alias of aliases) {
+        for (const base of alias.fromBases) {
+          byChannelAndBase.set(`${alias.channelKey}\u001f${base}`, alias);
+        }
+      }
+      return items.map(item => {
+        const alias = byChannelAndBase.get(`${item.channelKey}\u001f${item.base}`);
+        if (!alias) return item;
+        const reason = `manual alias ${item.base} → ${alias.to}`;
+        return {
+          ...item,
+          canonicalBase: alias.to,
+          aliasResolved: true,
+          manualAliasOverrideIds: [alias.id],
+          reasons: [...item.reasons, reason],
+          debugReason: `${item.debugReason} · ${reason}`,
         };
       });
     }
@@ -712,7 +928,11 @@
         items.every(item => item.canonicalBase === canonical.canonicalBase)
           ? "exact canonical base"
           : "constrained title similarity",
-        ...(items.some(item => item.aliasResolved) ? ["unambiguous initialism alias"] : []),
+        ...(items.some(item => item.manualAliasOverrideIds?.length)
+          ? ["manual per-channel alias"]
+          : items.some(item => item.aliasResolved)
+            ? ["unambiguous initialism alias"]
+            : []),
         ...comparisons.flatMap(match => match.reasons.slice(1)),
       ]));
       const sortedItems = [...items].sort((left, right) => {
@@ -725,6 +945,9 @@
           || (left.video.index || 0) - (right.video.index || 0)
           || left.video.videoId.localeCompare(right.video.videoId);
       });
+      const overrideIds = Array.from(new Set(
+        items.flatMap(item => item.manualAliasOverrideIds || []),
+      ));
 
       return {
         type: "series",
@@ -735,16 +958,19 @@
         reasons,
         reason: reasons.join(" · "),
         reviewRequired: confidence < SERIES_AUTO_THRESHOLD,
+        manual: overrideIds.length > 0,
+        confidenceKind: overrideIds.length ? "manual" : undefined,
+        overrideIds,
         members: sortedItems.map(item => item.video),
         parsedMembers: sortedItems,
       };
     }
 
     function buildSeriesClusters(videos, options = {}) {
-      const parsed = dedupeVideos(Array.isArray(videos) ? videos : [])
+      const parsed = applyManualAliases(dedupeVideos(Array.isArray(videos) ? videos : [])
         .filter(video => video?.videoId)
         .map(parseSeriesTitle)
-        .filter(item => item.base && item.tokens.length);
+        .filter(item => item.base && item.tokens.length), options.overrides);
       const index = buildSeriesCandidateIndex(parsed);
       const scoredEdges = index.pairs
         .map(pair => ({
@@ -881,12 +1107,145 @@
       return groups;
     }
 
+    function createManualGroup(override, members, operation, orphanedIds = []) {
+      const channels = new Set(members.map(getVideoChannelKey).filter(Boolean));
+      if (channels.size !== 1 || !channels.has(override.channelKey)) return null;
+      const type = "series";
+      const label = formatGroupLabel(override.label || getRepresentativeTitle(members));
+      const reason = operation === "merge"
+        ? "Manually merged groups"
+        : "Manually split from a detected group";
+      return {
+        id: `manual-${override.id}`,
+        type,
+        label,
+        channelKey: override.channelKey,
+        confidence: 1,
+        confidenceKind: "manual",
+        manual: true,
+        reviewRequired: false,
+        overrideIds: [override.id],
+        orphanedIds,
+        stale: orphanedIds.length > 0,
+        reasons: [reason],
+        reason,
+        members: [...members].sort((left, right) =>
+          (left.index || 0) - (right.index || 0)
+          || left.videoId.localeCompare(right.videoId)),
+      };
+    }
+
+    function applyManualGroupingOperations(groups, videos, overrides) {
+      const normalized = normalizeGroupingOverrides(overrides);
+      const videoById = new Map(
+        (Array.isArray(videos) ? videos : [])
+          .filter(video => video?.videoId)
+          .map(video => [video.videoId, video]),
+      );
+      const operations = [
+        ...normalized.merges.map(override => ({ kind: "merge", override })),
+        ...normalized.splits.map(override => ({ kind: "split", override })),
+      ].sort((left, right) =>
+        String(left.override.createdAt).localeCompare(String(right.override.createdAt))
+        || left.override.id.localeCompare(right.override.id));
+      let result = [...groups];
+
+      const removeIdsFromGroups = ids => {
+        const idSet = new Set(ids);
+        result = result.flatMap(group => {
+          const members = group.members.filter(video => !idSet.has(video.videoId));
+          if (members.length < 2) return [];
+          if (members.length === group.members.length) return [group];
+          return [{
+            ...group,
+            id: group.manual
+              ? group.id
+              : createGroupId(group.type, members),
+            members,
+            parsedMembers: Array.isArray(group.parsedMembers)
+              ? group.parsedMembers.filter(item => !idSet.has(item.video.videoId))
+              : group.parsedMembers,
+          }];
+        });
+      };
+
+      for (const { kind, override } of operations) {
+        const memberIds = kind === "split" ? override.memberIds : override.memberIds;
+        const existingMembers = memberIds.map(videoId => videoById.get(videoId)).filter(Boolean);
+        const orphanedIds = memberIds.filter(videoId => !videoById.has(videoId));
+        if (existingMembers.some(video => getVideoChannelKey(video) !== override.channelKey)) continue;
+
+        if (kind === "split") {
+          const sourceSet = new Set(override.sourceMemberIds);
+          const touchesSourceGroup = result.some(group =>
+            group.members.filter(video => sourceSet.has(video.videoId)).length >= 2);
+          if (!touchesSourceGroup) continue;
+        }
+        removeIdsFromGroups(memberIds);
+        if (existingMembers.length >= 2) {
+          const manualGroup = createManualGroup(
+            override,
+            existingMembers,
+            kind,
+            orphanedIds,
+          );
+          if (manualGroup) result.push(manualGroup);
+        }
+      }
+      return result;
+    }
+
+    function getGroupingOverrideDiagnostics(overrides, videos) {
+      const normalized = normalizeGroupingOverrides(overrides);
+      const sourceVideos = dedupeVideos(Array.isArray(videos) ? videos : [])
+        .filter(video => video?.videoId);
+      const videoById = new Map(sourceVideos.map(video => [video.videoId, video]));
+      const parsed = sourceVideos.map(parseSeriesTitle);
+      const diagnostics = [];
+      for (const alias of normalized.aliases) {
+        const matchedIds = parsed
+          .filter(item => item.channelKey === alias.channelKey && alias.fromBases.includes(item.base))
+          .map(item => item.video.videoId);
+        diagnostics.push({
+          id: alias.id,
+          kind: "alias",
+          label: alias.label || alias.to,
+          matchedIds,
+          orphanedIds: [],
+          stale: matchedIds.length === 0,
+        });
+      }
+      for (const [kind, records] of [["merge", normalized.merges], ["split", normalized.splits]]) {
+        for (const override of records) {
+          const expectedIds = kind === "split" ? override.sourceMemberIds : override.memberIds;
+          const orphanedIds = expectedIds.filter(videoId => !videoById.has(videoId));
+          const crossChannelIds = expectedIds.filter(videoId => {
+            const video = videoById.get(videoId);
+            return video && getVideoChannelKey(video) !== override.channelKey;
+          });
+          diagnostics.push({
+            id: override.id,
+            kind,
+            label: override.label || `${kind} override`,
+            matchedIds: expectedIds.filter(videoId => videoById.has(videoId)),
+            orphanedIds,
+            crossChannelIds,
+            stale: orphanedIds.length > 0 || crossChannelIds.length > 0,
+          });
+        }
+      }
+      return diagnostics;
+    }
+
     function buildVideoGroups(videos, options = {}) {
       const uniqueVideos = dedupeVideos(Array.isArray(videos) ? videos : []).filter(video => video?.videoId);
       const seriesDiagnostics = {};
       const candidates = [
         ...buildDuplicateGroups(uniqueVideos),
-        ...buildSeriesGroups(uniqueVideos, { diagnostics: seriesDiagnostics }),
+        ...buildSeriesGroups(uniqueVideos, {
+          diagnostics: seriesDiagnostics,
+          overrides: options.overrides,
+        }),
         ...buildSimilarTitleGroups(uniqueVideos),
       ];
       const typePriority = { duplicate: 0, series: 1, similar: 2 };
@@ -896,8 +1255,13 @@
         const existing = byMembers.get(memberKey);
         if (!existing || typePriority[candidate.type] < typePriority[existing.type]) byMembers.set(memberKey, candidate);
       }
-      const groups = Array.from(byMembers.values())
-        .map(group => ({ ...group, id: createGroupId(group.type, group.members) }))
+      const detectedGroups = Array.from(byMembers.values())
+        .map(group => ({ ...group, id: createGroupId(group.type, group.members) }));
+      const groups = applyManualGroupingOperations(
+        detectedGroups,
+        uniqueVideos,
+        options.overrides,
+      )
         .sort((a, b) => typePriority[a.type] - typePriority[b.type]
           || b.members.length - a.members.length
           || a.label.localeCompare(b.label));
@@ -912,6 +1276,7 @@
     function createEmptyGroupingCache() {
       return {
         datasetRevision: -1,
+        overrideRevision: -1,
         groups: [],
         diagnostics: null,
       };
@@ -924,11 +1289,21 @@
       const datasetRevision = Number.isInteger(input.datasetRevision)
         ? input.datasetRevision
         : 0;
-      if (target.datasetRevision === datasetRevision) return target.groups;
+      const overrideRevision = Number.isInteger(input.overrideRevision)
+        ? input.overrideRevision
+        : 0;
+      if (target.datasetRevision === datasetRevision
+        && target.overrideRevision === overrideRevision) {
+        return target.groups;
+      }
 
       const diagnostics = {};
-      target.groups = buildVideoGroups(input.videos, { diagnostics });
+      target.groups = buildVideoGroups(input.videos, {
+        diagnostics,
+        overrides: input.overrides,
+      });
       target.datasetRevision = datasetRevision;
+      target.overrideRevision = overrideRevision;
       target.diagnostics = diagnostics;
       return target.groups;
     }
@@ -952,6 +1327,13 @@
   app.domain.grouping = Object.freeze({
       normalizeGroupingTitle,
       normalizeDuplicateTitle,
+      createEmptyGroupingOverrides,
+      normalizeGroupingOverrides,
+      removeGroupingOverride,
+      createAliasOverride,
+      createMergeOverride,
+      createSplitOverride,
+      getGroupingOverrideDiagnostics,
       normalizeSeriesSyntax,
       removeGenericWrappers,
       getTitleInitialism,
@@ -978,5 +1360,6 @@
       chooseGroupWinner,
       SERIES_AUTO_THRESHOLD,
       SERIES_REVIEW_THRESHOLD,
+      GROUPING_OVERRIDES_SCHEMA_VERSION,
   });
 })(globalThis);

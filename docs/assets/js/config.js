@@ -10,6 +10,7 @@
   const TIME_BUDGET_STORAGE_KEY = "watchlater-triage-time-budget-hours-v1";
   const INSIGHTS_SETTINGS_STORAGE_KEY = "watchlater-triage-insights-settings-v1";
   const PREVIEW_PROGRESS_STORAGE_KEY = "watchlater-triage-preview-progress-v1";
+  const GROUPING_OVERRIDES_STORAGE_KEY = "watchlater-triage-grouping-overrides-v1";
   const PAGE_SIZE = 220;
   const BULK_CONFIRM_THRESHOLD = 100;
   const MAX_HISTORY_ENTRIES = 20;
@@ -67,6 +68,7 @@
     TIME_BUDGET_STORAGE_KEY,
     INSIGHTS_SETTINGS_STORAGE_KEY,
     PREVIEW_PROGRESS_STORAGE_KEY,
+    GROUPING_OVERRIDES_STORAGE_KEY,
     PAGE_SIZE,
     BULK_CONFIRM_THRESHOLD,
     MAX_HISTORY_ENTRIES,

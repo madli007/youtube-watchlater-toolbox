@@ -2,6 +2,7 @@
   "use strict";
 
   function createDialogsUi(context) {
+    let groupingAliasSaveHandler = null;
 
     const {
       state,
@@ -42,6 +43,31 @@
     const createChannelName = (...args) => context.createChannelName(...args);
     const createCount = (...args) => context.createCount(...args);
     const addHistoryEntry = (...args) => context.addHistoryEntry(...args);
+
+    function openGroupingAliasEditor(group, onSave) {
+      groupingAliasSaveHandler = typeof onSave === "function" ? onSave : null;
+      els.groupingAliasContext.textContent = [
+        group?.label,
+        ...(group?.members || []).slice(0, 1).map(video => video.channel),
+      ].filter(Boolean).join(" · ");
+      els.groupingAliasInput.value = group?.label || "";
+      els.groupingAliasDialog.showModal();
+      els.groupingAliasInput.select();
+    }
+
+    function saveGroupingAliasEditor(event) {
+      event.preventDefault();
+      if (!groupingAliasSaveHandler) return;
+      const saved = groupingAliasSaveHandler(els.groupingAliasInput.value);
+      if (saved === false) return;
+      groupingAliasSaveHandler = null;
+      els.groupingAliasDialog.close();
+    }
+
+    function closeGroupingAliasEditor() {
+      groupingAliasSaveHandler = null;
+      els.groupingAliasDialog.close();
+    }
 
     function buildYouTubeEmbedUrl(videoId, startSeconds = 0, locationOrigin = "") {
       const cleanId = String(videoId || "").trim();
@@ -774,6 +800,9 @@
       applyAllPendingChannelRules,
       applyChannelRules,
       formatChannelRuleMode,
+      openGroupingAliasEditor,
+      saveGroupingAliasEditor,
+      closeGroupingAliasEditor,
     });
   }
 
