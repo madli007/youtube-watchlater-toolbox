@@ -281,7 +281,13 @@
           <p class="placeholder-eyebrow">Channel Insights</p>
           <h1>Backlog at a glance</h1>
         </div>
-        <p id="insightsImportContext" class="insights-import-context">Import a Watch Later JSON file to calculate channel insights.</p>
+        <div class="insights-header-context">
+          <p id="insightsImportContext" class="insights-import-context">Import a Watch Later JSON file to calculate channel insights.</p>
+          <div class="insights-import-history">
+            <span id="importHistoryStatus">History: 0/6 imports</span>
+            <button id="clearImportHistory" type="button" disabled>Clear history</button>
+          </div>
+        </div>
       </header>
 
       <div id="insightsEmptyState" class="insights-empty-state">
@@ -440,7 +446,7 @@
 
         <section class="insights-detail-block insights-persistence-empty" aria-labelledby="insightsPersistenceTitle">
           <h3 id="insightsPersistenceTitle">Backlog persistence</h3>
-          <p id="insightsDetailPersistence">Import history is not stored yet. Persistence trends will appear after Phase 4 adds compact import snapshots.</p>
+          <p id="insightsDetailPersistence">Compact import history is stored locally. Persistence trends appear after at least two snapshots in the next phase.</p>
         </section>
       </aside>
       </div>
@@ -834,6 +840,7 @@
   <script src="./assets/js/domain/import-comparison.js"></script>
   <script src="./assets/js/domain/filters.js"></script>
   <script src="./assets/js/domain/insights.js"></script>
+  <script src="./assets/js/domain/import-history.js"></script>
   <script src="./assets/js/domain/time-budget.js"></script>
   <script src="./assets/js/domain/grouping.js"></script>
   <script src="./assets/js/domain/workspace.js"></script>

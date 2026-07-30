@@ -34,6 +34,8 @@
     "insightsView",
     "groupsView",
     "insightsImportContext",
+    "importHistoryStatus",
+    "clearImportHistory",
     "insightsImportJsonAction",
     "insightsEmptyState",
     "insightsSummary",

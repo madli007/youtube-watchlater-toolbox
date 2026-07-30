@@ -11,9 +11,12 @@
   const INSIGHTS_SETTINGS_STORAGE_KEY = "watchlater-triage-insights-settings-v1";
   const PREVIEW_PROGRESS_STORAGE_KEY = "watchlater-triage-preview-progress-v1";
   const GROUPING_OVERRIDES_STORAGE_KEY = "watchlater-triage-grouping-overrides-v1";
+  const IMPORT_HISTORY_STORAGE_KEY = "watchlater-triage-import-history-v1";
   const PAGE_SIZE = 220;
   const BULK_CONFIRM_THRESHOLD = 100;
   const MAX_HISTORY_ENTRIES = 20;
+  const DEFAULT_IMPORT_HISTORY_LIMIT = 6;
+  const MAX_IMPORT_HISTORY_LIMIT = 12;
   const GROUPING_STOP_WORDS = new Set([
     "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "or", "the", "to", "vs", "with",
     "del", "de", "der", "die", "das", "el", "la", "le", "les", "un", "una", "und", "y",
@@ -69,9 +72,12 @@
     INSIGHTS_SETTINGS_STORAGE_KEY,
     PREVIEW_PROGRESS_STORAGE_KEY,
     GROUPING_OVERRIDES_STORAGE_KEY,
+    IMPORT_HISTORY_STORAGE_KEY,
     PAGE_SIZE,
     BULK_CONFIRM_THRESHOLD,
     MAX_HISTORY_ENTRIES,
+    DEFAULT_IMPORT_HISTORY_LIMIT,
+    MAX_IMPORT_HISTORY_LIMIT,
     GROUPING_STOP_WORDS,
     GROUPING_WRAPPER_TERMS,
     RULES,

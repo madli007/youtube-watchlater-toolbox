@@ -34,6 +34,7 @@ const expectedApplicationScripts = [
   "./assets/js/domain/import-comparison.js",
   "./assets/js/domain/filters.js",
   "./assets/js/domain/insights.js",
+  "./assets/js/domain/import-history.js",
   "./assets/js/domain/time-budget.js",
   "./assets/js/domain/grouping.js",
   "./assets/js/domain/workspace.js",
@@ -169,7 +170,7 @@ vm.runInContext(source, sandbox);
 assert.ok(sandbox.WatchLaterApp, "controlled application namespace not exposed");
 assert.deepEqual(
   Object.keys(sandbox.WatchLaterApp.domain),
-  ["decisions", "watchLaterImport", "importComparison", "filters", "insights", "timeBudget", "grouping", "workspace"],
+  ["decisions", "watchLaterImport", "importComparison", "filters", "insights", "importHistory", "timeBudget", "grouping", "workspace"],
 );
 assert.ok(
   Object.values(sandbox.WatchLaterApp.domain).every(Object.isFrozen),
@@ -549,6 +550,16 @@ assert.match(
   browserElements.get("scopeLabel").textContent,
   /No videos loaded/,
   "the initialized UI must render the existing empty-state scope",
+);
+assert.equal(
+  browserElements.get("importHistoryStatus").textContent,
+  "History: 0/6 imports",
+  "the Insights header must expose compact import-history retention",
+);
+assert.equal(
+  browserElements.get("clearImportHistory").disabled,
+  true,
+  "empty import history must not offer a destructive clear action",
 );
 assert.deepEqual(
   browserSmokeSandbox.WatchLaterApp.triageController

@@ -10,6 +10,7 @@
   const { normalizeSavedViews } = app.domain.filters;
   const { createEmptyImportComparison } = app.domain.importComparison;
   const { createEmptyInsightsCache } = app.domain.insights;
+  const { normalizeImportHistory } = app.domain.importHistory;
   const { createEmptyGroupingCache, normalizeGroupingOverrides } = app.domain.grouping;
 
   /**
@@ -17,7 +18,7 @@
    *
    * Persistent fields: decisions, history, userRules, channelRules, savedViews,
    * datasetBaseline, timeBudgetHours, insightsSettings, previewProgress, and
-   * groupingOverrides.
+   * groupingOverrides, and importHistory.
    * Dataset fields: videos, lastImport, importComparison, revision counters,
    * and insightsCache.
    * Transient UI fields: selections, active filters/editors, rendered limits,
@@ -68,6 +69,7 @@
       selectedGroupIds: new Set(),
       selectedGroupMemberIds: new Set(),
       groupingOverrides: normalizeGroupingOverrides(persistence.loadGroupingOverrides()),
+      importHistory: normalizeImportHistory(persistence.loadImportHistory()),
       groupingOverrideRevision: 0,
       groupingCache: createEmptyGroupingCache(),
       previewVideoId: "",

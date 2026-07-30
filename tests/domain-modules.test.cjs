@@ -11,6 +11,7 @@ const modulePaths = [
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/insights.js",
+  "docs/assets/js/domain/import-history.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/domain/grouping.js",
   "docs/assets/js/domain/workspace.js",
@@ -34,6 +35,7 @@ const {
   importComparison,
   filters,
   insights,
+  importHistory,
   timeBudget,
   grouping,
   workspace,
@@ -41,11 +43,13 @@ const {
 const plain = value => JSON.parse(JSON.stringify(value));
 
 assert.equal(config.STORAGE_KEY, "watchlater-triage-decisions-v1");
+assert.equal(config.IMPORT_HISTORY_STORAGE_KEY, "watchlater-triage-import-history-v1");
 assert.equal(config.PAGE_SIZE, 220);
 assert.equal(config.GROUPING_STOP_WORDS.has("official"), true);
 assert.equal(config.GROUPING_WRAPPER_TERMS.includes("reacting to"), true);
 assert.equal(Object.isFrozen(config), true);
 assert.equal(Object.isFrozen(config.RULES), true);
+assert.deepEqual(plain(importHistory.normalizeImportHistory(null)), []);
 
 const decisionMap = {};
 const decision = decisions.updateDecisionDetails(

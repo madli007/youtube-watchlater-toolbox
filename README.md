@@ -73,6 +73,7 @@ node tests/navigation.test.cjs
 node tests/triage-view.test.cjs
 node tests/insights.test.cjs
 node tests/insights-view.test.cjs
+node tests/import-history.test.cjs
 node tests/grouping-parser.test.cjs
 node tests/grouping-clustering.test.cjs
 node tests/grouping-overrides.test.cjs

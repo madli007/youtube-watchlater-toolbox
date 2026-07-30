@@ -10,6 +10,7 @@ const modulePaths = [
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/insights.js",
+  "docs/assets/js/domain/import-history.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/domain/grouping.js",
   "docs/assets/js/domain/workspace.js",
@@ -101,6 +102,17 @@ async function main() {
         createdAt: exportedAt,
       }],
     }),
+    [config.IMPORT_HISTORY_STORAGE_KEY]: JSON.stringify([
+      domain.importHistory.createImportSnapshot(
+        [{ videoId: "one", channel: "Channel A", durationSeconds: 120 }],
+        {
+          fileName: "watchlater.json",
+          importedAt: exportedAt,
+          sourceExportedAt: exportedAt,
+          sourceSchemaVersion: 1,
+        },
+      ),
+    ]),
   });
   const persistence = storageModule.createStorage(memory);
   const state = stateModule.createInitialState(persistence);
@@ -117,6 +129,8 @@ async function main() {
   assert.deepEqual(plain(state.insightsSettings), { decisionStaleDays: 90 });
   assert.deepEqual(plain(state.previewProgress), { one: 83 });
   assert.equal(state.groupingOverrides.aliases[0].id, "alias-1");
+  assert.equal(state.importHistory.length, 1);
+  assert.equal(state.importHistory[0].videoCount, 1);
   assert.equal(state.groupingOverrideRevision, 0);
   assert.deepEqual([...state.selectedGroupIds], []);
   assert.deepEqual([...state.selectedGroupMemberIds], []);
@@ -158,6 +172,7 @@ async function main() {
       memberIds: ["one", "two"],
     }],
   }), true);
+  assert.equal(persistence.saveImportHistory(state.importHistory), true);
   const refreshed = stateModule.createInitialState(storageModule.createStorage(memory));
   assert.equal(refreshed.decisions.two.status, "maybe");
   assert.equal(refreshed.history[0].id, "history-1");
@@ -166,6 +181,7 @@ async function main() {
   });
   assert.deepEqual(plain(refreshed.previewProgress), { two: 42 });
   assert.equal(refreshed.groupingOverrides.merges[0].id, "merge-1");
+  assert.equal(refreshed.importHistory.length, 1);
 
   const stored = memory.snapshot();
   assert.ok(Object.hasOwn(stored, "watchlater-triage-decisions-v1"));
@@ -173,6 +189,7 @@ async function main() {
   assert.ok(Object.hasOwn(stored, "watchlater-triage-preview-progress-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-insights-settings-v1"));
   assert.ok(Object.hasOwn(stored, "watchlater-triage-grouping-overrides-v1"));
+  assert.ok(Object.hasOwn(stored, "watchlater-triage-import-history-v1"));
 
   const corrupt = storageModule.createStorage(createMemoryStorage({
     [config.STORAGE_KEY]: "{broken",
@@ -182,6 +199,7 @@ async function main() {
       decisionStaleDays: "invalid",
     }),
     [config.PREVIEW_PROGRESS_STORAGE_KEY]: "[]",
+    [config.IMPORT_HISTORY_STORAGE_KEY]: "{broken",
   }));
   const emptyState = stateModule.createInitialState(corrupt);
   assert.deepEqual(plain(emptyState.decisions), {});
@@ -197,6 +215,7 @@ async function main() {
     merges: [],
     splits: [],
   });
+  assert.deepEqual(plain(emptyState.importHistory), []);
 
   const unavailable = storageModule.createStorage({
     getItem() {
@@ -210,6 +229,8 @@ async function main() {
   assert.deepEqual(plain(unavailable.loadHistory()), []);
   assert.equal(unavailable.saveDecisions({ one: { status: "keep" } }), false);
   assert.equal(unavailable.saveHistory([]), false);
+  assert.deepEqual(plain(unavailable.loadImportHistory()), []);
+  assert.equal(unavailable.saveImportHistory([]), false);
   assert.equal(
     unavailable.saveInsightsSettings({ decisionStaleDays: 30 }),
     false,

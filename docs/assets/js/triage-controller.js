@@ -15,6 +15,7 @@
       decisions,
       watchLaterImport,
       importComparison,
+      importHistory,
       filters,
       insights,
       timeBudget,
@@ -41,6 +42,7 @@
       PAGE_SIZE,
       BULK_CONFIRM_THRESHOLD,
       MAX_HISTORY_ENTRIES,
+      DEFAULT_IMPORT_HISTORY_LIMIT,
       RULES,
     } = config;
     const {
@@ -76,6 +78,9 @@
       createDatasetBaseline,
       compareVideoDatasets,
     } = importComparison;
+    const {
+      appendImportSnapshot,
+    } = importHistory;
     const {
       videoMatchesFilters,
       normalizeFilterState,
@@ -282,6 +287,7 @@
       initializeInsightsView();
       initializeGroupsView();
       initializeNavigation();
+      renderImportHistoryStatus();
     }
 
     function bindEvents() {
@@ -369,6 +375,7 @@
       els.exportWorkspace.addEventListener("click", exportWorkspace);
       els.workspaceInput.addEventListener("change", importWorkspaceFile);
       els.clearDecisions.addEventListener("click", clearDecisions);
+      els.clearImportHistory.addEventListener("click", clearImportHistory);
       els.undoBulk.addEventListener("click", undoLastBulkChange);
       els.closeQuickPreview.addEventListener("click", () => els.quickPreviewDialog.close());
       els.quickPreviewDialog.addEventListener("close", closeQuickPreview);
@@ -472,6 +479,15 @@
         state.lastImport = currentImport;
         state.datasetBaseline = createDatasetBaseline(deduped, currentImport);
         const baselineSaved = saveDatasetBaseline(state.datasetBaseline);
+        const historyUpdate = appendImportSnapshot(
+          state.importHistory,
+          deduped,
+          currentImport,
+        );
+        const importHistorySaved = !historyUpdate.added
+          || persistence.saveImportHistory(historyUpdate.history);
+        if (importHistorySaved) state.importHistory = historyUpdate.history;
+        renderImportHistoryStatus();
         applyFilterState({ datasetView: state.datasetView });
         populateChannels();
         renderBadgeOptions();
@@ -482,7 +498,8 @@
           ? ` ${comparison.newIds.length} new, ${comparison.removedVideos.length} no longer present.`
           : " This import is now the comparison baseline.";
         const storageText = baselineSaved ? "" : " The comparison baseline could not be saved locally.";
-        showToast(`Imported ${deduped.length} videos from ${file.name}.${comparisonText}${storageText}`);
+        const historyText = importHistorySaved ? "" : " Import history could not be saved locally.";
+        showToast(`Imported ${deduped.length} videos from ${file.name}.${comparisonText}${storageText}${historyText}`);
       } catch (error) {
         showToast(error.message || "Import failed.");
       } finally {
@@ -1421,6 +1438,28 @@
       showToast("Cleared saved decisions.");
     }
 
+    function renderImportHistoryStatus() {
+      const count = state.importHistory.length;
+      els.importHistoryStatus.textContent = `History: ${count}/${DEFAULT_IMPORT_HISTORY_LIMIT} imports`;
+      els.clearImportHistory.disabled = count === 0;
+    }
+
+    function clearImportHistory() {
+      const count = state.importHistory.length;
+      if (!count) return;
+      const answer = prompt(
+        `Type CLEAR HISTORY to remove ${count} saved import snapshot${count === 1 ? "" : "s"} from this browser.`,
+      );
+      if (answer !== "CLEAR HISTORY") return;
+      if (!persistence.saveImportHistory([])) {
+        showToast("Import history could not be cleared from local storage.");
+        return;
+      }
+      state.importHistory = [];
+      renderImportHistoryStatus();
+      showToast("Cleared import history.");
+    }
+
     function addHistoryEntry(description, action, videoIds) {
       const beforeDecisions = {};
       for (const videoId of Array.from(new Set(videoIds || []))) {
@@ -1587,6 +1626,8 @@
         formatPreviewTime,
         handleShortcuts,
         getInsightsModel,
+        importFile,
+        clearImportHistory,
       }),
     });
   }

@@ -13,6 +13,7 @@
     INSIGHTS_SETTINGS_STORAGE_KEY,
     PREVIEW_PROGRESS_STORAGE_KEY,
     GROUPING_OVERRIDES_STORAGE_KEY,
+    IMPORT_HISTORY_STORAGE_KEY,
   } = app.config;
   const { normalizeHistory } = app.domain.decisions;
   const {
@@ -23,6 +24,7 @@
   const { normalizeInsightsSettings } = app.domain.insights;
   const { normalizePreviewProgress } = app.domain.workspace;
   const { normalizeGroupingOverrides } = app.domain.grouping;
+  const { normalizeImportHistory } = app.domain.importHistory;
 
   function getDefaultStorage() {
     try {
@@ -162,6 +164,18 @@
           storage,
           GROUPING_OVERRIDES_STORAGE_KEY,
           normalizeGroupingOverrides(value),
+        );
+      },
+      loadImportHistory() {
+        return normalizeImportHistory(
+          readJson(storage, IMPORT_HISTORY_STORAGE_KEY, []),
+        );
+      },
+      saveImportHistory(value) {
+        return writeJson(
+          storage,
+          IMPORT_HISTORY_STORAGE_KEY,
+          normalizeImportHistory(value),
         );
       },
     });

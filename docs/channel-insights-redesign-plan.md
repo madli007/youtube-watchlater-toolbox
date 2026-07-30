@@ -1279,7 +1279,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 4.1 — Kompaktni import snapshoti
 
-- [ ] **Slice 4.1 zaključen**
+- [x] **Slice 4.1 zaključen**
 - **Cilj:** po uspešnem importu zapisati minimalen zgodovinski snapshot.
 - **Prizadeto:** novi `domain/import-history.js`, `domain/import-comparison.js`, `domain/workspace.js`, `storage.js`, `state.js`, import orchestration v `app.js`.
 - **Podatki:** `watchlater-triage-import-history-v1`; zgodovina se začne s prvim končnim importom.

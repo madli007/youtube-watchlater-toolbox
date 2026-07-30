@@ -10,6 +10,7 @@
     decisions: app.domain.decisions,
     watchLaterImport: app.domain.watchLaterImport,
     importComparison: app.domain.importComparison,
+    importHistory: app.domain.importHistory,
     filters: app.domain.filters,
     insights: app.domain.insights,
     timeBudget: app.domain.timeBudget,

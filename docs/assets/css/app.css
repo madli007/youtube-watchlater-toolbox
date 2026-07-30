@@ -358,6 +358,26 @@
       text-align: right;
     }
 
+    .insights-header-context {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+    }
+
+    .insights-import-history {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .insights-import-history button {
+      min-height: 28px;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
     .insights-empty-state,
     .insights-next-step {
       padding: clamp(24px, 5vw, 48px);
@@ -2997,6 +3017,10 @@
 
       .insights-import-context {
         text-align: left;
+      }
+
+      .insights-header-context {
+        justify-items: start;
       }
 
       .insights-summary {

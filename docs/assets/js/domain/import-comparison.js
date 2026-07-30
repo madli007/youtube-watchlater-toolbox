@@ -56,6 +56,37 @@
       };
     }
 
+    function createStableFingerprint(parts) {
+      let first = 0x811c9dc5;
+      let second = 0x9e3779b9;
+      const text = Array.from(parts || [], value => String(value ?? "")).join("\u001f");
+      for (let index = 0; index < text.length; index++) {
+        const code = text.charCodeAt(index);
+        first ^= code;
+        first = Math.imul(first, 0x01000193);
+        second ^= code + index;
+        second = Math.imul(second, 0x85ebca6b);
+      }
+      return [first, second]
+        .map(value => (value >>> 0).toString(16).padStart(8, "0"))
+        .join("");
+    }
+
+    function createDatasetFingerprint(videos) {
+      const byId = new Map();
+      for (const video of Array.isArray(videos) ? videos : []) {
+        const snapshot = createVideoSnapshot(video);
+        if (!snapshot.videoId) continue;
+        const serialized = JSON.stringify(snapshot);
+        const previous = byId.get(snapshot.videoId);
+        if (!previous || serialized > previous) byId.set(snapshot.videoId, serialized);
+      }
+      const rows = Array.from(byId.entries())
+        .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
+        .map(([, serialized]) => serialized);
+      return createStableFingerprint(rows);
+    }
+
     function getChangedMetadataFields(previousVideo, currentVideo) {
       const previous = createVideoSnapshot(previousVideo);
       const current = createVideoSnapshot(currentVideo);
@@ -127,6 +158,8 @@
       createEmptyImportComparison,
       createVideoSnapshot,
       createDatasetBaseline,
+      createStableFingerprint,
+      createDatasetFingerprint,
       getChangedMetadataFields,
       compareVideoDatasets,
       normalizeImportComparison,
