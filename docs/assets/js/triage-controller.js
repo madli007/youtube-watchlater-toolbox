@@ -80,7 +80,7 @@
       formatDuration,
     } = timeBudget;
     const {
-      buildVideoGroups,
+      getMemoizedVideoGroups,
       chooseGroupWinner,
     } = grouping;
     const {
@@ -117,7 +117,7 @@
       getAdvancedFilterEntries,
       buildInsightsTriageFilters,
       createSnapshotId,
-      buildVideoGroups,
+      getMemoizedVideoGroups,
       chooseGroupWinner,
       buildTimeBudgetSummary,
       formatDuration,

@@ -7,6 +7,9 @@
     const { dedupeVideos } = app.domain.importComparison;
     const { finiteNumberOrNull, parseApproximateAgeDays, parseApproximateViewCount } = app.domain.filters;
     const { getChannelKey } = app.domain.insights;
+    const SERIES_AUTO_THRESHOLD = 0.88;
+    const SERIES_REVIEW_THRESHOLD = 0.72;
+    const MAX_FUZZY_POSTING_SIZE = 40;
 
     function normalizeGroupingTitle(value) {
       return String(value || "")
@@ -360,6 +363,251 @@
       return Math.max(dice, containment * (0.75 + 0.25 * balance));
     }
 
+    function calculateCharacterSimilarity(left, right) {
+      const normalizedLeft = normalizeGroupingTitle(left).replace(/\s+/g, "");
+      const normalizedRight = normalizeGroupingTitle(right).replace(/\s+/g, "");
+      if (!normalizedLeft || !normalizedRight) return 0;
+      if (normalizedLeft === normalizedRight) return 1;
+      if (normalizedLeft.length < 2 || normalizedRight.length < 2) return 0;
+
+      const toBigrams = value => {
+        const counts = new Map();
+        for (let index = 0; index < value.length - 1; index++) {
+          const bigram = value.slice(index, index + 2);
+          counts.set(bigram, (counts.get(bigram) || 0) + 1);
+        }
+        return counts;
+      };
+      const leftBigrams = toBigrams(normalizedLeft);
+      const rightBigrams = toBigrams(normalizedRight);
+      let intersection = 0;
+      for (const [bigram, count] of leftBigrams) {
+        intersection += Math.min(count, rightBigrams.get(bigram) || 0);
+      }
+      return (2 * intersection) / (normalizedLeft.length + normalizedRight.length - 2);
+    }
+
+    function getTokenMatchMetrics(leftTokens, rightTokens) {
+      const left = Array.from(new Set(leftTokens || []));
+      const right = Array.from(new Set(rightTokens || []));
+      if (!left.length || !right.length) {
+        return { intersection: 0, dice: 0, containment: 0 };
+      }
+      const rightSet = new Set(right);
+      const intersection = left.filter(token => rightSet.has(token)).length;
+      return {
+        intersection,
+        dice: (2 * intersection) / (left.length + right.length),
+        containment: intersection / Math.min(left.length, right.length),
+      };
+    }
+
+    function getSequenceFamily(sequence) {
+      if (!sequence) return "";
+      if (sequence.kind === "episode" || sequence.kind === "trailing" || sequence.kind === "qualifier") {
+        return "episode";
+      }
+      if (sequence.kind === "part" || sequence.kind === "chapter") return "part";
+      return sequence.kind || "";
+    }
+
+    function scoreSeriesMatch(left, right) {
+      const reasons = [];
+      if (!left?.video?.videoId || !right?.video?.videoId || left.channelKey !== right.channelKey) {
+        return {
+          score: 0,
+          confidence: 0,
+          reasons: ["different channel or missing video identity"],
+          reviewRequired: true,
+        };
+      }
+      if (!left.base || !right.base) {
+        return {
+          score: 0,
+          confidence: 0,
+          reasons: ["missing usable series base"],
+          reviewRequired: true,
+        };
+      }
+
+      reasons.push(left.channelKey.startsWith("url:")
+        ? "same canonical channel URL"
+        : "same normalized channel");
+
+      const exactBase = left.base === right.base;
+      const exactCanonicalBase = left.canonicalBase === right.canonicalBase;
+      const initialismAlias = exactCanonicalBase
+        && !exactBase
+        && (left.aliasResolved || right.aliasResolved);
+      const metrics = getTokenMatchMetrics(left.tokens, right.tokens);
+      const titleSimilarity = calculateTitleSimilarity(left.tokens, right.tokens);
+      const characterSimilarity = calculateCharacterSimilarity(left.base, right.base);
+      let score;
+
+      if (exactBase) {
+        score = 0.94;
+        reasons.push("exact normalized base");
+      } else if (initialismAlias) {
+        score = 0.9;
+        reasons.push("unambiguous initialism alias");
+      } else if (exactCanonicalBase) {
+        score = 0.89;
+        reasons.push("exact canonical base");
+      } else {
+        score = (titleSimilarity * 0.64)
+          + (metrics.containment * 0.1)
+          + (characterSimilarity * 0.16);
+        if (metrics.intersection >= 2) reasons.push("strong title-token overlap");
+        if (characterSimilarity >= 0.65) reasons.push("similar normalized wording");
+      }
+
+      const leftFamily = getSequenceFamily(left.sequence);
+      const rightFamily = getSequenceFamily(right.sequence);
+      if (leftFamily && rightFamily) {
+        if (leftFamily !== rightFamily) {
+          score -= 0.25;
+          reasons.push("conflicting episode/part interpretation");
+        } else {
+          score += 0.06;
+          reasons.push("compatible sequence patterns");
+        }
+      } else if (leftFamily || rightFamily) {
+        score -= 0.05;
+        reasons.push("one title has no sequence marker");
+      } else {
+        score -= 0.12;
+        reasons.push("neither title has a sequence marker");
+      }
+
+      const leftNormalized = left.normalizedTitle || "";
+      const rightNormalized = right.normalizedTitle || "";
+      const hasTrailerMismatch = /\btrailer\b/u.test(leftNormalized) !== /\btrailer\b/u.test(rightNormalized);
+      if (hasTrailerMismatch) {
+        score -= 0.18;
+        reasons.push("trailer/episode mismatch");
+      }
+      if (left.warnings?.includes("ambiguous-movie-part")
+        || right.warnings?.includes("ambiguous-movie-part")) {
+        score = Math.min(score - 0.08, SERIES_AUTO_THRESHOLD - 0.001);
+        reasons.push("ambiguous movie part");
+      }
+      if (!exactCanonicalBase
+        && metrics.intersection >= 2
+        && metrics.dice < 0.7
+        && left.tokens.some(token => !right.tokens.includes(token))
+        && right.tokens.some(token => !left.tokens.includes(token))) {
+        score -= 0.08;
+        reasons.push("distinctive title tokens conflict");
+      }
+
+      score = Math.max(0, Math.min(0.99, Math.round(score * 1000) / 1000));
+      return {
+        score,
+        confidence: score,
+        reasons,
+        reviewRequired: score < SERIES_AUTO_THRESHOLD,
+      };
+    }
+
+    function resolveUnambiguousInitialisms(items) {
+      const expansions = new Map();
+      for (const item of items) {
+        const wordCount = normalizeGroupingTitle(item.base).split(" ").filter(Boolean).length;
+        if (!item.initialism || wordCount < 2 || item.initialism === item.base) continue;
+        if (!expansions.has(item.initialism)) expansions.set(item.initialism, new Set());
+        expansions.get(item.initialism).add(item.base);
+      }
+
+      return items.map(item => {
+        const matches = expansions.get(item.base);
+        if (!matches || matches.size !== 1) return item;
+        const canonicalBase = Array.from(matches)[0];
+        return {
+          ...item,
+          canonicalBase,
+          aliasResolved: true,
+          reasons: [...item.reasons, `resolved initialism ${item.base} → ${canonicalBase}`],
+          debugReason: `${item.debugReason} · resolved initialism ${item.base} → ${canonicalBase}`,
+        };
+      });
+    }
+
+    function buildSeriesCandidateIndex(parsedItems) {
+      const byChannel = new Map();
+      for (const item of Array.isArray(parsedItems) ? parsedItems : []) {
+        if (!item?.video?.videoId || !item.base || item.base.length < 2) continue;
+        if (!byChannel.has(item.channelKey)) byChannel.set(item.channelKey, []);
+        byChannel.get(item.channelKey).push(item);
+      }
+
+      const indexedItems = [];
+      const pairMap = new Map();
+      let totalPossiblePairs = 0;
+      let skippedHighFrequencyTokens = 0;
+
+      const addPair = (left, right, source) => {
+        if (left === right || left.channelKey !== right.channelKey) return;
+        const ids = [left.video.videoId, right.video.videoId].sort();
+        const key = `${ids[0]}\u001f${ids[1]}`;
+        if (!pairMap.has(key)) pairMap.set(key, { left, right, sources: new Set() });
+        pairMap.get(key).sources.add(source);
+      };
+      const addStarPairs = (items, source) => {
+        if (items.length < 2) return;
+        const anchor = items[0];
+        for (let index = 1; index < items.length; index++) addPair(anchor, items[index], source);
+      };
+
+      for (const channelItems of byChannel.values()) {
+        const items = resolveUnambiguousInitialisms(channelItems);
+        indexedItems.push(...items);
+        totalPossiblePairs += (items.length * (items.length - 1)) / 2;
+
+        const exactBases = new Map();
+        const tokenPostings = new Map();
+        for (const item of items) {
+          if (!exactBases.has(item.canonicalBase)) exactBases.set(item.canonicalBase, []);
+          exactBases.get(item.canonicalBase).push(item);
+          for (const token of item.tokens) {
+            if (!tokenPostings.has(token)) tokenPostings.set(token, []);
+            tokenPostings.get(token).push(item);
+          }
+        }
+        for (const baseItems of exactBases.values()) addStarPairs(baseItems, "canonical-base");
+
+        const postingLimit = Math.min(
+          MAX_FUZZY_POSTING_SIZE,
+          Math.max(4, Math.ceil(items.length * 0.4)),
+        );
+        for (const [token, posting] of tokenPostings) {
+          if (posting.length > postingLimit) {
+            skippedHighFrequencyTokens++;
+            continue;
+          }
+          for (let left = 0; left < posting.length; left++) {
+            for (let right = left + 1; right < posting.length; right++) {
+              addPair(posting[left], posting[right], `token:${token}`);
+            }
+          }
+        }
+      }
+
+      return {
+        items: indexedItems,
+        pairs: Array.from(pairMap.values()).map(pair => ({
+          ...pair,
+          sources: Array.from(pair.sources),
+        })),
+        stats: {
+          itemCount: indexedItems.length,
+          channelCount: byChannel.size,
+          totalPossiblePairs,
+          candidatePairCount: pairMap.size,
+          skippedHighFrequencyTokens,
+        },
+      };
+    }
+
     function createGroupId(type, members) {
       const source = `${type}:${members.map(video => video.videoId).sort().join("|")}`;
       let hash = 2166136261;
@@ -389,29 +637,151 @@
       return common.slice(0, 8).join(" ");
     }
 
-    function buildSeriesGroups(videos) {
-      const buckets = new Map();
-      for (const video of videos) {
-        const signature = getSeriesSignature(video);
-        if (!signature) continue;
-        if (!buckets.has(signature.key)) buckets.set(signature.key, []);
-        buckets.get(signature.key).push({ video, signature });
+    function canMergeSeriesClusters(leftCluster, rightCluster) {
+      const leftBases = new Set(leftCluster.map(item => item.canonicalBase));
+      const rightBases = new Set(rightCluster.map(item => item.canonicalBase));
+      if (leftBases.size === 1 && rightBases.size === 1
+        && leftCluster[0].canonicalBase === rightCluster[0].canonicalBase) {
+        return true;
       }
+
+      // Fuzzy clusters are intentionally kept small and conservative. Exact-base
+      // clusters use the linear fast path above.
+      if (leftCluster.length * rightCluster.length > 400) return false;
+      for (const left of leftCluster) {
+        for (const right of rightCluster) {
+          if (scoreSeriesMatch(left, right).score < SERIES_REVIEW_THRESHOLD) return false;
+        }
+      }
+      return true;
+    }
+
+    function constrainedSeriesCluster(items, scoredEdges) {
+      const clusters = items.map(item => [item]);
+      const clusterByItem = new Map(items.map((item, index) => [item, index]));
+      const active = new Set(clusters.map((_, index) => index));
+      const sortedEdges = [...scoredEdges].sort((left, right) => right.score - left.score
+        || left.left.video.videoId.localeCompare(right.left.video.videoId)
+        || left.right.video.videoId.localeCompare(right.right.video.videoId));
+
+      for (const edge of sortedEdges) {
+        const leftIndex = clusterByItem.get(edge.left);
+        const rightIndex = clusterByItem.get(edge.right);
+        if (leftIndex === rightIndex) continue;
+        const leftCluster = clusters[leftIndex];
+        const rightCluster = clusters[rightIndex];
+        if (!canMergeSeriesClusters(leftCluster, rightCluster)) continue;
+        leftCluster.push(...rightCluster);
+        for (const item of rightCluster) clusterByItem.set(item, leftIndex);
+        clusters[rightIndex] = [];
+        active.delete(rightIndex);
+      }
+
+      return Array.from(active, index => clusters[index]).filter(cluster => cluster.length >= 2);
+    }
+
+    function getCanonicalSeriesItem(items) {
+      const baseCounts = new Map();
+      for (const item of items) {
+        baseCounts.set(item.canonicalBase, (baseCounts.get(item.canonicalBase) || 0) + 1);
+      }
+      return [...items].sort((left, right) => {
+        const countDifference = baseCounts.get(right.canonicalBase) - baseCounts.get(left.canonicalBase);
+        if (countDifference) return countDifference;
+        const leftAliasPenalty = left.aliasResolved ? 1 : 0;
+        const rightAliasPenalty = right.aliasResolved ? 1 : 0;
+        if (leftAliasPenalty !== rightAliasPenalty) return leftAliasPenalty - rightAliasPenalty;
+        return right.tokens.length - left.tokens.length
+          || left.canonicalBase.localeCompare(right.canonicalBase)
+          || left.video.videoId.localeCompare(right.video.videoId);
+      })[0];
+    }
+
+    function createSeriesGroup(items) {
+      const canonical = getCanonicalSeriesItem(items);
+      const comparisons = items
+        .filter(item => item !== canonical)
+        .map(item => scoreSeriesMatch(canonical, item));
+      const confidence = comparisons.length
+        ? Math.min(...comparisons.map(match => match.score))
+        : 0;
+      const reasons = Array.from(new Set([
+        canonical.channelKey.startsWith("url:")
+          ? "same canonical channel URL"
+          : "same normalized channel",
+        items.every(item => item.canonicalBase === canonical.canonicalBase)
+          ? "exact canonical base"
+          : "constrained title similarity",
+        ...(items.some(item => item.aliasResolved) ? ["unambiguous initialism alias"] : []),
+        ...comparisons.flatMap(match => match.reasons.slice(1)),
+      ]));
+      const sortedItems = [...items].sort((left, right) => {
+        const leftSeason = left.sequence?.season ?? 0;
+        const rightSeason = right.sequence?.season ?? 0;
+        const leftEpisode = left.sequence?.episode ?? left.sequence?.part ?? Number.MAX_SAFE_INTEGER;
+        const rightEpisode = right.sequence?.episode ?? right.sequence?.part ?? Number.MAX_SAFE_INTEGER;
+        return leftSeason - rightSeason
+          || leftEpisode - rightEpisode
+          || (left.video.index || 0) - (right.video.index || 0)
+          || left.video.videoId.localeCompare(right.video.videoId);
+      });
+
+      return {
+        type: "series",
+        label: formatGroupLabel(canonical.canonicalBase),
+        canonicalBase: canonical.canonicalBase,
+        channelKey: canonical.channelKey,
+        confidence,
+        reasons,
+        reason: reasons.join(" · "),
+        reviewRequired: confidence < SERIES_AUTO_THRESHOLD,
+        members: sortedItems.map(item => item.video),
+        parsedMembers: sortedItems,
+      };
+    }
+
+    function buildSeriesClusters(videos, options = {}) {
+      const parsed = dedupeVideos(Array.isArray(videos) ? videos : [])
+        .filter(video => video?.videoId)
+        .map(parseSeriesTitle)
+        .filter(item => item.base && item.tokens.length);
+      const index = buildSeriesCandidateIndex(parsed);
+      const scoredEdges = index.pairs
+        .map(pair => ({
+          ...pair,
+          ...scoreSeriesMatch(pair.left, pair.right),
+        }))
+        .filter(edge => edge.score >= SERIES_REVIEW_THRESHOLD);
+      const byChannel = new Map();
+      for (const item of index.items) {
+        if (!byChannel.has(item.channelKey)) byChannel.set(item.channelKey, []);
+        byChannel.get(item.channelKey).push(item);
+      }
+      const edgesByChannel = new Map();
+      for (const edge of scoredEdges) {
+        if (!edgesByChannel.has(edge.left.channelKey)) edgesByChannel.set(edge.left.channelKey, []);
+        edgesByChannel.get(edge.left.channelKey).push(edge);
+      }
+
       const groups = [];
-      for (const items of buckets.values()) {
-        if (items.length < 2) continue;
-        items.sort((a, b) => a.signature.season - b.signature.season
-          || a.signature.episode - b.signature.episode
-          || (a.video.index || 0) - (b.video.index || 0));
-        const members = items.map(item => item.video);
-        groups.push({
-          type: "series",
-          label: formatGroupLabel(items[0].signature.base),
-          reason: `Same channel and episode/title-number pattern`,
-          members,
+      for (const [channelKey, channelItems] of byChannel) {
+        const channelEdges = edgesByChannel.get(channelKey) || [];
+        for (const cluster of constrainedSeriesCluster(channelItems, channelEdges)) {
+          groups.push(createSeriesGroup(cluster));
+        }
+      }
+
+      if (options.diagnostics && typeof options.diagnostics === "object") {
+        Object.assign(options.diagnostics, index.stats, {
+          scoredPairCount: scoredEdges.length,
+          groupCount: groups.length,
         });
       }
       return groups;
+    }
+
+    function buildSeriesGroups(videos, options) {
+      return buildSeriesClusters(videos, options);
     }
 
     function buildDuplicateGroups(videos) {
@@ -430,9 +800,14 @@
           return {
             type: "duplicate",
             label: getRepresentativeTitle(members),
+            confidence: 0.98,
+            reasons: [channels.size > 1
+              ? `Same normalized title across ${channels.size} channels; possible reupload`
+              : "Same normalized title; possible duplicate or reupload"],
             reason: channels.size > 1
               ? `Same normalized title across ${channels.size} channels; possible reupload`
               : "Same normalized title; possible duplicate or reupload",
+            reviewRequired: false,
             members: [...members].sort((a, b) => (a.index || 0) - (b.index || 0)),
           };
         });
@@ -495,7 +870,10 @@
           groups.push({
             type: "similar",
             label: formatGroupLabel(getCommonTitleWords(members) || getRepresentativeTitle(members)),
+            confidence: 0.74,
+            reasons: ["Strong title-word overlap within the same channel"],
             reason: "Strong title-word overlap within the same channel",
+            reviewRequired: true,
             members,
           });
         }
@@ -503,11 +881,12 @@
       return groups;
     }
 
-    function buildVideoGroups(videos) {
+    function buildVideoGroups(videos, options = {}) {
       const uniqueVideos = dedupeVideos(Array.isArray(videos) ? videos : []).filter(video => video?.videoId);
+      const seriesDiagnostics = {};
       const candidates = [
         ...buildDuplicateGroups(uniqueVideos),
-        ...buildSeriesGroups(uniqueVideos),
+        ...buildSeriesGroups(uniqueVideos, { diagnostics: seriesDiagnostics }),
         ...buildSimilarTitleGroups(uniqueVideos),
       ];
       const typePriority = { duplicate: 0, series: 1, similar: 2 };
@@ -517,11 +896,41 @@
         const existing = byMembers.get(memberKey);
         if (!existing || typePriority[candidate.type] < typePriority[existing.type]) byMembers.set(memberKey, candidate);
       }
-      return Array.from(byMembers.values())
+      const groups = Array.from(byMembers.values())
         .map(group => ({ ...group, id: createGroupId(group.type, group.members) }))
         .sort((a, b) => typePriority[a.type] - typePriority[b.type]
           || b.members.length - a.members.length
           || a.label.localeCompare(b.label));
+      if (options.diagnostics && typeof options.diagnostics === "object") {
+        Object.assign(options.diagnostics, seriesDiagnostics, {
+          totalGroupCount: groups.length,
+        });
+      }
+      return groups;
+    }
+
+    function createEmptyGroupingCache() {
+      return {
+        datasetRevision: -1,
+        groups: [],
+        diagnostics: null,
+      };
+    }
+
+    function getMemoizedVideoGroups(cache, input = {}) {
+      const target = cache && typeof cache === "object"
+        ? cache
+        : createEmptyGroupingCache();
+      const datasetRevision = Number.isInteger(input.datasetRevision)
+        ? input.datasetRevision
+        : 0;
+      if (target.datasetRevision === datasetRevision) return target.groups;
+
+      const diagnostics = {};
+      target.groups = buildVideoGroups(input.videos, { diagnostics });
+      target.datasetRevision = datasetRevision;
+      target.diagnostics = diagnostics;
+      return target.groups;
     }
 
     function chooseGroupWinner(group, strategy) {
@@ -550,14 +959,24 @@
       getSeriesSignature,
       getSimilarityTokens,
       calculateTitleSimilarity,
+      calculateCharacterSimilarity,
+      scoreSeriesMatch,
+      resolveUnambiguousInitialisms,
+      buildSeriesCandidateIndex,
       createGroupId,
       getRepresentativeTitle,
       formatGroupLabel,
       getCommonTitleWords,
+      constrainedSeriesCluster,
+      buildSeriesClusters,
       buildSeriesGroups,
       buildDuplicateGroups,
       buildSimilarTitleGroups,
       buildVideoGroups,
+      createEmptyGroupingCache,
+      getMemoizedVideoGroups,
       chooseGroupWinner,
+      SERIES_AUTO_THRESHOLD,
+      SERIES_REVIEW_THRESHOLD,
   });
 })(globalThis);

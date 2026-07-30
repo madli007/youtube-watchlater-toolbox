@@ -10,6 +10,7 @@
   const { normalizeSavedViews } = app.domain.filters;
   const { createEmptyImportComparison } = app.domain.importComparison;
   const { createEmptyInsightsCache } = app.domain.insights;
+  const { createEmptyGroupingCache } = app.domain.grouping;
 
   /**
    * Creates the single mutable application state container.
@@ -55,8 +56,7 @@
       insightsSettings: persistence.loadInsightsSettings(),
       groupType: "all",
       renderedGroupCount: 20,
-      groupCacheKey: "",
-      groupCache: [],
+      groupingCache: createEmptyGroupingCache(),
       previewVideoId: "",
       previewCurrentTime: 0,
       previewPlayerState: -1,

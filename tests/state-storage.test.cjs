@@ -119,6 +119,9 @@ async function main() {
   assert.equal(state.insightsCache.decisionRevision, -1);
   assert.deepEqual(plain(state.insightsCache.videoFacts), []);
   assert.equal(state.insightsCache.model.videoCount, 0);
+  assert.equal(state.groupingCache.datasetRevision, -1);
+  assert.deepEqual(plain(state.groupingCache.groups), []);
+  assert.equal(state.groupingCache.diagnostics, null);
 
   state.decisions.two = {
     status: "maybe",

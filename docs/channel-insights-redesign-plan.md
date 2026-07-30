@@ -1233,7 +1233,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 3.2 — Candidate index, scoring in constrained clustering
 
-- [ ] **Slice 3.2 zaključen**
+- [x] **Slice 3.2 zaključen**
 - **Cilj:** povezati neenake base naslove istega kanala s confidence scoreom.
 - **Prizadeto:** `domain/grouping.js`, `state.js` cache/revision state, grouping performance testi.
 - **Podatki:** derived groups z `confidence`, `reasons`, `reviewRequired`.

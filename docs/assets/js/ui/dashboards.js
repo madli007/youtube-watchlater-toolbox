@@ -6,7 +6,7 @@
     const {
       state,
       els,
-      buildVideoGroups,
+      getMemoizedVideoGroups,
       chooseGroupWinner,
       getProtectedChannelMatches,
     } = context;
@@ -31,17 +31,14 @@
     const restoreHistoryEntry = (...args) => context.restoreHistoryEntry(...args);
 
     function getCurrentVideoGroups() {
-      const videos = getFilteredVideos();
-      const cacheKey = videos.map(video => `${video.videoId}\u001f${video.title || ""}\u001f${video.channel || ""}`).join("\u001e");
-      if (state.groupCacheKey !== cacheKey) {
-        state.groupCacheKey = cacheKey;
-        state.groupCache = buildVideoGroups(videos);
-      }
-      return state.groupCache;
+      return getMemoizedVideoGroups(state.groupingCache, {
+        videos: state.videos,
+        datasetRevision: state.datasetRevision,
+      });
     }
 
     function renderVideoGroups() {
-      const visibleVideos = getFilteredVideos();
+      const sourceVideos = state.videos;
       const allGroups = getCurrentVideoGroups();
       const groupedIds = new Set(allGroups.flatMap(group => group.members.map(video => video.videoId)));
       const groups = state.groupType === "all"
@@ -53,16 +50,16 @@
       }, {});
 
       els.groupTypeFilter.value = state.groupType;
-      els.groupSummary.textContent = visibleVideos.length
-        ? `${allGroups.length} groups covering ${groupedIds.size} of ${visibleVideos.length} visible videos · ${typeCounts.series || 0} series · ${typeCounts.similar || 0} similar · ${typeCounts.duplicate || 0} probable duplicates.`
+      els.groupSummary.textContent = sourceVideos.length
+        ? `${allGroups.length} groups covering ${groupedIds.size} of ${sourceVideos.length} videos · ${typeCounts.series || 0} series · ${typeCounts.similar || 0} similar · ${typeCounts.duplicate || 0} probable duplicates.`
         : "Import videos or change filters to find local title patterns.";
 
       if (!groups.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = visibleVideos.length
-          ? "No groups of this type were detected in the current visible scope."
-          : "No visible videos to group.";
+        empty.textContent = sourceVideos.length
+          ? "No groups of this type were detected in the dataset."
+          : "No videos to group.";
         els.videoGroups.replaceChildren(empty);
         els.showMoreGroups.hidden = true;
         return;
