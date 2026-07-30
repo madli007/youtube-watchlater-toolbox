@@ -1244,7 +1244,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 3.3 — Series & Groups pogled
 
-- [ ] **Slice 3.3 zaključen**
+- [x] **Slice 3.3 zaključen**
 - **Cilj:** ločen groups browser in detail.
 - **Prizadeto:** `docs/index.html`, `app.css`, novi `ui/groups-view.js`, `ui/navigation.js`, prehodni `ui/dashboards.js`.
 - **Podatki:** transient group filters in selection.

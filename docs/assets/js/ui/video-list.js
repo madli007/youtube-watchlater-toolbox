@@ -13,6 +13,7 @@
     const render = (...args) => context.render(...args);
     const openQuickPreview = (...args) => context.openQuickPreview(...args);
     const openVideoEditor = (...args) => context.openVideoEditor(...args);
+    const navigateToGroupsVideo = (...args) => context.navigateToGroupsVideo(...args);
     const renderStats = (...args) => context.renderStats(...args);
     const updateBulkLabels = (...args) => context.updateBulkLabels(...args);
 
@@ -288,6 +289,16 @@
       return button;
     }
 
+    function createFindGroupsButton(video) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "video-overflow-item";
+      button.setAttribute("role", "menuitem");
+      button.textContent = "Find in Series & Groups";
+      button.addEventListener("click", () => navigateToGroupsVideo(video.videoId));
+      return button;
+    }
+
     function createOverflowMenu(video, status) {
       const root = document.createElement("div");
       root.className = "video-overflow";
@@ -316,7 +327,12 @@
       );
       reset.className = "video-overflow-item";
       reset.setAttribute("role", "menuitem");
-      menu.append(reset, createEditVideoButton(video), createOpenButton(video));
+      menu.append(
+        reset,
+        createEditVideoButton(video),
+        createFindGroupsButton(video),
+        createOpenButton(video),
+      );
       root.append(trigger, menu);
 
       trigger.addEventListener("click", event => {
@@ -392,6 +408,7 @@
       createOpenButton,
       createPreviewButton,
       createEditVideoButton,
+      createFindGroupsButton,
       createOverflowMenu,
     });
   }

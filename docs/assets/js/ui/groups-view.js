@@ -1,0 +1,436 @@
+(function registerGroupsViewUi(root) {
+  "use strict";
+
+  const GROUP_TYPES = Object.freeze({
+    series: "Series",
+    similar: "Similar titles",
+    duplicate: "Probable duplicate",
+  });
+  const GROUP_PAGE_SIZE = 100;
+
+  function normalizeSearchText(value) {
+    return String(value || "")
+      .normalize("NFKD")
+      .replace(/\p{M}+/gu, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function getGroupChannels(group) {
+    return Array.from(new Set(
+      (group?.members || [])
+        .map(video => String(video?.channel || "(unknown)").trim() || "(unknown)"),
+    )).sort((left, right) => left.localeCompare(right));
+  }
+
+  function getGroupConfidenceKind(group) {
+    if (group?.manual === true || group?.confidenceKind === "manual") return "manual";
+    return group?.reviewRequired ? "review" : "auto";
+  }
+
+  function getGroupStatuses(group, getStatus) {
+    return (group?.members || []).map(video => getStatus(video.videoId));
+  }
+
+  function matchesGroupStatus(statuses, filter) {
+    if (filter === "all") return true;
+    const unique = new Set(statuses);
+    const unreviewedCount = statuses.filter(status => status === "unreviewed").length;
+    if (filter === "has-unreviewed") return unreviewedCount > 0;
+    if (filter === "mixed") return unique.size > 1;
+    if (filter === "all-decided") return statuses.length > 0 && unreviewedCount === 0;
+    if (filter.startsWith("all-")) {
+      const expected = filter.slice(4);
+      return statuses.length > 0 && statuses.every(status => status === expected);
+    }
+    return true;
+  }
+
+  function filterVideoGroups(groups, filters = {}, getStatus = () => "unreviewed") {
+    const query = normalizeSearchText(filters.search);
+    const channel = String(filters.channel || "all");
+    const type = String(filters.type || "all");
+    const confidence = String(filters.confidence || "all");
+    const status = String(filters.status || "all");
+    const onlyUndecided = Boolean(filters.onlyUndecided);
+
+    return (Array.isArray(groups) ? groups : []).filter(group => {
+      const channels = getGroupChannels(group);
+      const statuses = getGroupStatuses(group, getStatus);
+      if (type !== "all" && group.type !== type) return false;
+      if (channel !== "all" && !channels.includes(channel)) return false;
+      if (confidence !== "all" && getGroupConfidenceKind(group) !== confidence) return false;
+      if (onlyUndecided && !statuses.includes("unreviewed")) return false;
+      if (!matchesGroupStatus(statuses, status)) return false;
+      if (!query) return true;
+      const searchable = normalizeSearchText([
+        group.label,
+        group.type,
+        ...channels,
+        ...(group.reasons || []),
+        ...(group.members || []).flatMap(video => [video.title, video.channel]),
+      ].filter(Boolean).join(" "));
+      return searchable.includes(query);
+    });
+  }
+
+  function formatSequence(sequence) {
+    if (!sequence) return "";
+    if (sequence.kind === "qualifier") {
+      const qualifier = String(sequence.qualifier || "Special").trim();
+      return qualifier ? qualifier[0].toUpperCase() + qualifier.slice(1) : "Special";
+    }
+    const numbers = sequence.episodes?.length
+      ? sequence.episodes
+      : sequence.parts?.length
+        ? sequence.parts
+        : [sequence.episode ?? sequence.part].filter(Number.isFinite);
+    const numberLabel = numbers.length > 1
+      ? `${numbers[0]}\u2013${numbers.at(-1)}`
+      : String(numbers[0] ?? "?");
+    if (sequence.kind === "part") return `Part ${numberLabel}`;
+    if (sequence.kind === "chapter") return `Chapter ${numberLabel}`;
+    const episodeLabel = `E${numberLabel}`;
+    return Number.isFinite(sequence.season)
+      ? `S${sequence.season} \u00b7 ${episodeLabel}`
+      : episodeLabel;
+  }
+
+  function formatConfidence(group) {
+    const kind = getGroupConfidenceKind(group);
+    if (kind === "manual") return "Manual";
+    const score = Number(group?.confidence);
+    const percent = Number.isFinite(score) ? ` \u00b7 ${Math.round(score * 100)}%` : "";
+    return `${kind === "review" ? "Needs review" : "Auto"}${percent}`;
+  }
+
+  function createGroupsViewUi(context) {
+    const {
+      state,
+      els,
+      document: documentRef,
+      getMemoizedVideoGroups,
+      parseSeriesTitle,
+    } = context;
+    const getStatus = videoId => context.getStatus(videoId);
+    const navigateToGroupsGroup = groupId => {
+      if (typeof context.navigateToGroupsGroup === "function") {
+        context.navigateToGroupsGroup(groupId);
+        return;
+      }
+      state.selectedGroupId = groupId;
+      renderGroups();
+    };
+
+    function getAllGroups() {
+      return getMemoizedVideoGroups(state.groupingCache, {
+        videos: state.videos,
+        datasetRevision: state.datasetRevision,
+      });
+    }
+
+    function getFilters() {
+      return {
+        search: state.groupSearch,
+        channel: state.groupChannel,
+        type: state.groupType,
+        confidence: state.groupConfidence,
+        status: state.groupStatus,
+        onlyUndecided: state.groupOnlyUndecided,
+      };
+    }
+
+    function updateFiltersFromControls() {
+      state.groupSearch = els.groupsSearch.value;
+      state.groupChannel = els.groupsChannel.value;
+      state.groupType = els.groupsType.value;
+      state.groupConfidence = els.groupsConfidence.value;
+      state.groupStatus = els.groupsStatus.value;
+      state.groupOnlyUndecided = els.groupsOnlyUndecided.checked;
+      state.renderedGroupCount = GROUP_PAGE_SIZE;
+      renderGroups();
+    }
+
+    function clearFilters() {
+      state.groupSearch = "";
+      state.groupChannel = "all";
+      state.groupType = "all";
+      state.groupConfidence = "all";
+      state.groupStatus = "all";
+      state.groupOnlyUndecided = false;
+      state.renderedGroupCount = GROUP_PAGE_SIZE;
+      renderGroups();
+    }
+
+    function initializeGroupsView() {
+      els.groupsSearch.addEventListener("input", updateFiltersFromControls);
+      [
+        els.groupsChannel,
+        els.groupsType,
+        els.groupsConfidence,
+        els.groupsStatus,
+        els.groupsOnlyUndecided,
+      ].forEach(control => control.addEventListener("change", updateFiltersFromControls));
+      els.groupsClearFilters.addEventListener("click", clearFilters);
+      els.groupsImportJsonAction.addEventListener("click", () => els.fileInput.click());
+      els.groupsShowMore.addEventListener("click", () => {
+        state.renderedGroupCount += GROUP_PAGE_SIZE;
+        renderGroups();
+      });
+    }
+
+    function syncControls(allGroups) {
+      const channels = Array.from(new Set(allGroups.flatMap(getGroupChannels)))
+        .sort((left, right) => left.localeCompare(right));
+      if (state.groupChannel !== "all" && !channels.includes(state.groupChannel)) {
+        state.groupChannel = "all";
+      }
+      const channelOptions = [
+        createOption("all", "All channels"),
+        ...channels.map(channel => createOption(channel, channel)),
+      ];
+      els.groupsChannel.replaceChildren(...channelOptions);
+      els.groupsSearch.value = state.groupSearch;
+      els.groupsChannel.value = state.groupChannel;
+      els.groupsType.value = state.groupType;
+      els.groupsConfidence.value = state.groupConfidence;
+      els.groupsStatus.value = state.groupStatus;
+      els.groupsOnlyUndecided.checked = state.groupOnlyUndecided;
+    }
+
+    function createOption(value, label) {
+      const option = documentRef.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    function resolveSelectedGroup(allGroups) {
+      if (state.groupFocusVideoId) {
+        const focusedGroup = allGroups.find(group => group.members.some(
+          video => video.videoId === state.groupFocusVideoId,
+        ));
+        state.selectedGroupId = focusedGroup?.id || "";
+      }
+      const selected = allGroups.find(group => group.id === state.selectedGroupId) || null;
+      if (!selected) state.selectedGroupId = "";
+      return selected;
+    }
+
+    function renderGroups() {
+      const allGroups = getAllGroups();
+      syncControls(allGroups);
+      const selectedGroup = resolveSelectedGroup(allGroups);
+      const groups = filterVideoGroups(allGroups, getFilters(), getStatus);
+      const groupedVideoCount = new Set(
+        allGroups.flatMap(group => group.members.map(video => video.videoId)),
+      ).size;
+
+      els.groupsImportContext.textContent = getImportContext();
+      if (!state.videos.length) {
+        renderPageEmpty(
+          "No dataset imported",
+          "Import a Watch Later JSON file to detect series, similar titles, and probable duplicates.",
+          true,
+        );
+        return;
+      }
+      if (!allGroups.length) {
+        renderPageEmpty(
+          "No groups detected",
+          `The current ${state.videos.length.toLocaleString()}-video dataset has no supported local title patterns.`,
+          false,
+        );
+        return;
+      }
+
+      els.groupsEmptyState.hidden = true;
+      els.groupsBrowser.hidden = false;
+      const typeCounts = allGroups.reduce((counts, group) => {
+        counts[group.type] = (counts[group.type] || 0) + 1;
+        return counts;
+      }, {});
+      els.groupsSummary.textContent = [
+        `${groups.length} of ${allGroups.length} groups`,
+        `${groupedVideoCount} unique videos`,
+        `${typeCounts.series || 0} series`,
+        `${typeCounts.similar || 0} similar`,
+        `${typeCounts.duplicate || 0} duplicates`,
+      ].join(" \u00b7 ");
+
+      if (groups.length) {
+        const renderedGroups = groups.slice(0, state.renderedGroupCount || GROUP_PAGE_SIZE);
+        els.groupsList.replaceChildren(...renderedGroups.map(group => createGroupSummary(group)));
+        els.groupsShowMore.hidden = renderedGroups.length >= groups.length;
+        els.groupsShowMore.textContent = `Show more groups (${renderedGroups.length} / ${groups.length})`;
+      } else {
+        const empty = documentRef.createElement("div");
+        empty.className = "groups-list-empty";
+        empty.setAttribute("role", "listitem");
+        empty.textContent = "No groups match the current filters.";
+        els.groupsList.replaceChildren(empty);
+        els.groupsShowMore.hidden = true;
+      }
+      renderGroupDetail(selectedGroup);
+    }
+
+    function renderPageEmpty(title, description, showImport) {
+      els.groupsBrowser.hidden = true;
+      els.groupsEmptyState.hidden = false;
+      els.groupsShowMore.hidden = true;
+      els.groupsEmptyTitle.textContent = title;
+      els.groupsEmptyDescription.textContent = description;
+      els.groupsImportJsonAction.hidden = !showImport;
+    }
+
+    function getImportContext() {
+      if (!state.lastImport) {
+        return state.videos.length
+          ? `${state.videos.length.toLocaleString()} videos \u00b7 analysis uses the full dataset`
+          : "No Watch Later dataset is loaded.";
+      }
+      const fileName = state.lastImport.fileName || "Imported dataset";
+      return `${fileName} \u00b7 ${state.videos.length.toLocaleString()} videos \u00b7 analysis uses the full dataset`;
+    }
+
+    function createGroupSummary(group) {
+      const item = documentRef.createElement("div");
+      item.setAttribute("role", "listitem");
+      const button = documentRef.createElement("button");
+      button.type = "button";
+      button.className = "group-summary-row";
+      button.dataset.groupId = group.id;
+      button.setAttribute("aria-pressed", String(group.id === state.selectedGroupId));
+      if (group.id === state.selectedGroupId) button.classList.add("is-selected");
+
+      const main = documentRef.createElement("span");
+      main.className = "group-summary-main";
+      const title = documentRef.createElement("strong");
+      title.textContent = group.label;
+      const meta = documentRef.createElement("span");
+      const channels = getGroupChannels(group);
+      meta.textContent = `${channels.length === 1 ? channels[0] : `${channels.length} channels`} \u00b7 ${group.members.length} videos`;
+      main.append(title, meta);
+
+      const badges = documentRef.createElement("span");
+      badges.className = "group-summary-badges";
+      badges.append(
+        createBadge(GROUP_TYPES[group.type] || group.type, "group-type-badge"),
+        createBadge(formatConfidence(group), `group-confidence-badge is-${getGroupConfidenceKind(group)}`),
+      );
+
+      const statuses = getGroupStatuses(group, getStatus);
+      const unreviewed = statuses.filter(status => status === "unreviewed").length;
+      const status = documentRef.createElement("span");
+      status.className = "group-summary-status";
+      status.textContent = unreviewed
+        ? `${unreviewed} undecided`
+        : `${new Set(statuses).size > 1 ? "Mixed" : statuses[0] || "Decided"}`;
+      button.append(main, badges, status);
+      button.addEventListener("click", () => navigateToGroupsGroup(group.id));
+      item.append(button);
+      return item;
+    }
+
+    function createBadge(label, className) {
+      const badge = documentRef.createElement("span");
+      badge.className = className;
+      badge.textContent = label;
+      return badge;
+    }
+
+    function renderGroupDetail(group) {
+      els.groupsBrowser.classList.toggle("has-detail", Boolean(group));
+      els.groupsDetail.hidden = !group;
+      if (!group) return;
+
+      els.groupsDetailTitle.textContent = group.label;
+      const channels = getGroupChannels(group);
+      els.groupsDetailMeta.textContent = [
+        GROUP_TYPES[group.type] || group.type,
+        channels.join(", "),
+        `${group.members.length} videos`,
+      ].join(" \u00b7 ");
+      els.groupsDetailConfidence.textContent = formatConfidence(group);
+      els.groupsDetailConfidence.className = `group-confidence-badge is-${getGroupConfidenceKind(group)}`;
+      const reasons = (group.reasons?.length ? group.reasons : [group.reason])
+        .filter(Boolean)
+        .map(reason => {
+          const item = documentRef.createElement("li");
+          item.textContent = reason;
+          return item;
+        });
+      els.groupsDetailReasons.replaceChildren(...reasons);
+
+      const parsedById = new Map(
+        (group.parsedMembers || []).map(parsed => [parsed.video.videoId, parsed]),
+      );
+      els.groupsDetailMembers.replaceChildren(...group.members.map(video => {
+        const parsed = parsedById.get(video.videoId) || parseSeriesTitle(video);
+        return createMemberRow(video, parsed);
+      }));
+    }
+
+    function createMemberRow(video, parsed) {
+      const row = documentRef.createElement("article");
+      row.className = "groups-member-row";
+      row.dataset.videoId = video.videoId;
+
+      const index = documentRef.createElement("span");
+      index.className = "playlist-index";
+      index.textContent = `#${video.index || video.playlistIndex || "?"}`;
+
+      const content = documentRef.createElement("div");
+      content.className = "groups-member-content";
+      const title = documentRef.createElement("a");
+      title.href = video.cleanUrl || video.url || "#";
+      title.target = "_blank";
+      title.rel = "noreferrer";
+      title.textContent = video.title || "(untitled)";
+      const meta = documentRef.createElement("span");
+      meta.textContent = [video.channel, video.uploaded, video.duration, video.views]
+        .filter(Boolean)
+        .join(" \u00b7 ");
+      content.append(title, meta);
+
+      const sequenceLabel = formatSequence(parsed?.sequence);
+      const sequence = documentRef.createElement("span");
+      sequence.className = "group-sequence-badge";
+      sequence.textContent = sequenceLabel || "No S/E";
+      sequence.title = sequenceLabel
+        ? `Parsed as ${sequenceLabel}`
+        : "No season or episode marker was detected";
+
+      const status = documentRef.createElement("span");
+      const currentStatus = getStatus(video.videoId);
+      status.className = `group-member-status is-${currentStatus}`;
+      status.textContent = currentStatus;
+      row.append(index, content, sequence, status);
+      return row;
+    }
+
+    return Object.freeze({
+      initializeGroupsView,
+      renderGroups,
+      clearFilters,
+      getAllGroups,
+    });
+  }
+
+  const app = root.WatchLaterApp ||= {};
+  app.ui ||= {};
+  app.ui.groupsView = Object.freeze({
+    GROUP_TYPES,
+    GROUP_PAGE_SIZE,
+    normalizeSearchText,
+    getGroupChannels,
+    getGroupConfidenceKind,
+    getGroupStatuses,
+    matchesGroupStatus,
+    filterVideoGroups,
+    formatSequence,
+    formatConfidence,
+    createGroupsViewUi,
+  });
+})(globalThis);

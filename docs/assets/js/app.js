@@ -25,6 +25,7 @@
     createDashboardsUi: app.ui.dashboards.createDashboardsUi,
     createActionMenusUi: app.ui.actionMenus.createActionMenusUi,
     createInsightsViewUi: app.ui.insightsView.createInsightsViewUi,
+    createGroupsViewUi: app.ui.groupsView.createGroupsViewUi,
     createNavigationUi: app.ui.navigation.createNavigationUi,
     getKeyboardShortcutAction: app.ui.triageView.getKeyboardShortcutAction,
     document: root.document,

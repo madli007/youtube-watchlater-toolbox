@@ -41,6 +41,10 @@
       view,
       hasQuery: String(hash || "").includes("?"),
       channelKey: view === "insights" ? String(params.channel || "") : "",
+      groups: view === "groups" ? {
+        groupId: String(params.group || ""),
+        videoId: String(params.video || ""),
+      } : null,
       triage: view === "triage" ? {
         channelName: String(params.channels || ""),
         ageBucket: String(params.ageBucket || ""),
@@ -65,6 +69,13 @@
       channels: String(options.channelName || ""),
       ageBucket: String(options.ageBucket || ""),
       status: options.status && options.status !== "all" ? options.status : "",
+    });
+  }
+
+  function buildGroupsHash(options = {}) {
+    return buildHash("groups", {
+      group: String(options.groupId || ""),
+      video: String(options.videoId || ""),
     });
   }
 
@@ -100,6 +111,9 @@
       state.activeView = route.view;
       if (route.view === "insights") {
         state.selectedChannelKey = route.channelKey;
+      } else if (route.view === "groups" && route.groups) {
+        state.selectedGroupId = route.groups.groupId;
+        state.groupFocusVideoId = route.groups.videoId;
       } else if (route.view === "triage" && route.hasQuery && route.triage) {
         const model = context.getInsightsModel();
         const filters = context.buildInsightsTriageFilters(
@@ -126,6 +140,14 @@
 
     function navigateToInsightsChannel(channelKey) {
       navigateToHash(buildInsightsHash(channelKey));
+    }
+
+    function navigateToGroupsGroup(groupId) {
+      navigateToHash(buildGroupsHash({ groupId }));
+    }
+
+    function navigateToGroupsVideo(videoId) {
+      navigateToHash(buildGroupsHash({ videoId }));
     }
 
     function getImportAgeAnchor() {
@@ -200,6 +222,8 @@
       syncNavigationFromHash,
       handleTabKeydown,
       navigateToInsightsChannel,
+      navigateToGroupsGroup,
+      navigateToGroupsVideo,
       navigateToTriageFromInsights,
     });
   }
@@ -213,6 +237,7 @@
     parseNavigationHash,
     buildInsightsHash,
     buildTriageHash,
+    buildGroupsHash,
     createNavigationUi,
   });
 })(globalThis);

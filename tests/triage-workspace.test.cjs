@@ -47,6 +47,7 @@ const expectedApplicationScripts = [
   "./assets/js/ui/dashboards.js",
   "./assets/js/ui/action-menus.js",
   "./assets/js/ui/insights-view.js",
+  "./assets/js/ui/groups-view.js",
   "./assets/js/ui/navigation.js",
   "./assets/js/triage-controller.js",
   "./assets/js/app.js",
@@ -176,7 +177,7 @@ assert.ok(
 );
 assert.deepEqual(
   Object.keys(sandbox.WatchLaterApp.ui),
-  ["dom", "triageView", "dialogs", "videoList", "dashboards", "actionMenus", "insightsView", "navigation"],
+  ["dom", "triageView", "dialogs", "videoList", "dashboards", "actionMenus", "insightsView", "groupsView", "navigation"],
   "UI modules must be registered in dependency order",
 );
 assert.ok(
@@ -320,6 +321,7 @@ const rowState = {
     changedFieldsById: {},
   },
 };
+let groupsVideoId = "";
 const rowUi = sandbox.WatchLaterApp.ui.videoList.createVideoListUi({
   state: rowState,
   els: {},
@@ -330,6 +332,9 @@ const rowUi = sandbox.WatchLaterApp.ui.videoList.createVideoListUi({
   setStatusAndAdvance() {},
   openQuickPreview() {},
   openVideoEditor() {},
+  navigateToGroupsVideo(videoId) {
+    groupsVideoId = videoId;
+  },
   render() {},
 });
 const videoRow = rowUi.createVideoRow({
@@ -369,9 +374,11 @@ const overflowMenu = overflow.children[1];
 assert.equal(overflowTrigger.getAttribute("aria-haspopup"), "menu");
 assert.deepEqual(
   overflowMenu.children.map(button => button.textContent),
-  ["Reset to unreviewed", "Edit tags / note", "Open on YouTube"],
+  ["Reset to unreviewed", "Edit tags / note", "Find in Series & Groups", "Open on YouTube"],
   "secondary actions must remain available in the overflow menu",
 );
+overflowMenu.children[2].click();
+assert.equal(groupsVideoId, "video-1", "the overflow action must deep-link the video to Groups");
 overflowTrigger.click();
 assert.equal(overflowMenu.hidden, false);
 assert.equal(overflowTrigger.getAttribute("aria-expanded"), "true");

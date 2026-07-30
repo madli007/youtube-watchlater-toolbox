@@ -515,12 +515,99 @@
       </section>
     </section>
 
-    <section id="groupsView" class="view-shell placeholder-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>
-      <div class="placeholder-panel">
-        <p class="placeholder-eyebrow">Series &amp; Groups</p>
-        <h2>Coming in Phase 3</h2>
-        <p>Detected series, similar videos, duplicates, and safe group actions will live here.</p>
-        <a class="placeholder-link" href="#triage">Return to Triage</a>
+    <section id="groupsView" class="view-shell groups-view" role="tabpanel" aria-labelledby="groupsTab" data-view-panel="groups" hidden>
+      <header class="groups-header">
+        <div>
+          <p class="placeholder-eyebrow">Series &amp; Groups</p>
+          <h1>Review related videos</h1>
+        </div>
+        <p id="groupsImportContext" class="groups-import-context">Import a Watch Later JSON file to detect local title patterns.</p>
+      </header>
+
+      <section class="groups-filter-bar" aria-label="Group filters">
+        <label class="groups-search-field">
+          <span>Search</span>
+          <input id="groupsSearch" type="search" placeholder="Group, title, or channel">
+        </label>
+        <label>
+          <span>Channel</span>
+          <select id="groupsChannel">
+            <option value="all">All channels</option>
+          </select>
+        </label>
+        <label>
+          <span>Type</span>
+          <select id="groupsType">
+            <option value="all">All types</option>
+            <option value="series">Series</option>
+            <option value="similar">Similar titles</option>
+            <option value="duplicate">Probable duplicates</option>
+          </select>
+        </label>
+        <label>
+          <span>Confidence</span>
+          <select id="groupsConfidence">
+            <option value="all">Any confidence</option>
+            <option value="auto">Auto</option>
+            <option value="review">Needs review</option>
+            <option value="manual">Manual</option>
+          </select>
+        </label>
+        <label>
+          <span>Status mix</span>
+          <select id="groupsStatus">
+            <option value="all">Any status mix</option>
+            <option value="has-unreviewed">Has unreviewed</option>
+            <option value="mixed">Mixed decisions</option>
+            <option value="all-decided">All decided</option>
+            <option value="all-keep">All keep</option>
+            <option value="all-maybe">All maybe</option>
+            <option value="all-delete">All delete</option>
+          </select>
+        </label>
+        <label class="groups-checkbox-field">
+          <input id="groupsOnlyUndecided" type="checkbox">
+          <span>Only groups with undecided videos</span>
+        </label>
+        <button id="groupsClearFilters" type="button">Clear</button>
+      </section>
+
+      <section id="groupsEmptyState" class="groups-empty-state" aria-live="polite">
+        <h2 id="groupsEmptyTitle">No dataset imported</h2>
+        <p id="groupsEmptyDescription">Import a Watch Later JSON file to detect series, similar titles, and probable duplicates.</p>
+        <button id="groupsImportJsonAction" type="button">Import JSON</button>
+      </section>
+
+      <div id="groupsBrowser" class="groups-browser" hidden>
+        <section class="groups-master" aria-labelledby="groupsListTitle">
+          <div class="groups-master-header">
+            <div>
+              <h2 id="groupsListTitle">Detected groups</h2>
+              <p id="groupsSummary" class="scope-text" aria-live="polite"></p>
+            </div>
+          </div>
+          <div id="groupsList" class="groups-list" role="list"></div>
+          <button id="groupsShowMore" class="groups-show-more" type="button" hidden>Show more groups</button>
+        </section>
+
+        <aside id="groupsDetail" class="groups-detail" aria-labelledby="groupsDetailTitle" hidden>
+          <header class="groups-detail-header">
+            <div>
+              <p class="placeholder-eyebrow">Selected group</p>
+              <h2 id="groupsDetailTitle"></h2>
+              <p id="groupsDetailMeta" class="groups-detail-meta"></p>
+            </div>
+            <span id="groupsDetailConfidence" class="group-confidence-badge"></span>
+          </header>
+          <section class="groups-detail-block" aria-labelledby="groupsReasonsTitle">
+            <h3 id="groupsReasonsTitle">Why these videos match</h3>
+            <ul id="groupsDetailReasons" class="groups-reason-list"></ul>
+          </section>
+          <section class="groups-detail-block" aria-labelledby="groupsMembersTitle">
+            <h3 id="groupsMembersTitle">Members</h3>
+            <div id="groupsDetailMembers" class="groups-member-list"></div>
+          </section>
+        </aside>
       </div>
     </section>
   </div>
@@ -709,6 +796,7 @@
   <script src="./assets/js/ui/dashboards.js"></script>
   <script src="./assets/js/ui/action-menus.js"></script>
   <script src="./assets/js/ui/insights-view.js"></script>
+  <script src="./assets/js/ui/groups-view.js"></script>
   <script src="./assets/js/ui/navigation.js"></script>
   <script src="./assets/js/triage-controller.js"></script>
   <script src="./assets/js/app.js"></script>

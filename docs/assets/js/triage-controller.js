@@ -22,6 +22,7 @@
       createDashboardsUi,
       createActionMenusUi,
       createInsightsViewUi,
+      createGroupsViewUi,
       createNavigationUi,
       getKeyboardShortcutAction,
       document,
@@ -82,6 +83,7 @@
     const {
       getMemoizedVideoGroups,
       chooseGroupWinner,
+      parseSeriesTitle,
     } = grouping;
     const {
       buildWorkspacePayload,
@@ -119,6 +121,7 @@
       createSnapshotId,
       getMemoizedVideoGroups,
       chooseGroupWinner,
+      parseSeriesTitle,
       buildTimeBudgetSummary,
       formatDuration,
       filterChannelOptions,
@@ -170,6 +173,8 @@
     Object.assign(uiContext, navigationUi);
     const insightsViewUi = createInsightsViewUi(uiContext);
     Object.assign(uiContext, insightsViewUi);
+    const groupsViewUi = createGroupsViewUi(uiContext);
+    Object.assign(uiContext, groupsViewUi);
     const {
       initializeTriageView,
       setAdvancedFiltersOpen,
@@ -229,6 +234,10 @@
       renderInsights,
     } = insightsViewUi;
     const {
+      initializeGroupsView,
+      renderGroups,
+    } = groupsViewUi;
+    const {
       initializeNavigation,
     } = navigationUi;
 
@@ -241,6 +250,7 @@
       initializeVideoList();
       initializeActionMenus();
       initializeInsightsView();
+      initializeGroupsView();
       initializeNavigation();
     }
 
@@ -614,7 +624,7 @@
     function handleFilterChange() {
       state.activeSavedViewId = "";
       state.renderedCount = PAGE_SIZE;
-      state.renderedGroupCount = 20;
+      state.renderedGroupCount = 100;
       renderSavedViews();
       renderTagFilters();
       renderChannelMenu();
@@ -677,6 +687,10 @@
         renderInsights();
         return;
       }
+      if (state.activeView === "groups") {
+        renderGroups();
+        return;
+      }
       if (state.activeView !== "triage") return;
       ensureCurrentVisible();
       renderStats();
@@ -722,7 +736,7 @@
       state.activeSavedViewId = options.savedViewId || "";
       state.selectedIds.clear();
       state.renderedCount = PAGE_SIZE;
-      state.renderedGroupCount = 20;
+      state.renderedGroupCount = 100;
       renderTagFilters();
       renderChannelMenu();
       renderSavedViews();

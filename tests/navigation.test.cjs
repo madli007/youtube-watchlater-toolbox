@@ -23,6 +23,7 @@ const {
   parseNavigationHash,
   buildInsightsHash,
   buildTriageHash,
+  buildGroupsHash,
   createNavigationUi,
 } = sandbox.WatchLaterApp.ui.navigation;
 
@@ -43,10 +44,26 @@ assert.deepEqual(
     view: "insights",
     hasQuery: true,
     channelKey: "url:@alpha",
+    groups: null,
+    triage: null,
+  },
+);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(parseNavigationHash("#groups?video=video-1"))),
+  {
+    view: "groups",
+    hasQuery: true,
+    channelKey: "",
+    groups: {
+      groupId: "",
+      videoId: "video-1",
+    },
     triage: null,
   },
 );
 assert.equal(buildInsightsHash("url:@alpha"), "#insights?channel=url%3A%40alpha");
+assert.equal(buildGroupsHash({ groupId: "series-abc" }), "#groups?group=series-abc");
+assert.equal(buildGroupsHash({ videoId: "video-1" }), "#groups?video=video-1");
 assert.equal(
   buildTriageHash({
     channelName: "Channel A",
@@ -113,6 +130,8 @@ const state = {
   videos: [{ videoId: "one" }, { videoId: "two" }],
   selectedIds: new Set(),
   currentId: "",
+  selectedGroupId: "",
+  groupFocusVideoId: "",
 };
 let renderCount = 0;
 let appliedRouteFilters = null;
@@ -167,6 +186,18 @@ windowListeners.hashchange();
 assert.equal(state.activeView, "groups");
 assert.equal(els.groupsTab.classList.contains("is-active"), true);
 assert.equal(els.groupsView.hidden, false);
+
+navigation.navigateToGroupsVideo("two");
+assert.equal(windowStub.location.hash, "#groups?video=two");
+windowListeners.hashchange();
+assert.equal(state.groupFocusVideoId, "two");
+assert.equal(state.selectedGroupId, "");
+
+navigation.navigateToGroupsGroup("series-abc");
+assert.equal(windowStub.location.hash, "#groups?group=series-abc");
+windowListeners.hashchange();
+assert.equal(state.selectedGroupId, "series-abc");
+assert.equal(state.groupFocusVideoId, "");
 
 windowStub.location.hash = "#triage";
 windowListeners.hashchange();
