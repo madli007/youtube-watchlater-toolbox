@@ -461,9 +461,23 @@
       let sequence = matched?.sequence || null;
       let withoutSequence = firstWrapperPass.title;
       if (matched) {
-        withoutSequence = `${withoutSequence.slice(0, matched.index)} ${withoutSequence.slice(matched.index + matched.length)}`
+        const beforeSequence = withoutSequence.slice(0, matched.index)
+          .replace(/[-/]+\s*$/u, " ")
           .replace(/\s+/g, " ")
           .trim();
+        const afterSequence = withoutSequence.slice(matched.index + matched.length)
+          .replace(/^\s*[-/]+\s*/u, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        // Reaction channels commonly use "Show S01E02 - Episode title". The
+        // subtitle changes for every upload and must not become the series base.
+        // If the sequence is at the start, keep the text after it instead.
+        withoutSequence = normalizeGroupingTitle(beforeSequence).length >= 3
+          ? beforeSequence
+          : afterSequence;
+        if (beforeSequence && afterSequence && withoutSequence === beforeSequence) {
+          reasons.push("ignored episode subtitle after sequence");
+        }
         reasons.push(`detected ${sequence.format}`);
       }
 
@@ -1016,23 +1030,21 @@
         const fingerprint = normalizeDuplicateTitle(video.title);
         const tokens = fingerprint.split(" ").filter(Boolean);
         if (fingerprint.length < 8 || tokens.length < 2) continue;
-        if (!buckets.has(fingerprint)) buckets.set(fingerprint, []);
-        buckets.get(fingerprint).push(video);
+        const channelKey = getVideoChannelKey(video);
+        if (!channelKey) continue;
+        const key = `${channelKey}\u001f${fingerprint}`;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(video);
       }
       return Array.from(buckets.entries())
         .filter(([, members]) => members.length >= 2)
         .map(([, members]) => {
-          const channels = new Set(members.map(video => normalizeGroupingTitle(video.channel)).filter(Boolean));
           return {
             type: "duplicate",
             label: getRepresentativeTitle(members),
             confidence: 0.98,
-            reasons: [channels.size > 1
-              ? `Same normalized title across ${channels.size} channels; possible reupload`
-              : "Same normalized title; possible duplicate or reupload"],
-            reason: channels.size > 1
-              ? `Same normalized title across ${channels.size} channels; possible reupload`
-              : "Same normalized title; possible duplicate or reupload",
+            reasons: ["Same normalized title from the same channel; possible duplicate or reupload"],
+            reason: "Same normalized title from the same channel; possible duplicate or reupload",
             reviewRequired: false,
             members: [...members].sort((a, b) => (a.index || 0) - (b.index || 0)),
           };

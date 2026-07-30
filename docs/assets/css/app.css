@@ -1770,7 +1770,48 @@
       min-height: 34px;
     }
 
-    .groups-detail-actions > #groupsOpenInTriage {
+    .groups-more-actions {
+      position: relative;
+      width: fit-content;
+    }
+
+    .groups-more-actions > summary {
+      min-height: 34px;
+      padding: 7px 12px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .groups-more-actions > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .groups-more-actions > summary::after {
+      content: " \22EF";
+      color: var(--muted);
+    }
+
+    .groups-more-actions[open] > summary {
+      border-color: var(--accent);
+    }
+
+    .groups-more-actions-panel {
+      display: grid;
+      gap: 7px;
+      margin-top: 8px;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      box-shadow: var(--shadow);
+    }
+
+    .groups-more-actions-panel > #groupsOpenInTriage {
       justify-self: start;
     }
 

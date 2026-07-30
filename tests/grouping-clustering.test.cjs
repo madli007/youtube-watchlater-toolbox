@@ -97,6 +97,69 @@ const crossChannelGroups = grouping.buildSeriesClusters([
 ]);
 assert.equal(crossChannelGroups.length, 0, "series clustering must never cross channel identity");
 
+const stargateGroups = grouping.buildSeriesClusters([
+  {
+    videoId: "sg1-901",
+    title: "Stargate SG-1 9x01 - \"Avalon: Part 1\" Reaction",
+    channel: "After Show Reacts",
+    channelUrl: "https://youtube.com/@aftershowreacts",
+  },
+  {
+    videoId: "sg1-902",
+    title: "Stargate SG-1 9x02 - \"Avalon: Part 2\" Reaction",
+    channel: "After Show Reacts",
+    channelUrl: "https://youtube.com/@aftershowreacts",
+  },
+  {
+    videoId: "sg1-1006",
+    title: "Stargate SG-1 10x06 - \"200\" Reaction",
+    channel: "After Show Reacts",
+    channelUrl: "https://youtube.com/@aftershowreacts",
+  },
+  {
+    videoId: "sg1-1016",
+    title: "Stargate SG-1 10x16 - \"Bad Guys\" Reaction",
+    channel: "After Show Reacts",
+    channelUrl: "https://youtube.com/@aftershowreacts",
+  },
+]);
+assert.equal(stargateGroups.length, 1, "episode subtitles must not fragment one show into small groups");
+assert.equal(stargateGroups[0].label, "Stargate sg 1");
+assert.equal(stargateGroups[0].members.length, 4);
+assert.ok(
+  stargateGroups[0].parsedMembers.every(item => item.base === "stargate sg 1"),
+  "the series base should come from the title portion before SxE",
+);
+
+const duplicateCandidates = [
+  {
+    videoId: "trailer-a",
+    title: "Venom: The Last Dance | Official Trailer Reaction",
+    channel: "Blind Wave",
+    channelUrl: "https://youtube.com/@blindwave",
+  },
+  {
+    videoId: "trailer-b",
+    title: "Venom: The Last Dance | Official Trailer Reaction",
+    channel: "Heroes Reforged",
+    channelUrl: "https://youtube.com/@heroesreforged",
+  },
+];
+assert.equal(
+  grouping.buildDuplicateGroups(duplicateCandidates).length,
+  0,
+  "matching reaction titles from different channels are not duplicates",
+);
+const sameChannelDuplicates = grouping.buildDuplicateGroups([
+  duplicateCandidates[0],
+  {
+    ...duplicateCandidates[0],
+    videoId: "trailer-a-copy",
+    title: "Venom: The Last Dance | Trailer Reaction",
+  },
+]);
+assert.equal(sameChannelDuplicates.length, 1, "same-channel normalized copies remain detectable");
+
 const performanceVideos = [];
 for (let channel = 0; channel < 50; channel++) {
   for (let series = 0; series < 50; series++) {

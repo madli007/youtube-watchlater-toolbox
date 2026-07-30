@@ -903,7 +903,7 @@ const groupedVideos = [
   { videoId: "similar-1", title: "JavaScript Async Await Tutorial for Beginners", channel: "Code", index: 3 },
   { videoId: "similar-2", title: "JavaScript Async Await Guide for Beginners", channel: "Code", index: 4 },
   { videoId: "duplicate-1", title: "Great Song (Official Video) [4K]", channel: "Artist", index: 5 },
-  { videoId: "duplicate-2", title: "Great Song - Official Video", channel: "Archive", index: 6 },
+  { videoId: "duplicate-2", title: "Great Song - Official Video", channel: "Artist", index: 6 },
   { videoId: "unrelated", title: "Completely unrelated topic", channel: "Other", index: 7 },
 ];
 const groups = groupingApi.buildVideoGroups(groupedVideos);
@@ -916,7 +916,7 @@ const duplicateGroup = groups.find(group => group.type === "duplicate"
 assert.ok(seriesGroup, "episode patterns should form a series group");
 assert.deepEqual([...seriesGroup.members].map(video => video.videoId), ["series-1", "series-2"]);
 assert.ok(similarGroup, "similar titles on the same channel should form a group");
-assert.ok(duplicateGroup, "normalized identical titles should form a probable duplicate group");
+assert.ok(duplicateGroup, "same-channel normalized identical titles should form a probable duplicate group");
 assert.deepEqual([...duplicateGroup.members].map(video => video.videoId), ["duplicate-1", "duplicate-2"]);
 assert.equal(groups.some(group => group.members.some(video => video.videoId === "unrelated")), false);
 assert.ok(groupingApi.calculateTitleSimilarity(

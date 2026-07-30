@@ -496,6 +496,11 @@ assert.match(html, /id=["']groupsConfirmMatch["']/i);
 assert.match(html, /id=["']groupsKeepAll["']/i);
 assert.match(html, /id=["']groupsKeepNewest["']/i);
 assert.match(html, /id=["']groupsOpenInTriage["']/i);
+assert.match(
+  html,
+  /<details[^>]*class=["'][^"']*groups-more-actions[^"']*["'][^>]*>[\s\S]*?<summary>More actions<\/summary>/i,
+  "secondary group actions should stay behind one compact disclosure",
+);
 assert.match(html, /id=["']groupsMergeSelected["']/i);
 assert.match(html, /id=["']groupsEditAlias["']/i);
 assert.match(html, /id=["']groupsSplitMembers["']/i);

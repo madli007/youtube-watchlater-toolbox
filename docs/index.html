@@ -617,15 +617,20 @@
               <button id="groupsMaybeAll" class="maybe-button" type="button">Maybe all</button>
               <button id="groupsDeleteAll" class="danger" type="button">Delete all</button>
             </div>
-            <div class="groups-recommendation-actions" role="group" aria-label="Keep one recommended video">
-              <button id="groupsKeepNewest" type="button">Keep newest only</button>
-              <button id="groupsKeepMostViewed" type="button">Keep most viewed only</button>
-            </div>
-            <div class="groups-override-actions" role="group" aria-label="Correct group detection">
-              <button id="groupsEditAlias" type="button">Edit alias</button>
-              <button id="groupsSplitMembers" type="button" disabled>Split selected members</button>
-            </div>
-            <button id="groupsOpenInTriage" type="button">Select &amp; open in Triage</button>
+            <details class="groups-more-actions">
+              <summary>More actions</summary>
+              <div class="groups-more-actions-panel">
+                <div class="groups-recommendation-actions" role="group" aria-label="Keep one recommended video">
+                  <button id="groupsKeepNewest" type="button">Keep newest only</button>
+                  <button id="groupsKeepMostViewed" type="button">Keep most viewed only</button>
+                </div>
+                <div class="groups-override-actions" role="group" aria-label="Correct group detection">
+                  <button id="groupsEditAlias" type="button">Edit alias</button>
+                  <button id="groupsSplitMembers" type="button" disabled>Split selected members</button>
+                </div>
+                <button id="groupsOpenInTriage" type="button">Select &amp; open in Triage</button>
+              </div>
+            </details>
           </section>
           <section class="groups-detail-block" aria-labelledby="groupsReasonsTitle">
             <h3 id="groupsReasonsTitle">Why these videos match</h3>
