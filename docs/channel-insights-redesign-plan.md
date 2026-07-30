@@ -1050,7 +1050,7 @@ Te številke so cilji za profiliranje, ne avtomatsko zagotovljene konstante.
 - [x] **Faza 1:** navigacija, Triage cleanup, akcijski meniji in dense video item.
 - [x] **Faza 2:** osnovni Channel Insights.
 - [x] **Faza 3:** series detection, group detail in manual merge/split.
-- [ ] **Faza 4:** import history, backlog persistence, accessibility in performance.
+- [x] **Faza 4:** import history, backlog persistence, accessibility in performance.
 
 Checkbox Faze se označi šele, ko so končani vsi njeni podrejeni checkboxi in izhodni kriteriji. Podrobni taski Faze 0 imajo en vir resnice v
 [`../html-refactor-plan.md`](../html-refactor-plan.md); spodnji seznam je njen povzetek za sledenje celotnemu feature programu.
@@ -1276,8 +1276,6 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 - **Tveganja:** override lahko postane zastarel; pokaži orphaned/stale oznako.
 
 ### Faza 4 — import history, persistence, accessibility in performance
-
-- [x] **Faza 4 zaključena**
 
 #### Slice 4.1 — Kompaktni import snapshoti
 
