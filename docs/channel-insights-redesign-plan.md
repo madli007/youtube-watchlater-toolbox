@@ -1301,7 +1301,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 4.3 — Workspace history round-trip
 
-- [ ] **Slice 4.3 zaključen**
+- [x] **Slice 4.3 zaključen**
 - **Cilj:** prenos nove zgodovine in overrides brez izgube starih workspace podatkov.
 - **Prizadeto:** `domain/workspace.js`, `domain/import-history.js`, `domain/grouping.js`, `storage.js`, workspace I/O v `app.js`.
 - **Podatki:** opcijski `workspace.extensions.channelInsights`.

@@ -8,6 +8,7 @@
     const { normalizeFilterState, normalizeSavedViews } = app.domain.filters;
     const { normalizeTimeBudgetHours } = app.domain.timeBudget;
     const { normalizeGroupingOverrides } = app.domain.grouping;
+    const { normalizeImportHistory } = app.domain.importHistory;
     const { getPortableDecisions, normalizeChannelRules, normalizeHistory, normalizeUserRules } = decisions;
     const { normalizeImportComparison, normalizePlainObject } = importComparison;
 
@@ -18,6 +19,7 @@
         : {};
       return {
         schemaVersion: 1,
+        importHistory: normalizeImportHistory(source.importHistory),
         groupingOverrides: normalizeGroupingOverrides(source.groupingOverrides),
       };
     }
@@ -42,6 +44,8 @@
           extensions: {
             channelInsights: normalizeChannelInsightsExtension({
               ...workspace.extensions?.channelInsights,
+              importHistory: workspace.importHistory
+                ?? workspace.extensions?.channelInsights?.importHistory,
               groupingOverrides: workspace.groupingOverrides
                 ?? workspace.extensions?.channelInsights?.groupingOverrides,
             }),
@@ -67,6 +71,13 @@
         throw new Error("Workspace snapshot is missing its decisions map.");
       }
 
+      const channelInsights = normalizeChannelInsightsExtension(
+        workspace.extensions?.channelInsights || {
+          importHistory: workspace.importHistory,
+          groupingOverrides: workspace.groupingOverrides,
+        },
+      );
+
       return {
         videos: workspace.videos.filter(video => video && typeof video === "object"),
         decisions: getPortableDecisions(workspace.decisions),
@@ -78,11 +89,8 @@
         history: normalizeHistory(workspace.history),
         timeBudgetHours: normalizeTimeBudgetHours(workspace.timeBudgetHours),
         previewProgress: normalizePreviewProgress(workspace.previewProgress),
-        groupingOverrides: normalizeChannelInsightsExtension(
-          workspace.extensions?.channelInsights || {
-            groupingOverrides: workspace.groupingOverrides,
-          },
-        ).groupingOverrides,
+        importHistory: channelInsights.importHistory,
+        groupingOverrides: channelInsights.groupingOverrides,
         ui: normalizeWorkspaceUi(workspace.ui),
       };
     }

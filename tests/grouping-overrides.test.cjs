@@ -10,6 +10,7 @@ const modulePaths = [
   "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/insights.js",
+  "docs/assets/js/domain/import-history.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/domain/grouping.js",
   "docs/assets/js/domain/workspace.js",

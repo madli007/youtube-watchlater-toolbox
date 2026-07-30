@@ -1216,6 +1216,7 @@
       if (!state.videos.length
         && !Object.keys(state.decisions).length
         && !state.channelRules.length
+        && !state.importHistory.length
         && !groupingOverrideCount) {
         showToast("Nothing to export yet.");
         return;
@@ -1232,6 +1233,7 @@
         history: state.history,
         timeBudgetHours: state.timeBudgetHours,
         previewProgress: state.previewProgress,
+        importHistory: state.importHistory,
         groupingOverrides: state.groupingOverrides,
         ui: getWorkspaceUiState(),
       });
@@ -1254,9 +1256,10 @@
           `Decisions: ${decisionCount}`,
           `Channel rules: ${incoming.channelRules.length}`,
           `History entries: ${incoming.history.length}`,
+          `Import snapshots: ${incoming.importHistory.length}`,
           `Grouping corrections: ${incoming.groupingOverrides.aliases.length + incoming.groupingOverrides.merges.length + incoming.groupingOverrides.splits.length}`,
           "",
-          "This replaces the current dataset, decisions, rules, saved views, and filters.",
+          "This replaces the current dataset, decisions, rules, saved views, import history, grouping corrections, and filters.",
         ].join("\n"));
         if (!ok) return;
 
@@ -1281,6 +1284,7 @@
         state.importComparison = incoming.importComparison;
         state.timeBudgetHours = incoming.timeBudgetHours;
         state.previewProgress = incoming.previewProgress;
+        state.importHistory = incoming.importHistory;
         state.groupingOverrides = incoming.groupingOverrides;
         state.groupingOverrideRevision++;
         state.selectedGroupIds.clear();
@@ -1303,6 +1307,7 @@
         persistence.saveChannelRules(state.channelRules);
         persistence.saveSavedViews(state.savedViews);
         persistence.saveTimeBudgetHours(state.timeBudgetHours);
+        const importHistorySaved = persistence.saveImportHistory(state.importHistory);
         persistence.saveGroupingOverrides(state.groupingOverrides);
         flushPreviewProgress();
         saveHistory();
@@ -1312,7 +1317,10 @@
         renderTagFilters();
         renderSavedViews();
         render();
-        showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.`);
+        const historyWarning = importHistorySaved
+          ? ""
+          : " Import history could not be saved locally.";
+        showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.${historyWarning}`);
       } catch (error) {
         showToast(error.message || "Workspace import failed.");
       } finally {

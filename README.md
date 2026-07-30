@@ -24,7 +24,7 @@ The triage page:
 - opens an in-app YouTube preview by button or the `p` shortcut without changing the current filters or list position, with a larger thumbnail, metadata, decision buttons, saved playback timestamps, and an optional playback-aware 30-second review timer;
 - stores decisions in browser `localStorage`;
 - exports and imports decision-only JSON for manual sync between devices;
-- exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, and local change history;
+- exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, local change history, compact import snapshots, and grouping corrections;
 - creates local safety snapshots before bulk decision changes, decision imports, workspace replacement, or clearing, with undo and restore controls;
 - shows Channel Insights KPIs plus a searchable, sortable channel-by-age matrix with count/watch-time measures, explicit duration coverage, global or per-channel heat scaling, and a selected-channel panel for backlog impact, decision-health proxies, age distribution, oldest untouched videos, and new arrivals;
 - exports `keep/maybe`, delete candidates, and tagged reports.
@@ -57,6 +57,8 @@ docs/
 
 The JavaScript uses ordered classic scripts so `docs/index.html` remains usable over `file://`. The dependency order is documented beside the script tags in that file. ES modules are intentionally not used because they would require changing the direct local-opening workflow without providing a current product benefit.
 
+Workspace snapshots keep the outer `schemaVersion: 1`. Import history and grouping corrections are stored in the optional `workspace.extensions.channelInsights` block, so older app versions can still open the file. Re-exporting that file through an older version will discard extension data.
+
 ## Local running and tests
 
 Open `docs/index.html` directly in a browser. To test through HTTP instead, run a static server from the repository root and open its `/docs/` path.
@@ -74,6 +76,7 @@ node tests/triage-view.test.cjs
 node tests/insights.test.cjs
 node tests/insights-view.test.cjs
 node tests/import-history.test.cjs
+node tests/workspace-extension.test.cjs
 node tests/grouping-parser.test.cjs
 node tests/grouping-clustering.test.cjs
 node tests/grouping-overrides.test.cjs
