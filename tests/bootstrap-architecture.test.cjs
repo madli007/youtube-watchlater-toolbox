@@ -186,8 +186,8 @@ for (const modulePath of Object.keys(dependencyGraph)) {
 const storageSource = fs.readFileSync(path.join(projectRoot, storagePath), "utf8");
 assert.match(
   storageSource,
-  /app\.storage = Object\.freeze\(\{\s*createStorage,\s*\}\);/m,
-  "storage must expose only its replaceable factory, not internal compatibility helpers",
+  /app\.storage = Object\.freeze\(\{\s*createStorage,\s*createDatasetStorage,\s*\}\);/m,
+  "storage must expose only its replaceable factories, not internal compatibility helpers",
 );
 
 console.log("bootstrap architecture test passed");

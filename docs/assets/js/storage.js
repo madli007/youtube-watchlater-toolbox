@@ -18,6 +18,7 @@
   const { normalizeHistory } = app.domain.decisions;
   const {
     createVideoSnapshot,
+    normalizeImportComparison,
     normalizePlainObject,
   } = app.domain.importComparison;
   const { normalizeTimeBudgetHours } = app.domain.timeBudget;
@@ -25,10 +26,24 @@
   const { normalizePreviewProgress } = app.domain.workspace;
   const { normalizeGroupingOverrides } = app.domain.grouping;
   const { normalizeImportHistory } = app.domain.importHistory;
+  const { toWorkspaceVideo } = app.domain.workspace;
+
+  const DATASET_DATABASE_NAME = "watchlater-triage-datasets";
+  const DATASET_DATABASE_VERSION = 1;
+  const DATASET_OBJECT_STORE = "snapshots";
+  const CURRENT_DATASET_KEY = "current";
 
   function getDefaultStorage() {
     try {
       return root.localStorage || null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function getDefaultIndexedDb() {
+    try {
+      return root.indexedDB || null;
     } catch (_error) {
       return null;
     }
@@ -77,6 +92,129 @@
 
   function asArray(value) {
     return Array.isArray(value) ? value : [];
+  }
+
+  function normalizeDatasetSnapshot(value) {
+    if (!value || typeof value !== "object" || value.schemaVersion !== 1
+      || !Array.isArray(value.videos)) {
+      return null;
+    }
+    return {
+      schemaVersion: 1,
+      savedAt: typeof value.savedAt === "string" ? value.savedAt : "",
+      videos: value.videos
+        .filter(video => video && typeof video === "object")
+        .map(toWorkspaceVideo)
+        .filter(video => String(video.videoId || "").trim()),
+      lastImport: normalizePlainObject(value.lastImport),
+      importComparison: normalizeImportComparison(value.importComparison),
+    };
+  }
+
+  function createDatasetStorage(indexedDb = getDefaultIndexedDb()) {
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        if (!indexedDb || typeof indexedDb.open !== "function") {
+          reject(new Error("IndexedDB is unavailable."));
+          return;
+        }
+
+        let request;
+        let settled = false;
+        const finish = (callback, value) => {
+          if (settled) return false;
+          settled = true;
+          callback(value);
+          return true;
+        };
+        try {
+          request = indexedDb.open(DATASET_DATABASE_NAME, DATASET_DATABASE_VERSION);
+        } catch (error) {
+          finish(reject, error);
+          return;
+        }
+
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains(DATASET_OBJECT_STORE)) {
+            database.createObjectStore(DATASET_OBJECT_STORE);
+          }
+        };
+        request.onsuccess = () => {
+          const database = request.result;
+          database.onversionchange = () => database.close();
+          if (!finish(resolve, database)) database.close();
+        };
+        request.onerror = () => finish(
+          reject,
+          request.error || new Error("IndexedDB could not be opened."),
+        );
+        request.onblocked = () => finish(
+          reject,
+          new Error("IndexedDB upgrade is blocked by another tab."),
+        );
+      });
+    }
+
+    async function loadDataset() {
+      let database;
+      try {
+        database = await openDatabase();
+        return await new Promise(resolve => {
+          let transaction;
+          let request;
+          try {
+            transaction = database.transaction(DATASET_OBJECT_STORE, "readonly");
+            request = transaction.objectStore(DATASET_OBJECT_STORE).get(CURRENT_DATASET_KEY);
+          } catch (_error) {
+            resolve(null);
+            return;
+          }
+
+          request.onsuccess = () => resolve(normalizeDatasetSnapshot(request.result));
+          request.onerror = () => resolve(null);
+          transaction.onabort = () => resolve(null);
+          transaction.onerror = () => resolve(null);
+        });
+      } catch (_error) {
+        return null;
+      } finally {
+        database?.close();
+      }
+    }
+
+    async function saveDataset(value) {
+      const snapshot = normalizeDatasetSnapshot(value);
+      if (!snapshot) return false;
+
+      let database;
+      try {
+        database = await openDatabase();
+        return await new Promise(resolve => {
+          let transaction;
+          try {
+            transaction = database.transaction(DATASET_OBJECT_STORE, "readwrite");
+            transaction.objectStore(DATASET_OBJECT_STORE).put(snapshot, CURRENT_DATASET_KEY);
+          } catch (_error) {
+            resolve(false);
+            return;
+          }
+
+          transaction.oncomplete = () => resolve(true);
+          transaction.onabort = () => resolve(false);
+          transaction.onerror = () => resolve(false);
+        });
+      } catch (_error) {
+        return false;
+      } finally {
+        database?.close();
+      }
+    }
+
+    return Object.freeze({
+      loadDataset,
+      saveDataset,
+    });
   }
 
   function createStorage(storage = getDefaultStorage()) {
@@ -183,5 +321,6 @@
 
   app.storage = Object.freeze({
     createStorage,
+    createDatasetStorage,
   });
 })(globalThis);

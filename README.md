@@ -22,7 +22,8 @@ The triage page:
 - supports persistent per-channel series aliases, same-channel manual group merges, member splits, and removable stale/orphaned corrections included in workspace snapshots;
 - shows every member of a detected group and supports selecting or marking the whole group, plus undoable “keep newest only” and “keep most viewed only” recommendations;
 - opens an in-app YouTube preview by button or the `p` shortcut without changing the current filters or list position, with a larger thumbnail, metadata, decision buttons, saved playback timestamps, and an optional playback-aware 30-second review timer;
-- stores decisions in browser `localStorage`;
+- stores decisions and compact settings in browser `localStorage`;
+- stores the latest complete imported dataset in IndexedDB and restores it automatically after a refresh;
 - exports and imports decision-only JSON for manual sync between devices;
 - exports and imports a full workspace snapshot with the current video dataset, decisions, filters, rules, saved views, last-import metadata, local change history, compact import snapshots, and grouping corrections;
 - creates local safety snapshots before bulk decision changes, decision imports, workspace replacement, or clearing, with undo and restore controls;
@@ -47,7 +48,7 @@ docs/
     js/
       config.js
       domain/              Pure decision, filter, grouping, time, and workspace logic
-      storage.js           The only direct localStorage boundary
+      storage.js           Browser persistence boundary for localStorage and IndexedDB
       browser-io.js        File reading and download boundary
       state.js             Central state creation
       ui/                  DOM registry and UI factories
@@ -68,6 +69,7 @@ No dependency installation or build step is needed. Run the automated checks wit
 ```text
 node tests/domain-modules.test.cjs
 node tests/state-storage.test.cjs
+node tests/dataset-storage.test.cjs
 node tests/triage-workspace.test.cjs
 node tests/bootstrap-architecture.test.cjs
 node tests/action-menus.test.cjs

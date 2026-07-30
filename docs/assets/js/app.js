@@ -3,6 +3,7 @@
 
   const app = root.WatchLaterApp;
   const persistence = app.storage.createStorage();
+  const datasetPersistence = app.storage.createDatasetStorage();
   const state = app.state.createInitialState(persistence);
   const els = app.ui.dom.createDomRegistry(root.document);
   const controller = app.triageController.createTriageController({
@@ -17,6 +18,7 @@
     grouping: app.domain.grouping,
     workspace: app.domain.workspace,
     persistence,
+    datasetPersistence,
     browserIo: app.browserIo,
     state,
     els,

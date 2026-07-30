@@ -22,6 +22,7 @@
       grouping,
       workspace,
       persistence,
+      datasetPersistence,
       browserIo,
       state,
       els,
@@ -78,6 +79,7 @@
       dedupeVideos,
       createDatasetBaseline,
       compareVideoDatasets,
+      normalizeImportComparison,
     } = importComparison;
     const {
       appendImportSnapshot,
@@ -292,6 +294,7 @@
       initializeGroupsView();
       initializeNavigation();
       renderImportHistoryStatus();
+      restorePersistedDataset().catch(() => false);
     }
 
     function bindEvents() {
@@ -483,6 +486,7 @@
         state.lastImport = currentImport;
         state.datasetBaseline = createDatasetBaseline(deduped, currentImport);
         const baselineSaved = saveDatasetBaseline(state.datasetBaseline);
+        const datasetSaved = await saveCurrentDataset();
         const historyUpdate = appendImportSnapshot(
           state.importHistory,
           deduped,
@@ -502,8 +506,9 @@
           ? ` ${comparison.newIds.length} new, ${comparison.removedVideos.length} no longer present.`
           : " This import is now the comparison baseline.";
         const storageText = baselineSaved ? "" : " The comparison baseline could not be saved locally.";
+        const datasetText = datasetSaved ? "" : " The dataset could not be saved for automatic restore.";
         const historyText = importHistorySaved ? "" : " Import history could not be saved locally.";
-        showToast(`Imported ${deduped.length} videos from ${file.name}.${comparisonText}${storageText}${historyText}`);
+        showToast(`Imported ${deduped.length} videos from ${file.name}.${comparisonText}${storageText}${datasetText}${historyText}`);
       } catch (error) {
         showToast(error.message || "Import failed.");
       } finally {
@@ -653,6 +658,49 @@
     function selectVisible() {
       getRenderedVideos().forEach(video => state.selectedIds.add(video.videoId));
       render();
+    }
+
+    async function restorePersistedDataset() {
+      if (state.videos.length || !datasetPersistence) return false;
+      const snapshot = await datasetPersistence.loadDataset();
+      if (!snapshot) return false;
+
+      const restoredVideos = dedupeVideos(snapshot.videos)
+        .map(video => enrichVideo(video))
+        .filter(video => video.videoId);
+      state.videos = restoredVideos;
+      state.datasetRevision++;
+      state.lastImport = snapshot.lastImport;
+      state.importComparison = normalizeImportComparison(snapshot.importComparison);
+      state.datasetView = state.importComparison.baselineAvailable
+        && getInboxIds(state.importComparison).length
+        ? "inbox"
+        : "all";
+      state.currentId = restoredVideos[0]?.videoId || "";
+      state.renderedCount = PAGE_SIZE;
+      state.datasetBaseline ||= createDatasetBaseline(restoredVideos, state.lastImport);
+
+      applyFilterState({ datasetView: state.datasetView });
+      populateChannels();
+      renderBadgeOptions();
+      renderTagFilters();
+      renderSavedViews();
+      render();
+
+      const source = state.lastImport?.fileName ? ` from ${state.lastImport.fileName}` : "";
+      showToast(`Restored ${restoredVideos.length} videos${source}.`);
+      return true;
+    }
+
+    function saveCurrentDataset() {
+      if (!datasetPersistence) return Promise.resolve(false);
+      return datasetPersistence.saveDataset({
+        schemaVersion: 1,
+        savedAt: new Date().toISOString(),
+        videos: state.videos.map(toWorkspaceVideo),
+        lastImport: state.lastImport,
+        importComparison: state.importComparison,
+      });
     }
 
     function invertVisibleSelection() {
@@ -1326,6 +1374,7 @@
         flushPreviewProgress();
         saveHistory();
         applyWorkspaceUi(incoming.ui);
+        const datasetSaved = await saveCurrentDataset();
         populateChannels();
         renderBadgeOptions();
         renderTagFilters();
@@ -1334,7 +1383,10 @@
         const historyWarning = importHistorySaved
           ? ""
           : " Import history could not be saved locally.";
-        showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.${historyWarning}`);
+        const datasetWarning = datasetSaved
+          ? ""
+          : " The dataset could not be saved for automatic restore.";
+        showToast(`Imported workspace with ${state.videos.length} videos and ${decisionCount} decisions.${historyWarning}${datasetWarning}`);
       } catch (error) {
         showToast(error.message || "Workspace import failed.");
       } finally {
@@ -1666,6 +1718,7 @@
           };
         },
         importFile,
+        restorePersistedDataset,
         clearImportHistory,
       }),
     });
