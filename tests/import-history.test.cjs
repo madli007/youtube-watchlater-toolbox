@@ -157,4 +157,107 @@ assert.deepEqual(plain(importHistory.normalizeImportHistory([
 ])), [plain(snapshot)], "corrupt entries are skipped and duplicate IDs collapse");
 assert.deepEqual(plain(importHistory.normalizeImportHistory("{broken")), []);
 
+const oldChannelImport = importHistory.createImportSnapshot([
+  {
+    videoId: "persisted",
+    channel: "Original channel name",
+    channelUrl: "https://youtube.com/@stable",
+    durationSeconds: 120,
+  },
+  {
+    videoId: "removed",
+    channel: "Original channel name",
+    channelUrl: "https://youtube.com/@stable",
+    durationSeconds: null,
+  },
+], {
+  fileName: "history-1.json",
+  importedAt: "2026-07-01T12:00:00.000Z",
+});
+const newChannelImport = importHistory.createImportSnapshot([
+  {
+    videoId: "persisted",
+    channel: "Renamed channel",
+    channelUrl: "https://youtube.com/@stable",
+    durationSeconds: 120,
+  },
+  {
+    videoId: "current-new",
+    channel: "Renamed channel",
+    channelUrl: "https://youtube.com/@stable",
+    durationSeconds: 60,
+  },
+], {
+  fileName: "history-2.json",
+  importedAt: "2026-07-15T15:30:00.000Z",
+});
+const oneSnapshotTrend = importHistory.buildImportTrend(
+  [oldChannelImport],
+  {
+    channelKey: "url:@stable",
+    currentVideoIds: ["persisted", "current-new"],
+  },
+);
+assert.equal(oneSnapshotTrend.available, false);
+assert.equal(oneSnapshotTrend.totalSnapshots, 1);
+assert.equal(oneSnapshotTrend.minimumSnapshots, 2);
+
+const renamedChannelTrend = importHistory.buildImportTrend(
+  [oldChannelImport, newChannelImport],
+  {
+    channelKey: "url:@stable",
+    currentVideoIds: ["persisted", "current-new"],
+  },
+);
+assert.equal(renamedChannelTrend.available, true);
+assert.equal(renamedChannelTrend.presentSnapshots, 2);
+assert.equal(renamedChannelTrend.totalSnapshots, 2);
+assert.equal(renamedChannelTrend.intervalStartAt, "2026-07-01T12:00:00.000Z");
+assert.equal(renamedChannelTrend.intervalEndAt, "2026-07-15T15:30:00.000Z");
+assert.equal(renamedChannelTrend.points[0].channelName, "Original channel name");
+assert.equal(renamedChannelTrend.points[1].channelName, "Renamed channel");
+assert.equal(renamedChannelTrend.points[0].knownDurationCount, 1);
+assert.equal(renamedChannelTrend.points[0].totalDurationSeconds, 120);
+assert.equal(renamedChannelTrend.points[0].durationCoveragePercent, 50);
+assert.equal(renamedChannelTrend.points[0].newCount, null);
+assert.equal(renamedChannelTrend.points[1].newCount, 1);
+assert.equal(renamedChannelTrend.points[1].removedCount, 1);
+assert.equal(renamedChannelTrend.points[0].currentVideoSurvivalCount, 1);
+assert.equal(renamedChannelTrend.points[0].currentVideoSurvivalPercent, 50);
+assert.equal(renamedChannelTrend.points[1].currentVideoSurvivalCount, 2);
+assert.equal(renamedChannelTrend.points[1].currentVideoSurvivalPercent, 100);
+assert.deepEqual(
+  plain(renamedChannelTrend.currentVideoSurvivalRates.map(rate => [
+    rate.numerator,
+    rate.denominator,
+    rate.percent,
+  ])),
+  [[1, 2, 50], [2, 2, 100]],
+);
+
+const sixSnapshotTrend = importHistory.buildImportTrend(
+  Array.from({ length: 6 }, (_, index) => importHistory.createImportSnapshot(
+    Array.from({ length: index + 1 }, (__, videoIndex) => ({
+      videoId: `six-${videoIndex}`,
+      channel: "Six imports",
+      durationSeconds: videoIndex % 2 ? null : 60,
+    })),
+    {
+      fileName: `six-${index}.json`,
+      importedAt: `2026-07-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`,
+    },
+  )),
+  {
+    channelKey: "name:six imports",
+    currentVideoIds: Array.from({ length: 6 }, (_, index) => `six-${index}`),
+  },
+);
+assert.equal(sixSnapshotTrend.available, true);
+assert.equal(sixSnapshotTrend.totalSnapshots, 6);
+assert.equal(sixSnapshotTrend.presentSnapshots, 6);
+assert.equal(sixSnapshotTrend.points[5].videoCount, 6);
+assert.equal(sixSnapshotTrend.points[5].knownDurationCount, 3);
+assert.equal(sixSnapshotTrend.points[5].newCount, 1);
+assert.equal(sixSnapshotTrend.points[5].removedCount, 0);
+
 console.log("import history test passed");

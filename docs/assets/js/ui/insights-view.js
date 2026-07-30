@@ -55,6 +55,14 @@
     }).format(new Date(timestamp));
   }
 
+  function formatImportDate(value) {
+    const timestamp = Date.parse(String(value || ""));
+    if (!Number.isFinite(timestamp)) return "Unknown date";
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    }).format(new Date(timestamp));
+  }
+
   function getImportContext(lastImport) {
     if (!lastImport || typeof lastImport !== "object") {
       return "Import a Watch Later JSON file to calculate channel insights.";
@@ -106,6 +114,12 @@
     let renderedMatrixSignature = "";
     let showAllChannels = false;
     let initialized = false;
+
+    function getImportHistorySignature() {
+      return (Array.isArray(state.importHistory) ? state.importHistory : [])
+        .map(snapshot => String(snapshot?.id || ""))
+        .join(",");
+    }
 
     function getTimeScopeVideos(model) {
       const allVideos = Array.isArray(state.videos) ? state.videos : [];
@@ -323,6 +337,78 @@
       return [list];
     }
 
+    function createPersistencePoint(point) {
+      const item = documentRef.createElement("li");
+      item.className = "insights-persistence-point";
+      const heading = documentRef.createElement("div");
+      heading.className = "insights-persistence-point-heading";
+      const date = documentRef.createElement("strong");
+      date.textContent = formatImportDate(point.at);
+      const count = documentRef.createElement("span");
+      count.textContent = `${formatCount(point.videoCount)} videos`;
+      heading.append(date, count);
+
+      const metrics = documentRef.createElement("small");
+      const duration = point.knownDurationCount
+        ? `${formatDuration(point.totalDurationSeconds)} known watch time`
+        : point.videoCount
+          ? "watch time unknown"
+          : "no watch time";
+      const coverage = `${formatCount(point.knownDurationCount)} of ${formatCount(point.videoCount)} durations known`;
+      const change = point.newCount === null
+        ? "baseline"
+        : `+${formatCount(point.newCount)} new · −${formatCount(point.removedCount)} removed`;
+      const survival = point.currentVideoSurvivalPercent === null
+        ? ""
+        : ` · ${formatCount(point.currentVideoSurvivalCount)} of ${formatCount(point.currentVideoCount)} current videos present`;
+      metrics.textContent = `${duration} · ${coverage} · ${change}${survival}`;
+      item.append(heading, metrics);
+      return item;
+    }
+
+    function renderPersistence(detail) {
+      const trend = detail.persistence;
+      if (!trend || !trend.available) {
+        const empty = documentRef.createElement("p");
+        empty.className = "insights-detail-empty";
+        const count = trend?.totalSnapshots || 0;
+        const minimum = trend?.minimumSnapshots || 2;
+        empty.textContent = `${formatCount(count)} of ${formatCount(minimum)} required import snapshots available. Import another Watch Later export to unlock persistence trends.`;
+        els.insightsDetailPersistence.replaceChildren(empty);
+        els.insightsDetailPersistence.setAttribute(
+          "aria-label",
+          `Backlog persistence unavailable: ${formatCount(count)} of ${formatCount(minimum)} required import snapshots`,
+        );
+        return;
+      }
+
+      const summary = documentRef.createElement("p");
+      summary.className = "insights-persistence-summary";
+      summary.textContent = `Present in ${formatCount(trend.presentSnapshots)} of ${formatCount(trend.totalSnapshots)} stored imports · ${formatImportDate(trend.intervalStartAt)} to ${formatImportDate(trend.intervalEndAt)}.`;
+
+      const oldestRate = trend.currentVideoSurvivalRates[0];
+      const survival = oldestRate?.percent === null
+        ? null
+        : createDetailBar(
+          "Current videos present in oldest import",
+          `${formatCount(oldestRate?.numerator)} / ${formatCount(oldestRate?.denominator)}`,
+          oldestRate?.percent,
+          `${formatPercent(oldestRate?.percent)} survival across this stored interval; denominator is the channel's ${formatCount(oldestRate?.denominator)} current videos.`,
+        );
+      const list = documentRef.createElement("ol");
+      list.className = "insights-persistence-timeline";
+      list.replaceChildren(...trend.points.map(createPersistencePoint));
+      els.insightsDetailPersistence.replaceChildren(
+        summary,
+        ...(survival ? [survival] : []),
+        list,
+      );
+      els.insightsDetailPersistence.setAttribute(
+        "aria-label",
+        `${detail.channelName} is present in ${formatCount(trend.presentSnapshots)} of ${formatCount(trend.totalSnapshots)} stored imports from ${formatImportDate(trend.intervalStartAt)} to ${formatImportDate(trend.intervalEndAt)}`,
+      );
+    }
+
     function getHeatOpacity(value, maximum) {
       if (!maximum || !value) return "0";
       const ratio = Math.min(1, Math.max(0, value / maximum));
@@ -479,6 +565,7 @@
           ...state.insightsSettings,
           now: getNow(),
           hasImportBaseline: state.importComparison?.baselineAvailable === true,
+          importHistory: state.importHistory,
         },
       );
       if (!detail) {
@@ -608,6 +695,7 @@
           ? `${formatCount(detail.newSinceLastImportCount)} videos new since the last import`
           : "New-since-last-import comparison unavailable",
       );
+      renderPersistence(detail);
       return detail;
     }
 
@@ -623,6 +711,7 @@
         search,
         scale,
         showAllChannels,
+        getImportHistorySignature(),
       ].join("|");
       if (signature === renderedMatrixSignature) return;
 
@@ -653,6 +742,7 @@
         search,
         scale,
         showAllChannels,
+        getImportHistorySignature(),
       ].join("|");
     }
 
@@ -812,6 +902,7 @@
     formatCount,
     formatPercent,
     formatApproximateAge,
+    formatImportDate,
     getImportContext,
     getDurationCoverageLabel,
     getMatrixStatus,

@@ -165,11 +165,151 @@
     };
   }
 
+  function percent(numerator, denominator) {
+    return denominator ? numerator / denominator * 100 : 0;
+  }
+
+  function getSnapshotTime(snapshot) {
+    const candidates = [
+      ["importedAt", snapshot?.importedAt],
+      ["exportedAt", snapshot?.source?.exportedAt],
+      ["ageAnchorAt", snapshot?.source?.ageAnchorAt],
+    ];
+    for (const [source, value] of candidates) {
+      const timestamp = Date.parse(String(value || ""));
+      if (Number.isFinite(timestamp)) {
+        return {
+          at: new Date(timestamp).toISOString(),
+          timestamp,
+          source,
+        };
+      }
+    }
+    return { at: "", timestamp: null, source: "" };
+  }
+
+  function getSnapshotScope(snapshot, channelKey) {
+    const scopedVideos = channelKey
+      ? snapshot.videos.filter(video => video.channelKey === channelKey)
+      : snapshot.videos;
+    const knownDurations = scopedVideos
+      .map(video => video.durationSeconds)
+      .filter(duration => duration !== null);
+    const names = new Map();
+    for (const video of scopedVideos) {
+      const name = String(video.channelName || "").trim() || "(unknown)";
+      names.set(name, (names.get(name) || 0) + 1);
+    }
+    let channelName = "";
+    let channelNameCount = -1;
+    for (const [name, count] of names) {
+      if (count > channelNameCount) {
+        channelName = name;
+        channelNameCount = count;
+      }
+    }
+    return {
+      videos: scopedVideos,
+      videoIds: new Set(scopedVideos.map(video => video.videoId)),
+      channelName,
+      videoCount: scopedVideos.length,
+      knownDurationCount: knownDurations.length,
+      totalDurationSeconds: knownDurations.reduce(
+        (total, duration) => total + duration,
+        0,
+      ),
+    };
+  }
+
+  function countSetDifference(left, right) {
+    let count = 0;
+    for (const value of left) {
+      if (!right.has(value)) count++;
+    }
+    return count;
+  }
+
+  function countSetIntersection(left, right) {
+    let count = 0;
+    for (const value of left) {
+      if (right.has(value)) count++;
+    }
+    return count;
+  }
+
+  function buildImportTrend(history, options = {}) {
+    const snapshots = normalizeImportHistory(history, MAX_IMPORT_HISTORY_LIMIT);
+    const channelKey = String(options.channelKey || "").trim();
+    const currentVideoIds = new Set(
+      Array.from(options.currentVideoIds || [], value => String(value || "").trim())
+        .filter(Boolean),
+    );
+    let previousIds = null;
+    let presentSnapshots = 0;
+
+    const points = snapshots.map(snapshot => {
+      const scope = getSnapshotScope(snapshot, channelKey);
+      const time = getSnapshotTime(snapshot);
+      const currentVideoSurvivalCount = currentVideoIds.size
+        ? countSetIntersection(currentVideoIds, scope.videoIds)
+        : 0;
+      if (scope.videoCount > 0) presentSnapshots++;
+      const point = {
+        snapshotId: snapshot.id,
+        at: time.at,
+        timestamp: time.timestamp,
+        timestampSource: time.source,
+        channelName: scope.channelName,
+        videoCount: scope.videoCount,
+        knownDurationCount: scope.knownDurationCount,
+        totalDurationSeconds: scope.totalDurationSeconds,
+        durationCoveragePercent: percent(
+          scope.knownDurationCount,
+          scope.videoCount,
+        ),
+        newCount: previousIds === null
+          ? null
+          : countSetDifference(scope.videoIds, previousIds),
+        removedCount: previousIds === null
+          ? null
+          : countSetDifference(previousIds, scope.videoIds),
+        currentVideoCount: currentVideoIds.size,
+        currentVideoSurvivalCount,
+        currentVideoSurvivalPercent: currentVideoIds.size
+          ? percent(currentVideoSurvivalCount, currentVideoIds.size)
+          : null,
+      };
+      previousIds = scope.videoIds;
+      return point;
+    });
+
+    return {
+      available: points.length >= 2,
+      minimumSnapshots: 2,
+      totalSnapshots: points.length,
+      presentSnapshots,
+      channelKey,
+      currentVideoCount: currentVideoIds.size,
+      intervalStartAt: points[0]?.at || "",
+      intervalEndAt: points.at(-1)?.at || "",
+      points,
+      currentVideoSurvivalRates: points.map(point => ({
+        snapshotId: point.snapshotId,
+        at: point.at,
+        numerator: point.currentVideoSurvivalCount,
+        denominator: point.currentVideoCount,
+        percent: point.currentVideoSurvivalPercent,
+      })),
+    };
+  }
+
   app.domain.importHistory = Object.freeze({
     createCompactImportVideo,
     createImportSnapshot,
     normalizeImportSnapshot,
     normalizeImportHistory,
     appendImportSnapshot,
+    getSnapshotTime,
+    buildImportTrend,
   });
 })(globalThis);

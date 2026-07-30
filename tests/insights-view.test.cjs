@@ -8,8 +8,10 @@ const projectRoot = path.resolve(__dirname, "..");
 const modulePaths = [
   "docs/assets/js/config.js",
   "docs/assets/js/domain/decisions.js",
+  "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/insights.js",
+  "docs/assets/js/domain/import-history.js",
   "docs/assets/js/domain/time-budget.js",
   "docs/assets/js/ui/insights-view.js",
 ];
@@ -23,7 +25,7 @@ for (const relativePath of modulePaths) {
   );
 }
 
-const { insights } = sandbox.WatchLaterApp.domain;
+const { insights, importHistory } = sandbox.WatchLaterApp.domain;
 const {
   buildTimeBudgetSummary,
   formatDuration,
@@ -175,6 +177,7 @@ const state = {
   insightsSettings: { decisionStaleDays: 180 },
   insightsCache: { videoFacts: [] },
   importComparison: { baselineAvailable: false },
+  importHistory: [],
   videos: [],
   decisions: {},
   timeBudgetHours: 1,
@@ -319,6 +322,10 @@ assert.equal(
   "New-since-last-import comparison unavailable",
 );
 assert.equal(els.insightsOldestAge.textContent, "Unknown");
+assert.equal(
+  els.insightsDetailPersistence.children[0].textContent,
+  "0 of 2 required import snapshots available. Import another Watch Later export to unlock persistence trends.",
+);
 assert.equal(els.insightsTimeDashboard.hidden, false);
 assert.equal(els.insightsTimeTotal.textContent, "0m");
 assert.match(els.insightsTimeCoverage.textContent, /2 unknown/);
@@ -372,6 +379,43 @@ state.videos = [
     durationSeconds: 1800,
   },
 ];
+state.importHistory = [
+  importHistory.createImportSnapshot([
+    {
+      videoId: "alpha-short",
+      channel: "Alpha",
+      durationSeconds: 900,
+    },
+    {
+      videoId: "alpha-removed",
+      channel: "Alpha",
+      durationSeconds: null,
+    },
+  ], {
+    fileName: "alpha-old.json",
+    importedAt: "2026-06-01T12:00:00.000Z",
+  }),
+  importHistory.createImportSnapshot([
+    {
+      videoId: "alpha-short",
+      channel: "Alpha",
+      durationSeconds: 900,
+    },
+    {
+      videoId: "alpha-long",
+      channel: "Alpha",
+      durationSeconds: 3600,
+    },
+    {
+      videoId: "beta",
+      channel: "Beta",
+      durationSeconds: 1800,
+    },
+  ], {
+    fileName: "alpha-current.json",
+    importedAt: "2026-07-01T12:00:00.000Z",
+  }),
+];
 state.decisions = {
   "alpha-short": { status: "keep" },
   "alpha-long": { status: "delete" },
@@ -393,6 +437,54 @@ assert.equal(
   els.insightsTimeShortlistSummary.textContent.startsWith("2 available"),
   true,
 );
+assert.match(
+  els.insightsDetailPersistence.children[0].textContent,
+  /^Present in 2 of 2 stored imports/,
+);
+assert.equal(
+  els.insightsDetailPersistence.children.at(-1).children.length,
+  2,
+  "the persistence timeline must use both dated snapshots",
+);
+assert.match(
+  els.insightsDetailPersistence.children.at(-1).children[1].children[1].textContent,
+  /\+1 new · −1 removed/,
+);
+state.importHistory = [];
+view.renderInsights();
+assert.match(
+  els.insightsDetailPersistence.children[0].textContent,
+  /^0 of 2 required import snapshots available/,
+  "clearing import history must invalidate the selected-channel trend without a dataset change",
+);
+state.importHistory = [
+  importHistory.createImportSnapshot([
+    {
+      videoId: "alpha-short",
+      channel: "Alpha",
+      durationSeconds: 900,
+    },
+  ], {
+    fileName: "alpha-restored-old.json",
+    importedAt: "2026-06-01T12:00:00.000Z",
+  }),
+  importHistory.createImportSnapshot([
+    {
+      videoId: "alpha-short",
+      channel: "Alpha",
+      durationSeconds: 900,
+    },
+    {
+      videoId: "alpha-long",
+      channel: "Alpha",
+      durationSeconds: 3600,
+    },
+  ], {
+    fileName: "alpha-restored-current.json",
+    importedAt: "2026-07-01T12:00:00.000Z",
+  }),
+];
+view.renderInsights();
 
 els.insightsTimeScope.checked = true;
 els.insightsTimeScope.listeners.change();
@@ -431,6 +523,7 @@ assert.match(html, /id=["']insightsChannelDetail["'][^>]*aria-labelledby=["']ins
 assert.match(html, /id=["']insightsViewVideos["'][^>]*>View videos</i);
 assert.match(html, /id=["']insightsStaleDays["']/i);
 assert.match(html, /id=["']insightsDetailPersistence["']/i);
+assert.match(html, /class=["']insights-detail-block insights-persistence-block["']/i);
 assert.match(
   html,
   /id=["']insightsTimeDashboard["'][^>]*aria-labelledby=["']insightsTimeTitle["']/i,

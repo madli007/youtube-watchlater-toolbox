@@ -7,8 +7,10 @@ const projectRoot = path.resolve(__dirname, "..");
 const modulePaths = [
   "docs/assets/js/config.js",
   "docs/assets/js/domain/decisions.js",
+  "docs/assets/js/domain/import-comparison.js",
   "docs/assets/js/domain/filters.js",
   "docs/assets/js/domain/insights.js",
+  "docs/assets/js/domain/import-history.js",
 ];
 const sandbox = {};
 vm.createContext(sandbox);
@@ -23,6 +25,7 @@ for (const relativePath of modulePaths) {
 }
 
 const { insights } = sandbox.WatchLaterApp.domain;
+const { importHistory } = sandbox.WatchLaterApp.domain;
 const plain = value => JSON.parse(JSON.stringify(value));
 const anchor = "2026-07-01T12:00:00.000Z";
 
@@ -371,6 +374,60 @@ assert.equal(channelDetail.oldestUntouched[0].url, "https://youtu.be/old-untouch
 assert.equal(channelDetail.newSinceLastImportAvailable, true);
 assert.equal(channelDetail.newSinceLastImportCount, 1);
 assert.equal(channelDetail.newSinceLastImport[0].videoId, "old-untouched");
+assert.equal(channelDetail.persistence.totalSnapshots, 0);
+assert.equal(channelDetail.persistence.available, false);
+
+const detailHistory = [
+  importHistory.createImportSnapshot([
+    {
+      videoId: "old-untouched",
+      channel: "Detail Channel before rename",
+      durationSeconds: 100,
+    },
+    {
+      videoId: "removed-detail",
+      channel: "Detail Channel before rename",
+      durationSeconds: null,
+    },
+  ], {
+    fileName: "detail-old.json",
+    importedAt: "2026-06-01T12:00:00.000Z",
+  }),
+  importHistory.createImportSnapshot([
+    {
+      videoId: "old-untouched",
+      channel: "Detail Channel",
+      durationSeconds: 100,
+    },
+    {
+      videoId: "recent",
+      channel: "Detail Channel",
+      durationSeconds: 300,
+    },
+  ], {
+    fileName: "detail-current.json",
+    importedAt: "2026-07-01T12:00:00.000Z",
+  }),
+];
+const detailWithPersistence = insights.buildChannelDetail(
+  detailModel,
+  detailFacts,
+  "name:detail channel",
+  {
+    importHistory: detailHistory,
+    now: detailNow,
+  },
+);
+assert.equal(detailWithPersistence.persistence.available, true);
+assert.equal(detailWithPersistence.persistence.totalSnapshots, 2);
+assert.equal(
+  detailWithPersistence.persistence.presentSnapshots,
+  1,
+  "a name-only channel rename must remain transparent instead of being guessed",
+);
+assert.equal(detailWithPersistence.persistence.points[0].videoCount, 0);
+assert.equal(detailWithPersistence.persistence.points[1].videoCount, 2);
+assert.equal(detailWithPersistence.persistence.points[1].newCount, 2);
 const detailWithStaleOff = insights.buildChannelDetail(
   detailModel,
   detailFacts,

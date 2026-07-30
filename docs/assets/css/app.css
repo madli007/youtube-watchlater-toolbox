@@ -918,15 +918,55 @@
     }
 
     .insights-detail-empty,
-    .insights-persistence-empty p {
+    .insights-persistence-summary {
       margin: 0;
       color: var(--muted);
       font-size: 11px;
       line-height: 1.5;
     }
 
-    .insights-persistence-empty {
+    .insights-persistence-block {
       background: var(--panel-2);
+    }
+
+    .insights-persistence-summary {
+      margin-bottom: 11px;
+    }
+
+    .insights-persistence-timeline {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .insights-persistence-point {
+      padding: 8px 9px;
+      background: #171b21;
+      border: 1px solid #343b46;
+      border-radius: 7px;
+    }
+
+    .insights-persistence-point-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 10px;
+    }
+
+    .insights-persistence-point-heading span {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .insights-persistence-point > small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.45;
     }
 
     .file-button {

@@ -1290,7 +1290,7 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 #### Slice 4.2 — Backlog persistence in trendi
 
-- [ ] **Slice 4.2 zaključen**
+- [x] **Slice 4.2 zaključen**
 - **Cilj:** aktivirati persistence bloke šele z dovolj zgodovine.
 - **Prizadeto:** `domain/import-history.js`, `domain/insights.js`, `ui/insights-view.js`.
 - **Podatki:** bere kompaktne snapshote.

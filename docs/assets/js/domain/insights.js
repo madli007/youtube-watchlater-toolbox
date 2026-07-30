@@ -531,6 +531,13 @@
       .sort(compareOldestFacts);
     const newSinceLastImportFacts = channelFacts
       .filter(fact => fact.isNewSinceLastImport);
+    const buildImportTrend = app.domain.importHistory?.buildImportTrend;
+    const persistence = typeof buildImportTrend === "function"
+      ? buildImportTrend(options.importHistory, {
+        channelKey,
+        currentVideoIds: channelFacts.map(fact => fact.videoId),
+      })
+      : null;
     const totalCount = selectedChannel.totalCount;
     const decidedCount = explicitlyDecided.length;
     const statusMix = STATUS_KEYS.map(status => ({
@@ -599,7 +606,7 @@
       newSinceLastImportAvailable: options.hasImportBaseline === true,
       newSinceLastImportCount: newSinceLastImportFacts.length,
       newSinceLastImport: newSinceLastImportFacts.slice(0, 5).map(createDetailVideo),
-      persistence: null,
+      persistence,
     };
   }
 
