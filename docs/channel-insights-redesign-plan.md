@@ -1277,6 +1277,8 @@ Faza 0 ne vključuje nove navigacije, redesign-a vrstic, Insights metrike, novih
 
 ### Faza 4 — import history, persistence, accessibility in performance
 
+- [x] **Faza 4 zaključena**
+
 #### Slice 4.1 — Kompaktni import snapshoti
 
 - [x] **Slice 4.1 zaključen**
