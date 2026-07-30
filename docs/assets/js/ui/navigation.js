@@ -165,11 +165,13 @@
         const videoIds = Array.from(new Set(options.videoIds))
           .filter(videoId => availableIds.has(videoId));
         context.applyFilterState({}, { render: false });
+        state.triageScopeIds = new Set(videoIds);
         state.selectedIds = new Set(videoIds);
         state.currentId = videoIds[0] || "";
         navigateToHash(buildTriageHash());
         return;
       }
+      state.triageScopeIds = new Set();
       const model = context.getInsightsModel();
       const filters = context.buildInsightsTriageFilters(
         context.captureFilterState(),

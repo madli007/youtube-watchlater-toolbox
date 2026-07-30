@@ -28,6 +28,7 @@
       videos: [],
       decisions: persistence.loadDecisions(),
       selectedIds: new Set(),
+      triageScopeIds: new Set(),
       activeTags: new Set(),
       activeChannels: new Set(),
       activeAgeBucket: "",

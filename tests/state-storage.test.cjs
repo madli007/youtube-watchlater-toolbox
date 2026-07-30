@@ -121,6 +121,7 @@ async function main() {
   assert.deepEqual([...state.selectedGroupIds], []);
   assert.deepEqual([...state.selectedGroupMemberIds], []);
   assert.deepEqual([...state.selectedIds], []);
+  assert.deepEqual([...state.triageScopeIds], []);
   assert.deepEqual([...state.activeTags], []);
   assert.equal(state.activeView, "triage");
   assert.equal(state.datasetRevision, 0);

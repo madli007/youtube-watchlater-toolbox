@@ -1,6 +1,14 @@
 (function registerTriageController(root) {
   "use strict";
 
+  function filterVideosByIdScope(videos, scopedIds) {
+    const source = Array.isArray(videos) ? videos : [];
+    if (!scopedIds || typeof scopedIds.has !== "function" || !Number(scopedIds.size)) {
+      return source;
+    }
+    return source.filter(video => scopedIds.has(video?.videoId));
+  }
+
   function createTriageController(dependencies) {
     const {
       config,
@@ -339,6 +347,7 @@
         const button = event.target.closest("[data-dataset-view]");
         if (!button || button.disabled) return;
         state.datasetView = button.dataset.datasetView;
+        state.triageScopeIds = new Set();
         state.selectedIds.clear();
         handleFilterChange();
       });
@@ -661,7 +670,7 @@
       const filters = captureFilterState();
       const datasetIds = getDatasetViewIds(state.datasetView);
 
-      return getSortedVideos(state.videos.filter(video => {
+      return getSortedVideos(filterVideosByIdScope(state.videos, state.triageScopeIds).filter(video => {
         if (datasetIds && !datasetIds.has(video.videoId)) return false;
         if (state.datasetView === "inbox" && getStatus(video.videoId) !== "unreviewed") return false;
         return videoMatchesFilters(video, getDecision(video.videoId), filters);
@@ -761,6 +770,7 @@
     function applyFilterState(value, options = {}) {
       applyFilterStateToControls(value);
       state.activeSavedViewId = options.savedViewId || "";
+      state.triageScopeIds = new Set();
       state.selectedIds.clear();
       state.renderedCount = PAGE_SIZE;
       state.renderedGroupCount = 100;
@@ -875,6 +885,9 @@
       if (current.suggestedTag !== "all") filters.push(`suggested tag=${current.suggestedTag}`);
       if (current.note !== "all") filters.push(`note=${current.note}`);
       if (current.datasetView !== "all") filters.push(`import view=${current.datasetView}`);
+      if (state.triageScopeIds instanceof Set && state.triageScopeIds.size) {
+        filters.push(`group scope=${state.triageScopeIds.size} videos`);
+      }
       if (current.sort !== "index") {
         const label = els.sortSelect.options[els.sortSelect.selectedIndex]?.textContent || els.sortSelect.value;
         filters.push(`sort=${label}`);
@@ -1580,6 +1593,7 @@
 
   const app = root.WatchLaterApp ||= {};
   app.triageController = Object.freeze({
+    filterVideosByIdScope,
     createTriageController,
   });
 })(globalThis);

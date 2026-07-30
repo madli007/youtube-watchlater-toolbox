@@ -129,6 +129,7 @@ const state = {
   activeView: "triage",
   videos: [{ videoId: "one" }, { videoId: "two" }],
   selectedIds: new Set(),
+  triageScopeIds: new Set(),
   currentId: "",
   selectedGroupId: "",
   groupFocusVideoId: "",
@@ -235,8 +236,15 @@ navigation.navigateToTriageFromInsights({
 });
 assert.equal(windowStub.location.hash, "#triage");
 assert.deepEqual([...state.selectedIds], ["two", "one"]);
+assert.deepEqual([...state.triageScopeIds], ["two", "one"]);
 assert.equal(state.currentId, "two");
 assert.deepEqual(JSON.parse(JSON.stringify(appliedRouteFilters)), {});
+
+navigation.navigateToTriageFromInsights({
+  channelKey: "url:@alpha",
+  channelName: "Alpha",
+});
+assert.equal(state.triageScopeIds.size, 0, "normal Triage navigation clears the temporary group scope");
 
 windowStub.location.hash = "#insights?channel=url%3A%40alpha";
 windowListeners.hashchange();

@@ -550,6 +550,23 @@ assert.match(
   /No videos loaded/,
   "the initialized UI must render the existing empty-state scope",
 );
+assert.deepEqual(
+  browserSmokeSandbox.WatchLaterApp.triageController
+    .filterVideosByIdScope(
+      [{ videoId: "one" }, { videoId: "two" }, { videoId: "three" }],
+      new Set(["three", "one"]),
+    )
+    .map(video => video.videoId),
+  ["one", "three"],
+  "a Groups deep link must limit the Triage list to the selected group members",
+);
+assert.deepEqual(
+  browserSmokeSandbox.WatchLaterApp.triageController
+    .filterVideosByIdScope([{ videoId: "one" }, { videoId: "two" }], new Set())
+    .map(video => video.videoId),
+  ["one", "two"],
+  "an empty temporary scope must leave the full Triage dataset visible",
+);
 
 assert.equal(sandbox.WatchLaterApp.config.PAGE_SIZE, 220);
 assert.equal(sandbox.WatchLaterApp.config.STORAGE_KEY, "watchlater-triage-decisions-v1");
